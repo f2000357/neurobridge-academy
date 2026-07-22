@@ -139,12 +139,17 @@ export default async function TeacherDashboard() {
                     {child.profile?.groundingStyle ?? "—"}
                   </p>
                 </div>
-                <Link
-                  href={`/api/child-access?childId=${child.id}&code=${child.accessCode}&redirect=/student/${child.username ?? child.id}`}
-                  className="btn"
-                >
-                  ▶ Start {child.name}&apos;s day
-                </Link>
+                <div className="row" style={{ gap: 8 }}>
+                  <Link
+                    href={`/api/child-access?childId=${child.id}&code=${child.accessCode}&redirect=/student/${child.username ?? child.id}`}
+                    className="btn"
+                  >
+                    ▶ Start {child.name}&apos;s day
+                  </Link>
+                  <Link href={`/report/${child.username ?? child.id}`} className="btn quiet">
+                    📊 Report
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

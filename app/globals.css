@@ -1755,3 +1755,44 @@ input[type="file"] {
 }
 @media (max-width: 640px) { .onboard-grid { grid-template-columns: 1fr; } }
 .onboard-grid h3 { font-size: 1rem; }
+
+/* ---- Progress report ---- */
+.report-actions { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.report-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  border-bottom: 2px solid var(--accent); padding-bottom: 16px;
+}
+.report-date {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
+  font-weight: 600; color: var(--accent);
+}
+.report-date .mark { width: 20px; height: 20px; border-radius: 6px; background: var(--accent); display: grid; place-items: center; }
+.report-date .mark span { width: 7px; height: 7px; border-radius: 50%; background: var(--surface); }
+.report-date em { width: 100%; text-align: right; font-style: normal; font-size: 0.78rem; color: var(--ink-soft); font-weight: 400; }
+.report-h2 { font-size: 1.25rem; margin: 30px 0 12px; letter-spacing: -0.01em; }
+.report-h3 { font-size: 1rem; margin: 0 0 6px; }
+.report-narrative { margin-top: 22px; }
+.report-narrative-bar { display: flex; gap: 10px; }
+.report-narrative-hint { max-width: 60ch; margin-top: 12px; }
+.report-summary {
+  margin-top: 16px; padding: 20px 22px; border: 1px solid var(--line, var(--border));
+  border-radius: 14px; background: var(--surface); page-break-inside: avoid;
+}
+.report-overview { font-size: 1.05rem; line-height: 1.7; margin: 0 0 12px; }
+.report-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px; }
+@media (max-width: 600px) { .report-two { grid-template-columns: 1fr; } }
+.report-ul { margin: 0; padding-left: 18px; }
+.report-ul li { margin: 4px 0; line-height: 1.5; }
+.report-table-wrap { overflow-x: auto; }
+.report-table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+.report-table th, .report-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line, var(--border)); }
+.report-table thead th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+.std-list { font-family: var(--mono, monospace); font-size: 0.8rem; }
+.report-foot { margin-top: 30px; font-size: 0.8rem; border-top: 1px solid var(--line, var(--border)); padding-top: 12px; }
+
+@media print {
+  .no-print { display: none !important; }
+  .topbar, .console-side, .console-shell > .console-side { display: none !important; }
+  .report { max-width: 100% !important; }
+  body, .doc { background: #fff !important; }
+}
