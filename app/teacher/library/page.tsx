@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import LibraryView, { type LibPlan } from "./LibraryView";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
-  const teacher = await prisma.user.findFirst({ include: { children: true } });
+  const teacher = await getCurrentUser({ include: { children: true } });
   if (!teacher) {
     return (
       <main className="page wrap">
@@ -27,6 +28,8 @@ export default async function LibraryPage() {
     standardCode: p.standardCode,
     durationMin: p.durationMin,
     published: p.published,
+    visibility: p.visibility,
+    submittedForGlobal: p.submittedForGlobal,
     forChild: teacher.children.find((c) => c.id === p.childId)?.name ?? null,
   }));
 

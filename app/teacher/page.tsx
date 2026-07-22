@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { fmtMin, todayStr } from "@/lib/time";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherDashboard() {
-  const teacher = await prisma.user.findFirst({
+  const teacher = await getCurrentUser({
     include: {
       children: { include: { profile: true } },
       lessonPlans: { orderBy: { updatedAt: "desc" } },

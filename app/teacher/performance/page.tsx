@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { todayStr } from "@/lib/time";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ function masteryOf(avg: number): { label: string; cls: string } {
 }
 
 export default async function PerformancePage() {
-  const teacher = await prisma.user.findFirst({
+  const teacher = await getCurrentUser({
     include: { children: { orderBy: { name: "asc" } } },
   });
   if (!teacher) {

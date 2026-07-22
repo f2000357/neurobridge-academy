@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Builder, { type PlanState } from "../Builder";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export default async function NewPlanPage({
 }: {
   searchParams: Promise<{ childId?: string; subject?: string; grade?: string; topic?: string }>;
 }) {
-  const teacher = await prisma.user.findFirst({ include: { children: true } });
+  const teacher = await getCurrentUser({ include: { children: true } });
   if (!teacher) {
     return (
       <main className="page wrap">
@@ -33,6 +34,7 @@ export default async function NewPlanPage({
     durationMin: 25,
     childId: validChild,
     published: false,
+    visibility: "private",
     chunks: [],
   };
 

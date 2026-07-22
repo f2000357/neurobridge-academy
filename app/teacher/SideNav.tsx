@@ -33,6 +33,12 @@ const items: Item[] = [
     icon: icon("M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z|M9 3v18"),
   },
   {
+    href: "/teacher/browse",
+    label: "Browse",
+    match: (p) => p.startsWith("/teacher/browse"),
+    icon: icon("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z|M21 21l-4.3-4.3"),
+  },
+  {
     href: "/teacher/schedule",
     label: "Plan a day",
     match: (p) => p.startsWith("/teacher/schedule"),

@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { getCurrentUser, homeForRole } from "@/lib/auth";
 import SideNav from "./SideNav";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
-  const teacher = await prisma.user.findFirst({ select: { name: true } });
+  const user = await getCurrentUser();
+  // Guides live here; send admins to their own area.
+  if (user && user.role !== "guide") redirect(homeForRole(user.role));
 
   return (
     <>
@@ -17,9 +20,14 @@ export default async function TeacherLayout({ children }: { children: React.Reac
             </span>
             Neurable
           </Link>
-          <span style={{ fontSize: "0.9rem", color: "var(--accent-ink)", opacity: 0.9 }}>
-            Guide portal · {teacher?.name ?? ""}
-          </span>
+          <Link
+            href="/switch"
+            className="who-pill"
+            style={{ color: "var(--accent-ink)" }}
+            title="Switch account"
+          >
+            Guide · {user?.name ?? ""} <span aria-hidden="true">⇄</span>
+          </Link>
         </div>
       </header>
 

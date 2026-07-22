@@ -36,6 +36,16 @@ model User {
   rewards     Reward[]
 }
 
+// Audit trail for admin-level actions (learner transfers, lesson promotions).
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorName String
+  action    String   // transfer_learner | promote_lesson | create_user | create_center
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+}
+
 // A prize the guide offers in exchange for points (school or home reward).
 model Reward {
   id        String   @id @default(cuid())
@@ -252,6 +262,10 @@ model LessonPlan {
   // Who can find & reuse it: private (author + the child's current guide) |
   // center (same-center guides) | global (all centers).
   visibility String        @default("private")
+  // A guide can nominate a center lesson for the global shelf; an admin promotes it.
+  submittedForGlobal Boolean @default(false)
+  // If this lesson was copied from a shared one, the source id (provenance).
+  copiedFromId String?
   // Customized program: a plan designed for one child. Null = shared library plan,
   // still personalized at delivery time via the child's profile.
   childId   String?

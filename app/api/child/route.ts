@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { planJsonFromDocs, tutorJson, aiEnabled, type DocInput } from "@/lib/ai";
 import { usernameFrom } from "@/lib/username";
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   const newCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
 
   if (op === "create") {
-    const teacher = await prisma.user.findFirst({ where: { role: "guide" } });
+    const teacher = await getCurrentUser();
     if (!teacher || !teacher.centerId) {
       return NextResponse.json({ error: "no guide/center" }, { status: 400 });
     }

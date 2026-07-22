@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import Builder, { type PlanState, type Chunk } from "../Builder";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function EditPlanPage({
 }) {
   const { id } = await params;
   const [teacher, plan] = await Promise.all([
-    prisma.user.findFirst({ include: { children: true } }),
+    getCurrentUser({ include: { children: true } }),
     prisma.lessonPlan.findUnique({ where: { id } }),
   ]);
 
@@ -46,12 +47,14 @@ export default async function EditPlanPage({
     durationMin: plan.durationMin,
     childId: plan.childId,
     published: plan.published,
+    visibility: plan.visibility,
     chunks,
   };
 
   return (
     <Builder
       initial={initial}
+      canGlobal={teacher.role === "neurable_admin"}
       children={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
     />
   );

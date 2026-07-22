@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tutorJson, aiEnabled } from "@/lib/ai";
+import { getCurrentUser } from "@/lib/auth";
 
 // The teacher's lesson builder backend: draft a plan with AI, then persist it.
 
@@ -98,13 +99,21 @@ export async function POST(req: NextRequest) {
   if (op === "save") {
     const {
       id, title, subject, goal, whyItMatters, chunks, durationMin, childId, published,
-      gradeLevel, topic, standardCode, standardText,
+      gradeLevel, topic, standardCode, standardText, visibility,
     } = body;
-    const teacher = await prisma.user.findFirst();
+    const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
+
+    // Guides set private or center; a Neurable admin can author global directly.
+    const allowed = teacher.role === "neurable_admin"
+      ? ["private", "center", "global"]
+      : ["private", "center"];
+    const vis = allowed.includes(visibility) ? visibility : "private";
 
     const data = {
       teacherId: teacher.id,
+      centerId: teacher.centerId,
+      visibility: vis,
       childId: childId || null,
       title,
       subject,

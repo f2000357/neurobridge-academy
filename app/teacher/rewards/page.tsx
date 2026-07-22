@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import RewardsManager from "./RewardsManager";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function RewardsPage() {
-  const teacher = await prisma.user.findFirst({
+  const teacher = await getCurrentUser({
     include: {
       children: { orderBy: { name: "asc" } },
       rewards: { orderBy: { createdAt: "asc" } },
