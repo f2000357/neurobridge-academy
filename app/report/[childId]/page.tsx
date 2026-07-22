@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
-import { gatherReport, canReport } from "@/lib/report";
+import { gatherReport, canReport, sinceForRange } from "@/lib/report";
 import ReportNarrative from "./ReportNarrative";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,15 @@ const LEVEL_PILL: Record<string, string> = {
   "—": "",
 };
 
-export default async function ReportPage({ params }: { params: Promise<{ childId: string }> }) {
+export default async function ReportPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ childId: string }>;
+  searchParams: Promise<{ range?: string }>;
+}) {
   const { childId: handle } = await params;
+  const { range } = await searchParams;
   const [me, child] = await Promise.all([
     getCurrentUser(),
     prisma.child.findFirst({ where: { OR: [{ username: handle }, { id: handle }] } }),
@@ -31,11 +38,12 @@ export default async function ReportPage({ params }: { params: Promise<{ childId
     );
   }
 
-  const data = await gatherReport(child.id);
+  const data = await gatherReport(child.id, sinceForRange(range));
   if (!data) return null;
 
   const genDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   const backHref = me ? homeForRole(me.role) : "/";
+  const isTerm = range === "term";
 
   return (
     <main className="page wrap report" style={{ maxWidth: 820 }}>
@@ -43,6 +51,17 @@ export default async function ReportPage({ params }: { params: Promise<{ childId
         <Link className="btn quiet" href={backHref}>
           ← Back
         </Link>
+        <div className="row" style={{ gap: 6 }}>
+          <span className="muted" style={{ fontSize: "0.82rem" }}>
+            Period:
+          </span>
+          <Link className={`chip ${!isTerm ? "on" : ""}`} href={`/report/${handle}`}>
+            All time
+          </Link>
+          <Link className={`chip ${isTerm ? "on" : ""}`} href={`/report/${handle}?range=term`}>
+            This term
+          </Link>
+        </div>
       </div>
 
       <header className="report-head">
@@ -85,9 +104,11 @@ export default async function ReportPage({ params }: { params: Promise<{ childId
         </div>
       </section>
 
-      <ReportNarrative childId={child.id} childName={data.child.name} />
+      <ReportNarrative key={range ?? "all"} childId={child.id} childName={data.child.name} range={range} />
 
-      <h2 className="report-h2">Mastery by subject</h2>
+      <h2 className="report-h2">
+        Mastery by subject{isTerm ? " · this term" : ""}
+      </h2>
       {data.subjects.length === 0 ? (
         <p className="muted">No graded work yet — mastery will appear here as {data.child.name} completes lessons.</p>
       ) : (

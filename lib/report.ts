@@ -30,6 +30,17 @@ export type ChildReport = {
   generatedAt: string;
 };
 
+// Report time window. "term" ≈ the last ~120 days; anything else = all time.
+export function sinceForRange(range?: string): Date | undefined {
+  if (range === "term") {
+    const d = new Date();
+    d.setDate(d.getDate() - 120);
+    return d;
+  }
+  return undefined;
+}
+export const rangeLabel = (range?: string) => (range === "term" ? "the last term (~120 days)" : "all time");
+
 const mode = (arr: string[]): string => {
   if (arr.length === 0) return "";
   const c: Record<string, number> = {};
@@ -44,16 +55,18 @@ const levelFor = (avg: number | null): SubjectReport["level"] => {
   return "emerging";
 };
 
-export async function gatherReport(childId: string): Promise<ChildReport | null> {
+export async function gatherReport(childId: string, since?: Date): Promise<ChildReport | null> {
   const child = await prisma.child.findUnique({
     where: { id: childId },
     include: { profile: true, teacher: { select: { name: true } }, center: { select: { name: true } } },
   });
   if (!child) return null;
 
+  const sinceStr = since ? since.toISOString().slice(0, 10) : null;
+
   const [notes, closedSessions, homework, weeklyTests] = await Promise.all([
     prisma.progressNote.findMany({
-      where: { session: { childId } },
+      where: { session: { childId }, ...(since ? { createdAt: { gte: since } } : {}) },
       include: {
         session: {
           include: { slot: { include: { lessonPlan: { select: { subject: true, standardCode: true, gradeLevel: true } } } } },
@@ -61,9 +74,15 @@ export async function gatherReport(childId: string): Promise<ChildReport | null>
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.session.count({ where: { childId, state: "closed" } }),
-    prisma.homework.findMany({ where: { childId }, select: { status: true } }),
-    prisma.weeklyTest.findMany({ where: { childId }, orderBy: { weekStart: "asc" } }),
+    prisma.session.count({ where: { childId, state: "closed", ...(since ? { startedAt: { gte: since } } : {}) } }),
+    prisma.homework.findMany({
+      where: { childId, ...(since ? { createdAt: { gte: since } } : {}) },
+      select: { status: true },
+    }),
+    prisma.weeklyTest.findMany({
+      where: { childId, ...(sinceStr ? { weekStart: { gte: sinceStr } } : {}) },
+      orderBy: { weekStart: "asc" },
+    }),
   ]);
 
   const bySubject = new Map<string, { scores: number[]; mastered: Set<string> }>();

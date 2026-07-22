@@ -19,6 +19,7 @@ export default async function AdminHome() {
     prisma.lessonPlan.count({ where: { visibility: "global" } }),
     prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
+  const learnerCount = await prisma.child.count({ where: { archived: false } });
 
   return (
     <div>
@@ -30,6 +31,10 @@ export default async function AdminHome() {
           <span className="stat-num">{centers.length}</span>
           <span className="stat-lbl">Centers</span>
         </div>
+        <Link className="stat-tile" href="/admin/learners" style={{ color: "inherit", textDecoration: "none" }}>
+          <span className="stat-num">{learnerCount}</span>
+          <span className="stat-lbl">Learners · reports →</span>
+        </Link>
         <div className="stat-tile">
           <span className="stat-num">{globalCount}</span>
           <span className="stat-lbl">Global lessons</span>

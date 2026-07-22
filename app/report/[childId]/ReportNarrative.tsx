@@ -9,7 +9,15 @@ type Narrative = {
   nextSteps: string[];
 };
 
-export default function ReportNarrative({ childId, childName }: { childId: string; childName: string }) {
+export default function ReportNarrative({
+  childId,
+  childName,
+  range,
+}: {
+  childId: string;
+  childName: string;
+  range?: string;
+}) {
   const [n, setN] = useState<Narrative | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -21,7 +29,7 @@ export default function ReportNarrative({ childId, childName }: { childId: strin
       const res = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ childId }),
+        body: JSON.stringify({ childId, range }),
       });
       const data = await res.json();
       if (data.narrative) setN(data.narrative);
