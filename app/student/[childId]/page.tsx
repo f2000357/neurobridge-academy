@@ -21,7 +21,7 @@ export default async function StudentToday({
     include: { profile: true },
   });
 
-  if (!child) {
+  if (!child || child.archived) {
     return (
       <main className="page wrap">
         <h1>Hmm, we couldn&apos;t find you</h1>

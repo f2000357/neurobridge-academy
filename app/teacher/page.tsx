@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function TeacherDashboard() {
   const teacher = await getCurrentUser({
     include: {
-      children: { include: { profile: true } },
+      children: { where: { archived: false }, include: { profile: true } },
       lessonPlans: { orderBy: { updatedAt: "desc" } },
     },
   });

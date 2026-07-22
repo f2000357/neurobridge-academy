@@ -15,10 +15,15 @@ export default async function CenterHome() {
   const me = await getCurrentUser();
   const centerId = me?.centerId ?? "";
 
-  const [kids, notes, gradeSlots, homework, guides] = await Promise.all([
+  const [kids, archivedKids, notes, gradeSlots, homework, guides] = await Promise.all([
     prisma.child.findMany({
-      where: { centerId },
+      where: { centerId, archived: false },
       include: { teacher: { select: { id: true, name: true } } },
+      orderBy: { name: "asc" },
+    }),
+    prisma.child.findMany({
+      where: { centerId, archived: true },
+      select: { id: true, name: true, username: true, teacher: { select: { name: true } } },
       orderBy: { name: "asc" },
     }),
     prisma.progressNote.findMany({
@@ -67,5 +72,12 @@ export default async function CenterHome() {
     };
   });
 
-  return <CenterConsole rows={rows} guides={guides} />;
+  const archived = archivedKids.map((c) => ({
+    id: c.id,
+    name: c.name,
+    username: c.username ?? c.id,
+    guideName: c.teacher.name,
+  }));
+
+  return <CenterConsole rows={rows} guides={guides} archived={archived} />;
 }

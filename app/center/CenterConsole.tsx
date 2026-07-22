@@ -18,6 +18,7 @@ type Row = {
   hwTotal: number;
 };
 type Guide = { id: string; name: string };
+type Archived = { id: string; name: string; username: string; guideName: string };
 type GroupBy = "none" | "grade" | "age";
 
 function masteryClass(m: number | null) {
@@ -27,8 +28,17 @@ function masteryClass(m: number | null) {
   return "crit";
 }
 
-export default function CenterConsole({ rows, guides }: { rows: Row[]; guides: Guide[] }) {
+export default function CenterConsole({
+  rows,
+  guides,
+  archived,
+}: {
+  rows: Row[];
+  guides: Guide[];
+  archived: Archived[];
+}) {
   const router = useRouter();
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [by, setBy] = useState<GroupBy>("none");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -83,6 +93,22 @@ export default function CenterConsole({ rows, guides }: { rows: Row[]; guides: G
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true })).map(([label, rs]) => ({ label, rows: rs }));
   }, [by, rows]);
+
+  async function setArchived(childId: string, archived: boolean) {
+    setBusyId(childId);
+    await centerPost({ op: "setArchived", childId, archived });
+    setBusyId(null);
+    router.refresh();
+  }
+
+  async function deleteLearner(childId: string) {
+    setBusyId(childId);
+    const r = await centerPost({ op: "deleteLearner", childId });
+    setBusyId(null);
+    setConfirmDel(null);
+    if (r.error) setNote(r.error);
+    else router.refresh();
+  }
 
   async function transfer(childId: string, toGuideId: string) {
     setBusyId(childId);
@@ -196,11 +222,59 @@ export default function CenterConsole({ rows, guides }: { rows: Row[]; guides: G
                     ))}
                   </select>
                 </label>
+
+                <button
+                  className="chip"
+                  title="Deactivate this learner"
+                  disabled={busyId === r.id}
+                  onClick={() => setArchived(r.id, true)}
+                >
+                  Deactivate
+                </button>
               </div>
             ))}
           </div>
         </section>
       ))}
+
+      {archived.length > 0 && (
+        <section style={{ marginTop: 28 }}>
+          <h2 className="group-head">Deactivated ({archived.length})</h2>
+          <div className="roster">
+            {archived.map((a) => (
+              <div key={a.id} className="roster-row" style={{ gridTemplateColumns: "1fr auto auto" }}>
+                <div className="roster-id">
+                  <span className="roster-name" style={{ color: "var(--ink-soft)" }}>
+                    {a.name}
+                  </span>
+                  <span className="roster-sub">was with {a.guideName}</span>
+                </div>
+                <button className="chip" disabled={busyId === a.id} onClick={() => setArchived(a.id, false)}>
+                  Reactivate
+                </button>
+                {confirmDel === a.id ? (
+                  <span className="row" style={{ gap: 6 }}>
+                    <button className="chip danger" disabled={busyId === a.id} onClick={() => deleteLearner(a.id)}>
+                      Delete forever
+                    </button>
+                    <button className="chip" onClick={() => setConfirmDel(null)}>
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button className="chip danger" onClick={() => setConfirmDel(a.id)}>
+                    Remove…
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: "0.82rem", marginTop: 8 }}>
+            Deactivated learners can&apos;t sign in and are hidden from guides. Removing is permanent and
+            erases all their work.
+          </p>
+        </section>
+      )}
     </div>
   );
 }

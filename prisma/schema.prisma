@@ -84,6 +84,7 @@ model Child {
   username  String?        @unique // friendly URL handle, e.g. "paiyer" for Prithvi Aiyer
   age       Int?
   accessCode String        @default("") // 8-digit code the child enters at their own link
+  archived  Boolean        @default(false) // deactivated: hidden from rosters, no learner access
   points    Int            @default(0) // lifetime points collected (never goes down)
   pointsSpent Int          @default(0) // total redeemed on prizes; balance = points - pointsSpent
   pointEvents PointEvent[]
@@ -216,7 +217,7 @@ model Homework {
 model ChildProfile {
   id      String @id @default(cuid())
   childId String @unique
-  child   Child  @relation(fields: [childId], references: [id])
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
 
   // Communication
   readingLevel   String @default("grade-3") // working level, e.g. "grade-3" (adjusted from MAP)
@@ -291,7 +292,7 @@ model LessonPlan {
 model ScheduleSlot {
   id           String      @id @default(cuid())
   childId      String
-  child        Child       @relation(fields: [childId], references: [id])
+  child        Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
   lessonPlanId String?
   lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
   kind         String      @default("lesson") // lesson | one_on_one | break | free_time
@@ -306,9 +307,9 @@ model ScheduleSlot {
 model Session {
   id            String       @id @default(cuid())
   slotId        String
-  slot          ScheduleSlot @relation(fields: [slotId], references: [id])
+  slot          ScheduleSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
   childId       String
-  child         Child        @relation(fields: [childId], references: [id])
+  child         Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
   origin        String       @default("scheduled") // scheduled | relaunch | guided_replay
   state         String       @default("arrived") // arrived | grounded | delivering | checking | closed
   chunkProgress String       @default("[]")      // JSON: per-chunk completion

@@ -38,6 +38,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (op === "setArchived") {
+    const { childId, archived } = body as { childId: string; archived: boolean };
+    const child = await prisma.child.findUnique({ where: { id: childId } });
+    if (!child) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if (me.role === "center_admin" && child.centerId !== me.centerId) {
+      return NextResponse.json({ error: "outside your center" }, { status: 403 });
+    }
+    await prisma.child.update({ where: { id: childId }, data: { archived: Boolean(archived) } });
+    await prisma.auditLog.create({
+      data: {
+        actorId: me.id,
+        actorName: me.name,
+        action: archived ? "archive_learner" : "restore_learner",
+        detail: child.name,
+      },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Permanent removal — only allowed once a learner is archived (a safety gate).
+  if (op === "deleteLearner") {
+    const { childId } = body as { childId: string };
+    const child = await prisma.child.findUnique({ where: { id: childId } });
+    if (!child) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if (me.role === "center_admin" && child.centerId !== me.centerId) {
+      return NextResponse.json({ error: "outside your center" }, { status: 403 });
+    }
+    if (!child.archived) {
+      return NextResponse.json({ error: "Deactivate the learner before removing them." }, { status: 400 });
+    }
+    await prisma.child.delete({ where: { id: childId } }); // cascades profile/slots/sessions/etc.
+    await prisma.auditLog.create({
+      data: { actorId: me.id, actorName: me.name, action: "delete_learner", detail: child.name },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   if (op === "addGuide") {
     const { name, email } = body as { name: string; email?: string };
     if (!me.centerId) return NextResponse.json({ error: "no center" }, { status: 400 });
