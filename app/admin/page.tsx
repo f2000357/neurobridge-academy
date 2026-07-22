@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import AdminSubmissions from "./AdminSubmissions";
+import AdminOnboard from "./AdminOnboard";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,9 @@ export default async function AdminHome() {
           </div>
         ))}
       </div>
+
+      <h2 style={{ marginTop: 34 }}>Set up</h2>
+      <AdminOnboard centers={centers.map((c) => ({ id: c.id, name: c.name }))} />
 
       {audit.length > 0 && (
         <>

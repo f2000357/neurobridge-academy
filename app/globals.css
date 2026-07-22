@@ -1745,3 +1745,13 @@ input[type="file"] {
 .vis-badge.center { background: color-mix(in srgb, #2f8279 18%, transparent); color: #2f8279; }
 .vis-badge.global { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .vis-badge.submitted { background: color-mix(in srgb, var(--warm) 20%, transparent); color: var(--warm); }
+
+/* Onboarding forms (admin / center) */
+.onboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+@media (max-width: 640px) { .onboard-grid { grid-template-columns: 1fr; } }
+.onboard-grid h3 { font-size: 1rem; }

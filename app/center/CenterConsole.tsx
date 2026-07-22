@@ -31,6 +31,46 @@ export default function CenterConsole({ rows, guides }: { rows: Row[]; guides: G
   const router = useRouter();
   const [by, setBy] = useState<GroupBy>("none");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  // Onboarding
+  const [gName, setGName] = useState("");
+  const [gEmail, setGEmail] = useState("");
+  const [lName, setLName] = useState("");
+  const [lGuide, setLGuide] = useState(guides[0]?.id ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function centerPost(payload: Record<string, unknown>) {
+    const res = await fetch("/api/center", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  }
+
+  async function addGuide() {
+    if (!gName.trim() || busy) return;
+    setBusy(true);
+    const r = await centerPost({ op: "addGuide", name: gName, email: gEmail });
+    setBusy(false);
+    if (r.error) return setNote(r.error);
+    setGName("");
+    setGEmail("");
+    setNote(`Guide ${gName} added.`);
+    router.refresh();
+  }
+
+  async function addLearner() {
+    if (!lName.trim() || !lGuide || busy) return;
+    setBusy(true);
+    const r = await centerPost({ op: "addLearner", name: lName, guideId: lGuide });
+    setBusy(false);
+    if (r.error) return setNote(r.error);
+    setLName("");
+    setNote(`Learner ${lName} added.`);
+    router.refresh();
+  }
 
   const groups = useMemo(() => {
     if (by === "none") return [{ label: "", rows }];
@@ -64,6 +104,40 @@ export default function CenterConsole({ rows, guides }: { rows: Row[]; guides: G
         {guides.length === 1 ? "" : "s"}. Move a learner between guides anytime — their whole history
         goes with them.
       </p>
+
+      <div className="onboard-grid" style={{ marginTop: 18 }}>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Add a guide</h3>
+          <div className="stack" style={{ gap: 8 }}>
+            <input className="field" placeholder="Full name" value={gName} onChange={(e) => setGName(e.target.value)} />
+            <input className="field" placeholder="Email (optional)" value={gEmail} onChange={(e) => setGEmail(e.target.value)} />
+            <button className="btn" onClick={addGuide} disabled={busy || !gName.trim()}>
+              Add guide
+            </button>
+          </div>
+        </div>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Add a learner</h3>
+          <div className="stack" style={{ gap: 8 }}>
+            <input className="field" placeholder="Learner name" value={lName} onChange={(e) => setLName(e.target.value)} />
+            <select className="field" value={lGuide} onChange={(e) => setLGuide(e.target.value)}>
+              {guides.map((g) => (
+                <option key={g.id} value={g.id}>
+                  Guide: {g.name}
+                </option>
+              ))}
+            </select>
+            <button className="btn" onClick={addLearner} disabled={busy || !lName.trim() || !lGuide}>
+              Add learner
+            </button>
+          </div>
+        </div>
+        {note && (
+          <p className="muted" role="status" style={{ gridColumn: "1 / -1", margin: 0 }}>
+            {note}
+          </p>
+        )}
+      </div>
 
       <div className="dash-bar" style={{ marginTop: 16, borderRadius: 12, border: "1px solid var(--border)" }}>
         <span className="t">Group by</span>

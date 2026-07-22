@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { uniqueUsername, newAccessCode } from "@/lib/childSetup";
 
 // Center-admin actions: move a learner to a different guide in the same center.
 export async function POST(req: NextRequest) {
@@ -35,6 +36,41 @@ export async function POST(req: NextRequest) {
       },
     });
     return NextResponse.json({ ok: true });
+  }
+
+  if (op === "addGuide") {
+    const { name, email } = body as { name: string; email?: string };
+    if (!me.centerId) return NextResponse.json({ error: "no center" }, { status: 400 });
+    if (!name?.trim()) return NextResponse.json({ error: "Name the guide." }, { status: 400 });
+    if (email?.trim()) {
+      const clash = await prisma.user.findUnique({ where: { email: email.trim() } });
+      if (clash) return NextResponse.json({ error: "That email is already in use." }, { status: 400 });
+    }
+    const guide = await prisma.user.create({
+      data: { name: name.trim(), email: email?.trim() || null, role: "guide", centerId: me.centerId },
+    });
+    return NextResponse.json({ ok: true, id: guide.id });
+  }
+
+  if (op === "addLearner") {
+    const { name, guideId } = body as { name: string; guideId: string };
+    if (!me.centerId) return NextResponse.json({ error: "no center" }, { status: 400 });
+    if (!name?.trim()) return NextResponse.json({ error: "Name the learner." }, { status: 400 });
+    const guide = await prisma.user.findUnique({ where: { id: guideId } });
+    if (!guide || guide.role !== "guide" || guide.centerId !== me.centerId) {
+      return NextResponse.json({ error: "Pick a guide in your center." }, { status: 400 });
+    }
+    const child = await prisma.child.create({
+      data: {
+        name: name.trim(),
+        teacherId: guideId,
+        centerId: me.centerId,
+        username: await uniqueUsername(name.trim()),
+        accessCode: newAccessCode(),
+        profile: { create: {} },
+      },
+    });
+    return NextResponse.json({ ok: true, id: child.id });
   }
 
   return NextResponse.json({ error: "unknown op" }, { status: 400 });
