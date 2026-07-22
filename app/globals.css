@@ -1796,3 +1796,8 @@ input[type="file"] {
   .report { max-width: 100% !important; }
   body, .doc { background: #fff !important; }
 }
+
+/* Discreet grown-up link on the child's day (progress report) */
+.grownup-link { margin-top: 16px; font-size: 0.85rem; text-align: center; }
+.grownup-link a { color: var(--ink-soft); text-decoration: none; }
+.grownup-link a:hover { color: var(--accent); text-decoration: underline; }

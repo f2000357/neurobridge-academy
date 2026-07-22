@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 
 export type SubjectReport = {
@@ -143,6 +144,13 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     lessonsCompleted: closedSessions,
     generatedAt: new Date().toISOString(),
   };
+}
+
+// The learner (parent sitting with them) is signed in on this device.
+export async function childIsAuthed(childId: string, accessCode: string): Promise<boolean> {
+  if (!accessCode) return false;
+  const jar = await cookies();
+  return jar.get(`nca_${childId}`)?.value === accessCode;
 }
 
 // Authorization: who may view/generate a report for this child.

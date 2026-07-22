@@ -204,6 +204,11 @@ export default async function StudentToday({
           </span>
         </Link>
 
+        <p className="grownup-link">
+          <Link href={`/report/${linkHandle}`}>📊 Progress report</Link>
+          <span className="muted"> — for a grown-up</span>
+        </p>
+
         {nowIdx === -1 && slots.length > 0 && (
           <div className="card" style={{ marginTop: 24, background: "var(--warm-soft)", border: "none" }}>
             <strong>All done for today!</strong>{" "}

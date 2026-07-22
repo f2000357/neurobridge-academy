@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
-import { gatherReport, canReport, sinceForRange } from "@/lib/report";
+import { gatherReport, canReport, childIsAuthed, sinceForRange } from "@/lib/report";
 import ReportNarrative from "./ReportNarrative";
 import ReportActions from "./ReportActions";
 
@@ -28,7 +28,9 @@ export default async function ReportPage({
     prisma.child.findFirst({ where: { OR: [{ username: handle }, { id: handle }] } }),
   ]);
 
-  if (!child || !(await canReport(me, child))) {
+  const childHere = child ? await childIsAuthed(child.id, child.accessCode) : false;
+  const operatorHere = child ? await canReport(me, child) : false;
+  if (!child || !(operatorHere || childHere)) {
     return (
       <main className="page wrap">
         <h1>Report not available</h1>
@@ -42,8 +44,10 @@ export default async function ReportPage({
   const data = await gatherReport(child.id, sinceForRange(range));
   if (!data) return null;
 
+  const linkHandle = child.username ?? child.id;
   const genDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  const backHref = me ? homeForRole(me.role) : "/";
+  // A learner (parent beside them) returns to the day; an operator to their home.
+  const backHref = childHere && !operatorHere ? `/student/${linkHandle}` : me ? homeForRole(me.role) : "/";
   const isTerm = range === "term";
 
   return (

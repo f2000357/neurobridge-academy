@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { gatherReport, canReport, sinceForRange, rangeLabel } from "@/lib/report";
+import { gatherReport, canReport, childIsAuthed, sinceForRange, rangeLabel } from "@/lib/report";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 
 type Narrative = {
@@ -17,10 +17,11 @@ export async function POST(req: NextRequest) {
   const me = await getCurrentUser();
   const child = await prisma.child.findUnique({
     where: { id: childId },
-    select: { teacherId: true, centerId: true },
+    select: { teacherId: true, centerId: true, accessCode: true },
   });
   if (!child) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (!(await canReport(me, child))) return NextResponse.json({ error: "not allowed" }, { status: 403 });
+  const allowed = (await canReport(me, child)) || (await childIsAuthed(childId, child.accessCode));
+  if (!allowed) return NextResponse.json({ error: "not allowed" }, { status: 403 });
 
   const data = await gatherReport(childId, sinceForRange(range));
   if (!data) return NextResponse.json({ error: "no data" }, { status: 404 });
