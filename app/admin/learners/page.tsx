@@ -16,7 +16,7 @@ export default async function AdminLearnersPage() {
     name: c.name,
     username: c.username ?? c.id,
     age: c.age ?? null,
-    center: c.center.name,
+    center: c.center?.name ?? "Homeschool",
     guide: c.teacher.name,
     points: c.points - c.pointsSpent,
   }));

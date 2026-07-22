@@ -78,8 +78,10 @@ model Child {
   // one-field change; all the learner's data below is keyed to childId, not this.
   teacherId String
   teacher   User           @relation(fields: [teacherId], references: [id])
-  centerId  String
-  center    Center         @relation(fields: [centerId], references: [id])
+  // Optional: a pure homeschool parent has no center. Association with a center
+  // happens later through a separate intake process.
+  centerId  String?
+  center    Center?        @relation(fields: [centerId], references: [id])
   name      String
   username  String?        @unique // friendly URL handle, e.g. "paiyer" for Prithvi Aiyer
   age       Int?

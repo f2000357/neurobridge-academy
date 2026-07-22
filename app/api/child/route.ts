@@ -41,14 +41,13 @@ export async function POST(req: NextRequest) {
 
   if (op === "create") {
     const teacher = await getCurrentUser();
-    if (!teacher || !teacher.centerId) {
-      return NextResponse.json({ error: "no guide/center" }, { status: 400 });
-    }
+    if (!teacher) return NextResponse.json({ error: "no guide" }, { status: 400 });
     const name = body.name?.trim() || "New child";
     const child = await prisma.child.create({
       data: {
         teacherId: teacher.id,
-        centerId: teacher.centerId,
+        centerId: teacher.centerId ?? null, // homeschool parent: no center
+
         name,
         username: await uniqueUsername(name),
         accessCode: newCode(),

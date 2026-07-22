@@ -118,7 +118,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
       age: child.age ?? null,
       grade: mode(grades),
       guide: child.teacher.name,
-      center: child.center.name,
+      center: child.center?.name ?? "Homeschool",
       readingLevel: child.profile?.readingLevel ?? "",
       mathLevel: child.profile?.mathLevel ?? "",
       interests: child.profile?.interests ?? "",
@@ -156,11 +156,11 @@ export async function childIsAuthed(childId: string, accessCode: string): Promis
 // Authorization: who may view/generate a report for this child.
 export async function canReport(
   me: { id: string; role: string; centerId: string | null } | null,
-  child: { teacherId: string; centerId: string }
+  child: { teacherId: string; centerId: string | null }
 ): Promise<boolean> {
   if (!me) return false;
   if (me.role === "neurable_admin") return true;
-  if (me.role === "center_admin") return me.centerId === child.centerId;
+  if (me.role === "center_admin") return Boolean(me.centerId) && me.centerId === child.centerId;
   if (me.role === "guide") return me.id === child.teacherId;
   return false;
 }
