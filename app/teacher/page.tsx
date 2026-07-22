@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { todayStr } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
 import TodayCalendar from "./TodayCalendar";
+import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +47,10 @@ export default async function TeacherDashboard() {
     }),
   ]);
   // One capped list — weekly plans first, then proposed lessons.
-  const approvalItems = [
+  const approvalItems: ApprovalItem[] = [
     ...pendingWeeks.map((w) => ({
       key: `w-${w.id}`,
+      kind: "week" as const,
       href: `/teacher/week-plan?childId=${w.child.id}&weekStart=${w.weekStart}`,
       icon: "🗓",
       title: `${w.child.name}: week of ${w.weekStart}`,
@@ -57,6 +59,8 @@ export default async function TeacherDashboard() {
     })),
     ...pendingLessons.map((l) => ({
       key: `l-${l.id}`,
+      kind: "lesson" as const,
+      proposedLessonId: l.id,
       href: `/teacher/admin/${l.proposal.child.id}`,
       icon: l.source === "advancement" ? "⬆" : "📄",
       title: `${l.proposal.child.name}: ${l.title}`,
@@ -97,16 +101,7 @@ export default async function TeacherDashboard() {
           ) : (
             <div className="approvals">
               {approvalItems.slice(0, APPROVAL_MAX).map((it) => (
-                <Link key={it.key} href={it.href} className="approval-row">
-                  <span className="approval-icon" aria-hidden="true">
-                    {it.icon}
-                  </span>
-                  <span className="approval-main">
-                    <strong>{it.title}</strong>
-                    <span className="muted">{it.sub}</span>
-                  </span>
-                  <span className="approval-go">{it.cta}</span>
-                </Link>
+                <ApprovalRow key={it.key} item={it} />
               ))}
               {approvalCount > APPROVAL_MAX && (
                 <Link href="/teacher/admin" className="muted approval-more">

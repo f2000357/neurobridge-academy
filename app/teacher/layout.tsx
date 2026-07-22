@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import SideNav from "./SideNav";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,23 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   const user = await getCurrentUser();
   // Guides live here; send admins to their own area.
   if (user && user.role !== "guide") redirect(homeForRole(user.role));
+
+  // How many items are waiting on the guide's approval (badge on "Today").
+  let approvals = 0;
+  if (user) {
+    const kids = await prisma.child.findMany({
+      where: { teacherId: user.id, archived: false },
+      select: { id: true },
+    });
+    const kidIds = kids.map((k) => k.id);
+    if (kidIds.length) {
+      const [lessons, weeks] = await Promise.all([
+        prisma.proposedLesson.count({ where: { status: "pending", proposal: { childId: { in: kidIds } } } }),
+        prisma.weeklyPlan.count({ where: { status: "proposed", childId: { in: kidIds } } }),
+      ]);
+      approvals = lessons + weeks;
+    }
+  }
 
   return (
     <>
@@ -32,7 +50,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
       </header>
 
       <div className="console-shell">
-        <SideNav />
+        <SideNav approvals={approvals} />
         <div className="console-main">{children}</div>
       </div>
     </>

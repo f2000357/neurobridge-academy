@@ -76,7 +76,7 @@ const items: Item[] = [
   },
 ];
 
-export default function SideNav() {
+export default function SideNav({ approvals = 0 }: { approvals?: number }) {
   const pathname = usePathname();
   return (
     <nav className="console-side" aria-label="Guide portal">
@@ -92,6 +92,11 @@ export default function SideNav() {
                 {it.icon}
               </span>
               {it.label}
+              {it.href === "/teacher" && approvals > 0 && (
+                <span className="nav-badge" aria-label={`${approvals} awaiting approval`}>
+                  {approvals}
+                </span>
+              )}
             </Link>
           </li>
         ))}

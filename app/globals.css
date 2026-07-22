@@ -1880,3 +1880,26 @@ input[type="file"] {
 
 .approval-more { display: inline-block; font-size: 0.85rem; padding: 6px 2px; text-decoration: none; }
 .approval-more:hover { color: var(--accent); }
+
+/* Inline approve chip + sidebar approvals badge */
+.chip.approve {
+  color: var(--good, #45906f);
+  border-color: color-mix(in srgb, var(--good, #45906f) 45%, var(--border));
+  background: color-mix(in srgb, var(--good, #45906f) 10%, transparent);
+}
+.chip.approve:hover { border-color: var(--good, #45906f); }
+.nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--warm);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
