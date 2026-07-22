@@ -1,66 +1,66 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+// Parent-first entry: Neurable is a homeschool companion the parent signs into.
+// Children don't self-log-in — the parent launches a locked session for them.
+export default async function Home() {
+  const teacher = await prisma.user.findFirst({
+    include: { children: { orderBy: { name: "asc" } } },
+  });
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="frontdoor">
+      <header className="topbar">
+        <div className="wrap bar">
+          <div className="brand">
+            <span className="mark" aria-hidden="true">
+              <span></span>
+            </span>
+            Neurable
+          </div>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <main className="page wrap" style={{ maxWidth: 620 }}>
+        <div className="parent-welcome">
+          <p className="eyebrow">Your homeschool AI companion</p>
+          <h1>Guide your children&apos;s learning, together with AI.</h1>
+          <p className="muted">
+            Plan lessons, set each child&apos;s schedule, and watch how they&apos;re doing. The AI
+            teaches the daily lessons, calmly and one step at a time — you stay the guide.
+          </p>
+
+          {teacher ? (
+            <>
+              <Link href="/teacher" className="btn big" style={{ marginTop: 20 }}>
+                Continue as {teacher.name} →
+              </Link>
+              <p className="muted" style={{ fontSize: "0.85rem", marginTop: 14 }}>
+                {teacher.children.length} child
+                {teacher.children.length === 1 ? "" : "ren"} in your school:{" "}
+                {teacher.children.map((c) => c.name).join(", ")}
+              </p>
+            </>
+          ) : (
+            <div className="card" style={{ marginTop: 20 }}>
+              <h2>No school set up yet</h2>
+              <p className="muted">
+                Run <code>node prisma/seed.mjs</code> to create the sample school.
+              </p>
+            </div>
+          )}
         </div>
       </main>
+
+      <footer className="fd-teacherbar">
+        <div className="wrap">
+          <span className="muted" style={{ fontSize: "0.85rem" }}>
+            A calm, AI-powered school for neurodiverse learners.
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }

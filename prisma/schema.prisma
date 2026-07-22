@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// A learning center (tenant). Guides and learners belong to a center; the
+// Neurable company sits above all centers.
+model Center {
+  id          String       @id @default(cuid())
+  name        String
+  region      String       @default("")
+  createdAt   DateTime     @default(now())
+  users       User[]
+  children    Child[]
+  lessonPlans LessonPlan[]
+}
+
+// An operator account. role decides scope:
+//   neurable_admin — the company, spans all centers (centerId null)
+//   center_admin   — runs one center
+//   guide          — teaches a roster of learners (the homeschool parent)
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String?      @unique
+  role        String       @default("guide") // neurable_admin | center_admin | guide
+  centerId    String?
+  center      Center?      @relation(fields: [centerId], references: [id])
+  pin         String       @default("2468") // parental gate to exit a child's locked session
+  children    Child[]      // learners this user guides (role=guide)
+  lessonPlans LessonPlan[] // lessons this user authored
+  rewards     Reward[]
+}
+
+// A prize the guide offers in exchange for points (school or home reward).
+model Reward {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name      String
+  cost      Int                          // points needed to redeem
+  emoji     String   @default("🎁")
+  active    Boolean  @default(true)       // hidden from the shelf when false
+  createdAt DateTime @default(now())
+  redemptions Redemption[]
+}
+
+// A record of a child spending points on a prize (guide-assisted). Immutable log.
+model Redemption {
+  id         String   @id @default(cuid())
+  childId    String
+  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  rewardId   String?
+  reward     Reward?  @relation(fields: [rewardId], references: [id], onDelete: SetNull)
+  rewardName String                       // snapshot so history survives catalog edits
+  emoji      String   @default("🎁")
+  cost       Int                          // points spent
+  createdAt  DateTime @default(now())
+}
+
+model Child {
+  id        String         @id @default(cuid())
+  // The learner's current guide — a reassignable pointer. Switching guides is a
+  // one-field change; all the learner's data below is keyed to childId, not this.
+  teacherId String
+  teacher   User           @relation(fields: [teacherId], references: [id])
+  centerId  String
+  center    Center         @relation(fields: [centerId], references: [id])
+  name      String
+  username  String?        @unique // friendly URL handle, e.g. "paiyer" for Prithvi Aiyer
+  age       Int?
+  accessCode String        @default("") // 8-digit code the child enters at their own link
+  points    Int            @default(0) // lifetime points collected (never goes down)
+  pointsSpent Int          @default(0) // total redeemed on prizes; balance = points - pointsSpent
+  pointEvents PointEvent[]
+  homework    Homework[]
+  weeklyPlans WeeklyPlan[]
+  absences    Absence[]
+  weeklyTests WeeklyTest[]
+  redemptions Redemption[]
+  // The "IEP for the AI" — everything the AI must know to serve this child.
+  profile   ChildProfile?
+  slots     ScheduleSlot[]
+  sessions  Session[]
+  documents ChildDocument[]
+  proposals ProgramProposal[]
+}
+
+// Uploaded source material (IEP, strengths list, evaluation, …). The AI reads
+// these to propose a program; the guide approves or rejects it.
+model ChildDocument {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  filename  String
+  mimeType  String
+  kind      String   @default("other") // iep | strengths | evaluation | other
+  data      String   // base64-encoded file bytes
+  createdAt DateTime @default(now())
+}
+
+// An AI-proposed program the guide reviews. Each lesson is approved or rejected.
+model ProgramProposal {
+  id        String           @id @default(cuid())
+  childId   String
+  child     Child            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  summary   String           @default("")
+  createdAt DateTime         @default(now())
+  lessons   ProposedLesson[]
+}
+
+model ProposedLesson {
+  id           String          @id @default(cuid())
+  proposalId   String
+  proposal     ProgramProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  subject      String
+  grade        String          @default("")
+  topic        String          @default("")
+  standardCode String          @default("")
+  title        String
+  rationale    String          @default("")
+  source       String          @default("document") // document | advancement
+  status       String          @default("pending") // pending | approved | rejected
+  lessonPlanId String?         // set when approved and materialized into a LessonPlan
+}
+
+// Teacher marks a child absent for a day (skips their work; testing carries over).
+model Absence {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date      String   // "YYYY-MM-DD"
+  createdAt DateTime @default(now())
+
+  @@unique([childId, date])
+}
+
+// The Friday standardized check-in. Its per-subject scores drive next week's plan.
+model WeeklyTest {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  weekStart String   // Monday of the week this test informs
+  takenOn   String   // date actually taken
+  scores    String   @default("{}") // JSON: { "Math": 72, "ELA — Reading": 65, … }
+  createdAt DateTime @default(now())
+
+  @@unique([childId, weekStart])
+}
+
+// A per-child week plan the AI proposes and the guide reviews at week start.
+// Layer 1 (subject/flexible blocks) comes from the schedule; this is Layer 2:
+// each subject gets a focus + a difficulty ramp across the week's blocks.
+model WeeklyPlan {
+  id        String        @id @default(cuid())
+  childId   String
+  child     Child         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  weekStart String                                // Monday, "YYYY-MM-DD"
+  status    String        @default("proposed")    // proposed | approved
+  createdAt DateTime      @default(now())
+  lessons   WeeklyLesson[]
+
+  @@unique([childId, weekStart])
+}
+
+model WeeklyLesson {
+  id           String     @id @default(cuid())
+  planId       String
+  plan         WeeklyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  slotId       String     // the schedule block this lesson fills
+  subject      String
+  focus        String     @default("") // the subject's weekly focus
+  date         String
+  startMin     Int
+  order        Int        // position in the subject's weekly ramp (0-based)
+  level        Int        @default(1) // difficulty step (1 = start of week … higher = harder)
+  topic        String     @default("")
+  standardCode String     @default("")
+  title        String
+  rationale    String     @default("")
+  status       String     @default("pending") // pending | approved | rejected
+  lessonPlanId String?    // set once materialized into a real LessonPlan
+}
+
+// Weekly homework: a 10-question worksheet generated when a skill is mastered,
+// due the next Monday. Lives in the child's Homework folder.
+model Homework {
+  id           String   @id @default(cuid())
+  childId      String
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  title        String
+  subject      String   @default("")
+  topic        String   @default("")
+  standardCode String   @default("")
+  questions    String   // JSON: [{question, answer}] × 10
+  dueDate      String   // "YYYY-MM-DD" — a Monday
+  status       String   @default("assigned") // assigned | completed
+  score        Int?
+  createdAt    DateTime @default(now())
+}
+
+model ChildProfile {
+  id      String @id @default(cuid())
+  childId String @unique
+  child   Child  @relation(fields: [childId], references: [id])
+
+  // Communication
+  readingLevel   String @default("grade-3") // working level, e.g. "grade-3" (adjusted from MAP)
+  mathLevel      String @default("")        // working math level, e.g. "grade-3" (adjusted from MAP)
+  sentenceStyle  String @default("short")   // short | medium | rich
+  literalLanguage Boolean @default(true)    // avoid idioms/figurative speech
+  interests      String @default("")        // comma-separated, used in examples
+
+  // Assessment inputs used to build a customized program.
+  iepNotes       String @default("")        // IEP goals / recent evaluation summary
+  mapTerm        String @default("")        // e.g. "Fall 2025"
+  mapReadingRit  Int?                        // NWEA MAP RIT scores
+  mapMathRit     Int?
+  mapLanguageRit Int?
+
+  // Sensory & visual
+  calmView      Boolean @default(false)
+  textScale     Float   @default(1.0)
+  soundOn       Boolean @default(true)
+  reducedMotion Boolean @default(false)
+
+  // Executive functioning supports
+  groundingStyle    String @default("standard") // brief | standard | extended
+  timerStyle        String @default("bar")      // bar | sand | none
+  transitionWarnMin Int    @default(2)
+  firstThenVisible  Boolean @default(true)
+
+  // Pacing & regulation
+  pacing          String @default("gentle")  // gentle | steady | brisk
+  practiceBatch   Int    @default(1)         // questions shown at a time
+  frustrationPlan String @default("offer-break") // offer-break | easier-step | breathing
+  neverDo         String @default("")        // hard rules for the AI, plain text
+}
+
+model LessonPlan {
+  id        String         @id @default(cuid())
+  // The author of this lesson.
+  teacherId String
+  teacher   User           @relation(fields: [teacherId], references: [id])
+  // Which center owns it (for center-shared browsing). Null for global lessons.
+  centerId  String?
+  center    Center?        @relation(fields: [centerId], references: [id])
+  // Who can find & reuse it: private (author + the child's current guide) |
+  // center (same-center guides) | global (all centers).
+  visibility String        @default("private")
+  // Customized program: a plan designed for one child. Null = shared library plan,
+  // still personalized at delivery time via the child's profile.
+  childId   String?
+  title     String
+  subject   String
+  // Curriculum organization (NJ Student Learning Standards).
+  gradeLevel   String       @default("") // "K", "1" … "12"
+  topic        String       @default("") // strand/domain, e.g. "Fractions"
+  standardCode String       @default("") // e.g. "3.NF.A.1"
+  standardText String       @default("") // human-readable standard description
+  goal      String
+  whyItMatters String      @default("")
+  // Ordered chunk list: video | visual | read_text | worksheet | wrap_up (JSON)
+  chunks    String
+  durationMin Int          @default(25)
+  renderer  String         @default("web") // "web" now; "xr" later for Quest lessons
+  published Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  slots     ScheduleSlot[]
+}
+
+model ScheduleSlot {
+  id           String      @id @default(cuid())
+  childId      String
+  child        Child       @relation(fields: [childId], references: [id])
+  lessonPlanId String?
+  lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
+  kind         String      @default("lesson") // lesson | one_on_one | break | free_time
+  date         String                          // "2026-07-21" (local date)
+  startMin     Int                             // minutes from midnight, e.g. 540 = 9:00
+  endMin       Int
+  sessions     Session[]
+}
+
+// One run of the EF loop. A slot can host several runs: the scheduled one,
+// plus child-chosen relaunches or guided replays during flexible periods.
+model Session {
+  id            String       @id @default(cuid())
+  slotId        String
+  slot          ScheduleSlot @relation(fields: [slotId], references: [id])
+  childId       String
+  child         Child        @relation(fields: [childId], references: [id])
+  origin        String       @default("scheduled") // scheduled | relaunch | guided_replay
+  state         String       @default("arrived") // arrived | grounded | delivering | checking | closed
+  chunkProgress String       @default("[]")      // JSON: per-chunk completion
+  transcript    String       @default("[]")      // JSON: tutor conversation
+  // Adaptive engine: full progress snapshot for resume + points + no-abandon.
+  resumeData    String       @default("")        // JSON: {phase, stepIdx, round, qNum, questions, answers, pointsEarned}
+  pointsEarned  Int          @default(0)
+  advancedLevel Int          @default(0)          // how far into Advanced mode
+  abandoned     Boolean      @default(false)      // guide abandoned this lesson
+  startedAt     DateTime     @default(now())
+  endedAt       DateTime?
+  signals       EvalSignal[]
+  progressNote  ProgressNote?
+  pointEvents   PointEvent[]
+}
+
+// Immutable record of points earned — the auditable history.
+model PointEvent {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  sessionId String?
+  session   Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  points    Int
+  kind      String   @default("core") // core | challenge | advanced
+  date      String                     // "2026-07-22" (local) for per-day totals
+  createdAt DateTime @default(now())
+}
+
+// Ambient continuous evaluation — every interaction is a signal.
+model EvalSignal {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  kind      String   // answer | simplify_request | replay | time_on_task | break | frustration_cue
+  payload   String   @default("{}") // JSON detail (e.g. correct/incorrect, attempt #)
+  createdAt DateTime @default(now())
+}
+
+// AI-written report the teacher reads: what worked / where stuck / next step.
+model ProgressNote {
+  id           String  @id @default(cuid())
+  sessionId    String  @unique
+  session      Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  workedWell   String  @default("")
+  stuckOn      String  @default("")
+  nextStep     String  @default("")
+  teacherNotes String  @default("")
+  // Assessment result: every class ends graded.
+  score        Int?    // percent correct on the closing assessment, 0-100
+  masteryLevel String  @default("") // struggling | approaching | proficient
+  createdAt    DateTime @default(now())
+}
