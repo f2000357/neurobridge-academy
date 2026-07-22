@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { fmtMin, todayStr } from "@/lib/time";
+import { todayStr } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
+import TodayCalendar from "./TodayCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export default async function TeacherDashboard() {
       </main>
     );
   }
+
+  const draftCount = teacher.lessonPlans.filter((p) => !p.published).length;
 
   const date = todayStr();
   const slots = await prisma.scheduleSlot.findMany({
@@ -91,39 +94,18 @@ export default async function TeacherDashboard() {
               </Link>
             </span>
           </div>
-          {slots.length === 0 ? (
-            <p className="muted">Nothing scheduled today.</p>
-          ) : (
-            <div className="stack">
-              {slots.map((slot) => (
-                <div key={slot.id} className="slot">
-                  <span className="time">
-                    {fmtMin(slot.startMin)} – {fmtMin(slot.endMin)}
-                  </span>
-                  <span className="name">
-                    {slot.child.name} ·{" "}
-                    {slot.kind === "lesson"
-                      ? slot.lessonPlan?.title ?? "Lesson"
-                      : slot.kind === "one_on_one"
-                        ? "1:1 with you"
-                        : slot.kind === "flexible"
-                          ? "Flexible period"
-                          : slot.kind === "break"
-                            ? "Break / Lunch"
-                            : "Free time"}
-                  </span>
-                  {(slot.kind === "one_on_one" || slot.kind === "flexible") && (
-                    <span className="badge next">
-                      {slot.kind === "flexible" ? "your 1:1 window" : "1:1"}
-                    </span>
-                  )}
-                  {slot.sessions.some((s) => s.state === "closed") && (
-                    <span className="badge now">done</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <TodayCalendar
+            kids={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+            slots={slots.map((s) => ({
+              id: s.id,
+              childId: s.childId,
+              kind: s.kind,
+              startMin: s.startMin,
+              endMin: s.endMin,
+              lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,
+              done: s.sessions.some((x) => x.state === "closed"),
+            }))}
+          />
         </section>
 
         <section style={{ marginTop: 36 }}>
@@ -160,44 +142,46 @@ export default async function TeacherDashboard() {
 
         <section style={{ marginTop: 36 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-            <h2 style={{ margin: 0 }}>Lesson plans</h2>
+            <h2 style={{ margin: 0 }}>Lessons</h2>
             <span className="row">
               <Link href="/teacher/library" className="btn quiet">
-                Browse library →
+                Browse all {teacher.lessonPlans.length > 0 ? `(${teacher.lessonPlans.length})` : ""} →
               </Link>
               <Link href="/teacher/plans/new" className="btn">
                 ✦ New lesson
               </Link>
             </span>
           </div>
-          <div className="stack">
-            {teacher.lessonPlans.map((plan) => {
-              const forChild = teacher.children.find((c) => c.id === plan.childId);
-              return (
-                <Link
-                  key={plan.id}
-                  href={`/teacher/plans/${plan.id}`}
-                  className="card row"
-                  style={{ justifyContent: "space-between", color: "inherit" }}
-                >
-                  <div>
-                    <strong>{plan.title}</strong>
-                    <div className="muted" style={{ fontSize: "0.9rem" }}>
-                      {plan.subject} · {plan.durationMin} min ·{" "}
-                      {plan.published ? "published" : "draft"}
-                      {forChild ? ` · for ${forChild.name}` : ""}
-                    </div>
-                  </div>
-                  <span className="muted" aria-hidden="true">
-                    Edit →
-                  </span>
+
+          {teacher.lessonPlans.length === 0 ? (
+            <p className="muted">No lessons yet — start with “New lesson”.</p>
+          ) : (
+            <>
+              {draftCount > 0 && (
+                <Link href="/teacher/library" className="lesson-drafts">
+                  ✎ {draftCount} draft{draftCount === 1 ? "" : "s"} to finish
                 </Link>
-              );
-            })}
-            {teacher.lessonPlans.length === 0 && (
-              <p className="muted">No lesson plans yet.</p>
-            )}
-          </div>
+              )}
+              <p className="eyebrow" style={{ marginTop: draftCount > 0 ? 16 : 0 }}>
+                Recently edited
+              </p>
+              <div className="lesson-recent">
+                {teacher.lessonPlans.slice(0, 4).map((plan) => {
+                  const forChild = teacher.children.find((c) => c.id === plan.childId);
+                  return (
+                    <Link key={plan.id} href={`/teacher/plans/${plan.id}`} className="lesson-chip">
+                      <strong>{plan.title}</strong>
+                      <span className="muted">
+                        {plan.subject}
+                        {!plan.published ? " · draft" : ""}
+                        {forChild ? ` · ${forChild.name}` : ""}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </section>
     </main>
   );
