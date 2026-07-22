@@ -10,7 +10,6 @@ export default async function TeacherDashboard() {
   const teacher = await getCurrentUser({
     include: {
       children: { where: { archived: false }, include: { profile: true } },
-      lessonPlans: { orderBy: { updatedAt: "desc" } },
     },
   });
 
@@ -25,24 +24,50 @@ export default async function TeacherDashboard() {
     );
   }
 
-  const draftCount = teacher.lessonPlans.filter((p) => !p.published).length;
-
+  const kidIds = teacher.children.map((c) => c.id);
   const date = todayStr();
-  const slots = await prisma.scheduleSlot.findMany({
-    where: { date, childId: { in: teacher.children.map((c) => c.id) } },
-    include: { lessonPlan: true, child: true, sessions: true },
-    orderBy: { startMin: "asc" },
-  });
 
-  // Advancement suggestions waiting for the guide to approve/reject.
-  const advSuggestions = await prisma.proposedLesson.findMany({
-    where: {
-      source: "advancement",
-      status: "pending",
-      proposal: { childId: { in: teacher.children.map((c) => c.id) } },
-    },
-    include: { proposal: { include: { child: true } } },
-  });
+  // Everything waiting on the guide's yes/no: proposed lessons (from documents
+  // or advancement) and AI-drafted weekly plans.
+  const [slots, pendingLessons, pendingWeeks] = await Promise.all([
+    prisma.scheduleSlot.findMany({
+      where: { date, childId: { in: kidIds } },
+      include: { lessonPlan: true, child: true, sessions: true },
+      orderBy: { startMin: "asc" },
+    }),
+    prisma.proposedLesson.findMany({
+      where: { status: "pending", proposal: { childId: { in: kidIds } } },
+      include: { proposal: { include: { child: { select: { id: true, name: true } } } } },
+    }),
+    prisma.weeklyPlan.findMany({
+      where: { status: "proposed", childId: { in: kidIds } },
+      include: { child: { select: { id: true, name: true } }, _count: { select: { lessons: true } } },
+      orderBy: { weekStart: "asc" },
+    }),
+  ]);
+  // One capped list — weekly plans first, then proposed lessons.
+  const approvalItems = [
+    ...pendingWeeks.map((w) => ({
+      key: `w-${w.id}`,
+      href: `/teacher/week-plan?childId=${w.child.id}&weekStart=${w.weekStart}`,
+      icon: "🗓",
+      title: `${w.child.name}: week of ${w.weekStart}`,
+      sub: `${w._count.lessons} lessons proposed`,
+      cta: "Review the week →",
+    })),
+    ...pendingLessons.map((l) => ({
+      key: `l-${l.id}`,
+      href: `/teacher/admin/${l.proposal.child.id}`,
+      icon: l.source === "advancement" ? "⬆" : "📄",
+      title: `${l.proposal.child.name}: ${l.title}`,
+      sub: `${l.subject}${l.grade ? ` · Grade ${l.grade}` : ""} · ${
+        l.source === "advancement" ? "next-level suggestion" : "from documents"
+      }`,
+      cta: "Review →",
+    })),
+  ];
+  const approvalCount = approvalItems.length;
+  const APPROVAL_MAX = 6;
 
   return (
     <main className="page">
@@ -63,24 +88,34 @@ export default async function TeacherDashboard() {
           </div>
         </div>
 
-        {advSuggestions.length > 0 && (
-          <section className="action-banner" style={{ marginTop: 20 }}>
-            <div>
-              <strong>⬆ {advSuggestions.length} next-level suggestion{advSuggestions.length === 1 ? "" : "s"} to review</strong>
-              <div className="muted" style={{ fontSize: "0.88rem" }}>
-                Based on skills your children just mastered.{" "}
-                {advSuggestions.map((s, i) => (
-                  <span key={s.id}>
-                    {i > 0 ? " · " : ""}
-                    <Link href={`/teacher/admin/${s.proposal.childId}`}>
-                      {s.proposal.child.name}: {s.title}
-                    </Link>
+        <section style={{ marginTop: 24 }}>
+          <h2 style={{ margin: "0 0 12px" }}>
+            Needs your approval{approvalCount > 0 ? ` (${approvalCount})` : ""}
+          </h2>
+          {approvalCount === 0 ? (
+            <p className="muted">You&apos;re all caught up. 🎉</p>
+          ) : (
+            <div className="approvals">
+              {approvalItems.slice(0, APPROVAL_MAX).map((it) => (
+                <Link key={it.key} href={it.href} className="approval-row">
+                  <span className="approval-icon" aria-hidden="true">
+                    {it.icon}
                   </span>
-                ))}
-              </div>
+                  <span className="approval-main">
+                    <strong>{it.title}</strong>
+                    <span className="muted">{it.sub}</span>
+                  </span>
+                  <span className="approval-go">{it.cta}</span>
+                </Link>
+              ))}
+              {approvalCount > APPROVAL_MAX && (
+                <Link href="/teacher/admin" className="muted approval-more">
+                  + {approvalCount - APPROVAL_MAX} more to review →
+                </Link>
+              )}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         <section style={{ marginTop: 28 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
@@ -138,50 +173,6 @@ export default async function TeacherDashboard() {
           <p className="muted" style={{ fontSize: "0.82rem", marginTop: 10 }}>
             Launching a child opens their locked learning space. Getting back here needs your PIN.
           </p>
-        </section>
-
-        <section style={{ marginTop: 36 }}>
-          <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-            <h2 style={{ margin: 0 }}>Lessons</h2>
-            <span className="row">
-              <Link href="/teacher/library" className="btn quiet">
-                Browse all {teacher.lessonPlans.length > 0 ? `(${teacher.lessonPlans.length})` : ""} →
-              </Link>
-              <Link href="/teacher/plans/new" className="btn">
-                ✦ New lesson
-              </Link>
-            </span>
-          </div>
-
-          {teacher.lessonPlans.length === 0 ? (
-            <p className="muted">No lessons yet — start with “New lesson”.</p>
-          ) : (
-            <>
-              {draftCount > 0 && (
-                <Link href="/teacher/library" className="lesson-drafts">
-                  ✎ {draftCount} draft{draftCount === 1 ? "" : "s"} to finish
-                </Link>
-              )}
-              <p className="eyebrow" style={{ marginTop: draftCount > 0 ? 16 : 0 }}>
-                Recently edited
-              </p>
-              <div className="lesson-recent">
-                {teacher.lessonPlans.slice(0, 4).map((plan) => {
-                  const forChild = teacher.children.find((c) => c.id === plan.childId);
-                  return (
-                    <Link key={plan.id} href={`/teacher/plans/${plan.id}`} className="lesson-chip">
-                      <strong>{plan.title}</strong>
-                      <span className="muted">
-                        {plan.subject}
-                        {!plan.published ? " · draft" : ""}
-                        {forChild ? ` · ${forChild.name}` : ""}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </>
-          )}
         </section>
     </main>
   );
