@@ -1801,3 +1801,7 @@ input[type="file"] {
 .grownup-link { margin-top: 16px; font-size: 0.85rem; text-align: center; }
 .grownup-link a { color: var(--ink-soft); text-decoration: none; }
 .grownup-link a:hover { color: var(--accent); text-decoration: underline; }
+
+/* Explicit report link in the center roster */
+.roster-report { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.roster-report:hover { text-decoration: underline; }

@@ -181,12 +181,13 @@ export default function CenterConsole({
             {grp.rows.map((r) => (
               <div key={r.id} className="roster-row">
                 <div className="roster-id">
-                  <Link href={`/report/${r.username}`} className="roster-name" title="Open progress report">
-                    {r.name}
-                  </Link>
+                  <span className="roster-name">{r.name}</span>
                   <span className="roster-sub">
                     {r.grade ? `Gr ${r.grade}` : "Gr —"}
-                    {r.age != null ? ` · age ${r.age}` : ""}
+                    {r.age != null ? ` · age ${r.age}` : ""} ·{" "}
+                    <Link href={`/report/${r.username}`} className="roster-report">
+                      📊 Report
+                    </Link>
                   </span>
                 </div>
 
