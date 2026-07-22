@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { gatherReport, canReport, sinceForRange } from "@/lib/report";
 import ReportNarrative from "./ReportNarrative";
+import ReportActions from "./ReportActions";
 
 export const dynamic = "force-dynamic";
 
@@ -51,16 +52,19 @@ export default async function ReportPage({
         <Link className="btn quiet" href={backHref}>
           ← Back
         </Link>
-        <div className="row" style={{ gap: 6 }}>
-          <span className="muted" style={{ fontSize: "0.82rem" }}>
-            Period:
-          </span>
-          <Link className={`chip ${!isTerm ? "on" : ""}`} href={`/report/${handle}`}>
-            All time
-          </Link>
-          <Link className={`chip ${isTerm ? "on" : ""}`} href={`/report/${handle}?range=term`}>
-            This term
-          </Link>
+        <div className="row" style={{ gap: 12 }}>
+          <div className="row" style={{ gap: 6 }}>
+            <span className="muted" style={{ fontSize: "0.82rem" }}>
+              Period:
+            </span>
+            <Link className={`chip ${!isTerm ? "on" : ""}`} href={`/report/${handle}`}>
+              All time
+            </Link>
+            <Link className={`chip ${isTerm ? "on" : ""}`} href={`/report/${handle}?range=term`}>
+              This term
+            </Link>
+          </div>
+          <ReportActions childName={data.child.name} />
         </div>
       </div>
 

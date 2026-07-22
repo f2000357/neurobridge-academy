@@ -46,11 +46,6 @@ export default function ReportNarrative({
         <button className="btn" onClick={generate} disabled={busy}>
           {busy ? "Writing…" : n ? "Regenerate summary" : "✦ Write summary with AI"}
         </button>
-        {n && (
-          <button className="btn quiet" onClick={() => window.print()}>
-            ⎙ Print / Save PDF
-          </button>
-        )}
       </div>
 
       {err && (
