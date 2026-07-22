@@ -47,6 +47,7 @@ export default async function PreviewPage({
         goal: plan.goal,
         why: plan.whyItMatters,
         durationMin: plan.durationMin,
+        workUrl: plan.workUrl,
       }}
       chunks={chunks}
       after="you're all done"

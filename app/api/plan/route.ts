@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
   if (op === "save") {
     const {
       id, title, subject, goal, whyItMatters, chunks, durationMin, childId, published,
-      gradeLevel, topic, standardCode, standardText, visibility,
+      gradeLevel, topic, standardCode, standardText, visibility, workUrl,
     } = body;
     const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
       subject,
       goal,
       whyItMatters: whyItMatters ?? "",
+      workUrl: (workUrl ?? "").trim(),
       gradeLevel: gradeLevel ?? "",
       topic: topic ?? "",
       standardCode: standardCode ?? "",

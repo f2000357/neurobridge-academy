@@ -1805,3 +1805,12 @@ input[type="file"] {
 /* Explicit report link in the center roster */
 .roster-report { color: var(--accent); text-decoration: none; white-space: nowrap; }
 .roster-report:hover { text-decoration: underline; }
+
+/* External practice link (e.g. IXL) shown in the lesson */
+.work-link {
+  align-self: flex-start;
+  text-decoration: none;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+.work-link:hover { border-color: var(--accent); }

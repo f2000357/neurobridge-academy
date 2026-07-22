@@ -31,6 +31,7 @@ model User {
   centerId    String?
   center      Center?      @relation(fields: [centerId], references: [id])
   pin         String       @default("2468") // parental gate to exit a child's locked session
+  ixlUrl      String       @default("") // guide's own IXL account link (a reference, not credentials)
   children    Child[]      // learners this user guides (role=guide)
   lessonPlans LessonPlan[] // lessons this user authored
   rewards     Reward[]
@@ -281,6 +282,9 @@ model LessonPlan {
   standardText String       @default("") // human-readable standard description
   goal      String
   whyItMatters String      @default("")
+  // Optional link to practice on an external tool (e.g. an IXL skill URL). A pointer
+  // only — no points or completion are tracked from it.
+  workUrl   String         @default("")
   // Ordered chunk list: video | visual | read_text | worksheet | wrap_up (JSON)
   chunks    String
   durationMin Int          @default(25)

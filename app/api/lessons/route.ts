@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
         standardText: src.standardText,
         goal: src.goal,
         whyItMatters: src.whyItMatters,
+        workUrl: src.workUrl,
         chunks: src.chunks,
         durationMin: src.durationMin,
         renderer: src.renderer,

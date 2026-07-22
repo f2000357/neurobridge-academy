@@ -27,6 +27,7 @@ export type PlanState = {
   standardText: string;
   goal: string;
   whyItMatters: string;
+  workUrl: string;
   durationMin: number;
   childId: string | null;
   published: boolean;
@@ -297,6 +298,14 @@ export default function Builder({
           className="field"
           value={plan.whyItMatters}
           onChange={(e) => set("whyItMatters", e.target.value)}
+        />
+        <label className="lbl">Practice link (optional — e.g. an IXL skill URL)</label>
+        <input
+          className="field"
+          type="url"
+          value={plan.workUrl}
+          onChange={(e) => set("workUrl", e.target.value)}
+          placeholder="https://www.ixl.com/math/grade-3/…"
         />
         <div className="row" style={{ marginTop: 14, alignItems: "flex-start" }}>
           <label className="inline muted" style={{ flex: "0 0 auto" }}>

@@ -31,6 +31,7 @@ export default async function NewPlanPage({
     standardText: "",
     goal: "",
     whyItMatters: "",
+    workUrl: "",
     durationMin: 25,
     childId: validChild,
     published: false,

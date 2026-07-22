@@ -83,6 +83,7 @@ export default async function SessionPage({
         goal: slot.lessonPlan.goal,
         why: slot.lessonPlan.whyItMatters,
         durationMin: slot.lessonPlan.durationMin,
+        workUrl: slot.lessonPlan.workUrl,
       }}
       chunks={chunks}
       after={after}

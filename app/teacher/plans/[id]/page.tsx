@@ -44,6 +44,7 @@ export default async function EditPlanPage({
     standardText: plan.standardText,
     goal: plan.goal,
     whyItMatters: plan.whyItMatters,
+    workUrl: plan.workUrl,
     durationMin: plan.durationMin,
     childId: plan.childId,
     published: plan.published,

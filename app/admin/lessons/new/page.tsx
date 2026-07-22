@@ -18,6 +18,7 @@ export default async function NewGlobalLesson({
     standardText: "",
     goal: "",
     whyItMatters: "",
+    workUrl: "",
     durationMin: 25,
     childId: null,
     published: false,

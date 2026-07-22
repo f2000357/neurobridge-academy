@@ -122,7 +122,8 @@ export async function POST(req: NextRequest) {
     const instruction =
       `You are reviewing the attached documents about ${child.name}` +
       (child.age != null ? `, age ${child.age}` : "") +
-      `. They may include an IEP, an evaluation, a list of strengths, or other notes.` +
+      `. They may include an IEP, an evaluation, a list of strengths, a practice-tool report ` +
+      `(e.g. IXL or MobyMax showing per-skill mastery and standards), or other notes.` +
       (p?.interests ? ` Interests: ${p.interests}.` : "") +
       (p?.iepNotes ? ` Extra notes from the guide: ${p.iepNotes}.` : "") +
       ` From what these documents say about this child's current levels, goals, strengths, and needs, ` +
