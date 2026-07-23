@@ -35,12 +35,11 @@ export default async function Home() {
                 Continue as {user.name} →
               </Link>
               <p className="muted" style={{ fontSize: "0.85rem", marginTop: 14 }}>
-                Signed in as {roleLabel(user.role)} ·{" "}
-                <Link href="/switch">switch account</Link>
+                Signed in as {roleLabel(user.role)}
               </p>
             </>
           ) : (
-            <Link href="/switch" className="btn big" style={{ marginTop: 20 }}>
+            <Link href="/login" className="btn big" style={{ marginTop: 20 }}>
               Staff sign in →
             </Link>
           )}

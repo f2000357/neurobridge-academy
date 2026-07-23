@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
+import AccountMenu from "@/app/components/AccountMenu";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/switch");
+  if (!user) redirect("/login");
   if (user.role !== "neurable_admin") redirect(homeForRole(user.role));
 
   return (
@@ -22,9 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
             Visiting teachers
           </Link>
-          <Link href="/switch" className="who-pill" style={{ color: "var(--accent-ink)" }} title="Switch account">
-            Neurable Admin · {user.name} <span aria-hidden="true">⇄</span>
-          </Link>
+          <AccountMenu label={`Neurable Admin · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
         </div>
       </header>
       <main className="page wrap" style={{ maxWidth: 1000 }}>

@@ -3,13 +3,15 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import SideNav from "./SideNav";
+import AccountMenu from "@/app/components/AccountMenu";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  if (!user) redirect("/login");
   // Guides live here; send admins to their own area.
-  if (user && user.role !== "guide") redirect(homeForRole(user.role));
+  if (user.role !== "guide") redirect(homeForRole(user.role));
 
   // How many items are waiting on the guide's approval (badge on "Today").
   let approvals = 0;
@@ -38,14 +40,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
             </span>
             Neurable
           </Link>
-          <Link
-            href="/switch"
-            className="who-pill"
-            style={{ color: "var(--accent-ink)" }}
-            title="Switch account"
-          >
-            Guide · {user?.name ?? ""} <span aria-hidden="true">⇄</span>
-          </Link>
+          <AccountMenu label={`Guide · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
         </div>
       </header>
 

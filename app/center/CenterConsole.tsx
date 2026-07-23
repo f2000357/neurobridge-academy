@@ -46,6 +46,7 @@ export default function CenterConsole({
   // Onboarding
   const [gName, setGName] = useState("");
   const [gEmail, setGEmail] = useState("");
+  const [gPassword, setGPassword] = useState("");
   const [lName, setLName] = useState("");
   const [lGuide, setLGuide] = useState(guides[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
@@ -62,12 +63,13 @@ export default function CenterConsole({
   async function addGuide() {
     if (!gName.trim() || busy) return;
     setBusy(true);
-    const r = await centerPost({ op: "addGuide", name: gName, email: gEmail });
+    const r = await centerPost({ op: "addGuide", name: gName, email: gEmail, password: gPassword });
     setBusy(false);
     if (r.error) return setNote(r.error);
+    setNote(`Guide ${gName} added. They sign in at /login as ${gEmail}.`);
     setGName("");
     setGEmail("");
-    setNote(`Guide ${gName} added.`);
+    setGPassword("");
     router.refresh();
   }
 
@@ -136,8 +138,9 @@ export default function CenterConsole({
           <h3 style={{ marginTop: 0 }}>Add a guide</h3>
           <div className="stack" style={{ gap: 8 }}>
             <input className="field" placeholder="Full name" value={gName} onChange={(e) => setGName(e.target.value)} />
-            <input className="field" placeholder="Email (optional)" value={gEmail} onChange={(e) => setGEmail(e.target.value)} />
-            <button className="btn" onClick={addGuide} disabled={busy || !gName.trim()}>
+            <input className="field" type="email" placeholder="Email (their login)" value={gEmail} onChange={(e) => setGEmail(e.target.value)} />
+            <input className="field" placeholder="Initial password (8+ chars)" value={gPassword} onChange={(e) => setGPassword(e.target.value)} />
+            <button className="btn" onClick={addGuide} disabled={busy || !gName.trim() || !gEmail.trim() || gPassword.length < 8}>
               Add guide
             </button>
           </div>

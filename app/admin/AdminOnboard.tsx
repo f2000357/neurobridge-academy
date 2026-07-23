@@ -26,6 +26,7 @@ export default function AdminOnboard({ centers }: { centers: Center[] }) {
   // Add staff
   const [sName, setSName] = useState("");
   const [sEmail, setSEmail] = useState("");
+  const [sPassword, setSPassword] = useState("");
   const [sRole, setSRole] = useState("guide");
   const [sCenter, setSCenter] = useState(centers[0]?.id ?? "");
 
@@ -44,12 +45,14 @@ export default function AdminOnboard({ centers }: { centers: Center[] }) {
   async function addStaff() {
     if (!sName.trim() || busy) return;
     setBusy(true);
-    const r = await post({ op: "createUser", name: sName, email: sEmail, role: sRole, centerId: sCenter });
+    const r = await post({ op: "createUser", name: sName, email: sEmail, role: sRole, centerId: sCenter, password: sPassword });
     setBusy(false);
     if (r.error) return setNote(r.error);
+    const who = sEmail;
     setSName("");
     setSEmail("");
-    setNote(`${sName} added as ${sRole === "center_admin" ? "center admin" : "guide"}.`);
+    setSPassword("");
+    setNote(`${sName} added. They sign in at /login as ${who}; share the password so they can change it.`);
     router.refresh();
   }
 
@@ -70,7 +73,8 @@ export default function AdminOnboard({ centers }: { centers: Center[] }) {
         <h3 style={{ marginTop: 0 }}>Add staff</h3>
         <div className="stack" style={{ gap: 8 }}>
           <input className="field" placeholder="Full name" value={sName} onChange={(e) => setSName(e.target.value)} />
-          <input className="field" placeholder="Email (optional)" value={sEmail} onChange={(e) => setSEmail(e.target.value)} />
+          <input className="field" type="email" placeholder="Email (their login)" value={sEmail} onChange={(e) => setSEmail(e.target.value)} />
+          <input className="field" type="text" placeholder="Initial password (8+ chars)" value={sPassword} onChange={(e) => setSPassword(e.target.value)} />
           <div className="row" style={{ gap: 8 }}>
             <select className="field" value={sRole} onChange={(e) => setSRole(e.target.value)}>
               <option value="guide">Guide</option>
@@ -84,7 +88,7 @@ export default function AdminOnboard({ centers }: { centers: Center[] }) {
               ))}
             </select>
           </div>
-          <button className="btn" onClick={addStaff} disabled={busy || !sName.trim() || !sCenter}>
+          <button className="btn" onClick={addStaff} disabled={busy || !sName.trim() || !sEmail.trim() || sPassword.length < 8 || !sCenter}>
             Add staff
           </button>
         </div>

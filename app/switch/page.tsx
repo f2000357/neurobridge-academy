@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId, homeForRole, roleLabel } from "@/lib/auth";
 
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 const ROLE_ORDER = ["neurable_admin", "center_admin", "guide"];
 
 export default async function SwitchPage() {
+  // Dev-only quick-login. In production the real door is /login.
+  if (process.env.NODE_ENV === "production") redirect("/login");
   const [users, currentId] = await Promise.all([
     prisma.user.findMany({ include: { center: true }, orderBy: { name: "asc" } }),
     getCurrentUserId(),

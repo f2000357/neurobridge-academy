@@ -30,6 +30,9 @@ model User {
   role        String       @default("guide") // neurable_admin | center_admin | guide
   centerId    String?
   center      Center?      @relation(fields: [centerId], references: [id])
+  // Real login: scrypt hash ("salt:hash"). Empty means no password set yet, so
+  // the account can't sign in until an initial one is issued.
+  passwordHash String      @default("")
   pin         String       @default("2468") // parental gate to exit a child's locked session
   ixlUrl      String       @default("") // guide's own IXL account link (a reference, not credentials)
   children    Child[]      // learners this user guides (role=guide)

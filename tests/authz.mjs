@@ -10,34 +10,51 @@
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 
-// Seeded ids (from the dev database).
-const GAYATHRI = "cmrv18zru00003w3bqdbo33vp"; // guide of Meera
-const MEERA = "cmrv18zrw00053w3b484lsd28"; //   Gayathri's learner (own)
-const PRITHVI = "cmrv18zrv00023w3be4p9svkj"; //  Ms. Pierce's learner (foreign)
+// Seeded dev credentials + ids.
+const GUIDE_EMAIL = "gayathri@dev.neurable"; // guide of Meera
+const GUIDE_PASSWORD = "neurable-dev";
+const MEERA = "cmrv18zrw00053w3b484lsd28"; //  the guide's learner (own)
+const PRITHVI = "cmrv18zrv00023w3be4p9svkj"; // Ms. Pierce's learner (foreign)
 
 let pass = 0;
 let fail = 0;
+let sessionCookie = "";
 
-async function call(path, body, cookie) {
+// Sign in for real and capture the signed session cookie (the old raw-id cookie
+// is now ignored, so the test must authenticate like a browser does).
+async function login() {
+  const res = await fetch(`${BASE}/api/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ op: "login", email: GUIDE_EMAIL, password: GUIDE_PASSWORD }),
+  });
+  const raw = res.headers.get("set-cookie") ?? "";
+  sessionCookie = raw.split(";")[0]; // "nb_session=<token>"
+  if (res.status !== 200 || !sessionCookie.startsWith("nb_session=")) {
+    throw new Error(`login failed (${res.status}) — run: node prisma/seed-passwords.mjs`);
+  }
+}
+
+async function call(path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
+    headers: { "Content-Type": "application/json", Cookie: sessionCookie },
     body: JSON.stringify(body),
   });
   return res.status;
 }
 
-// Attacker = Gayathri's cookie, acting on Prithvi (not hers) → must be 403.
+// Signed in as the guide, acting on Prithvi (not hers) → must be 403.
 async function denies(name, path, body) {
-  const status = await call(path, body, `nb_user=${GAYATHRI}`);
+  const status = await call(path, body);
   const ok = status === 403;
   console.log(`${ok ? "  ok " : "FAIL"}  ${name.padEnd(34)} cross-tenant → ${status}${ok ? "" : "  (expected 403)"}`);
   ok ? pass++ : fail++;
 }
 
-// Same tenant (Gayathri on Meera) → must NOT be 403.
+// Same tenant (the guide on Meera) → must NOT be 403.
 async function allows(name, path, body) {
-  const status = await call(path, body, `nb_user=${GAYATHRI}`);
+  const status = await call(path, body);
   const ok = status !== 403;
   console.log(`${ok ? "  ok " : "FAIL"}  ${name.padEnd(34)} own-tenant   → ${status}${ok ? "" : "  (unexpected 403)"}`);
   ok ? pass++ : fail++;
@@ -45,6 +62,7 @@ async function allows(name, path, body) {
 
 async function main() {
   console.log(`\nAuthorization boundary · ${BASE}\n`);
+  await login();
 
   // --- cross-tenant: every childId route must refuse Prithvi ---
   await denies("schedule.list", "/api/schedule", { op: "list", childId: PRITHVI, date: "2026-07-23" });
