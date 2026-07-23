@@ -1,13 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { tutorText } from "@/lib/ai";
+import { saveUpload, MAX_IMAGE_BYTES } from "@/lib/uploads";
 
 // Lesson marketplace: share, submit-for-global, promote, and copy-on-add.
 export async function POST(req: NextRequest) {
+  // An image added to a step while previewing arrives as multipart.
+  if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+    return handleAssetUpload(req);
+  }
+
   const body = await req.json();
   const { op } = body as { op: string };
   const me = await getCurrentUser();
   if (!me) return NextResponse.json({ error: "no user" }, { status: 401 });
+
+  // Save one step back to the lesson. What the guide writes here is what the
+  // child reads — `verbatim` stops the tutor from regenerating over the top.
+  if (op === "saveChunk") {
+    const { planId, index, chunk } = body as { planId: string; index: number; chunk: unknown };
+    const plan = await prisma.lessonPlan.findUnique({ where: { id: planId } });
+    if (!plan) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
+    if (plan.teacherId !== me.id && me.role !== "neurable_admin") {
+      return NextResponse.json({ error: "not your lesson" }, { status: 403 });
+    }
+    let chunks: unknown[] = [];
+    try {
+      chunks = JSON.parse(plan.chunks);
+    } catch {
+      chunks = [];
+    }
+    if (index < 0 || index >= chunks.length) {
+      return NextResponse.json({ error: "no such step" }, { status: 400 });
+    }
+    chunks[index] = chunk;
+    await prisma.lessonPlan.update({
+      where: { id: planId },
+      data: { chunks: JSON.stringify(chunks) },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // "Make this shorter" — the guide keeps the result or edits it further.
+  if (op === "rewrite") {
+    const { text, how } = body as { text: string; how?: string };
+    if (!text?.trim()) return NextResponse.json({ error: "nothing to rewrite" }, { status: 400 });
+    const instruction =
+      how === "simpler"
+        ? "Rewrite it in plainer, more literal language for a child who reads below grade level. Keep every idea."
+        : "Cut it to about half the length. Keep the worked example and the one core idea; drop repetition and throat-clearing.";
+    const out = await tutorText(
+      "You edit teaching passages for neurodiverse learners. Short sentences, literal language, no Markdown, no preamble — return only the rewritten passage.",
+      `${instruction}\n\nPassage:\n${text}`,
+      600,
+      "plan"
+    );
+    if (!out) return NextResponse.json({ error: "The rewrite didn't come back. Try again." }, { status: 502 });
+    return NextResponse.json({ ok: true, text: out });
+  }
 
   // Guide sets a lesson's visibility (private or center) on one of their own.
   if (op === "setVisibility") {
@@ -84,4 +135,39 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ error: "unknown op" }, { status: 400 });
+}
+
+// A diagram or photo the guide attaches to a step.
+async function handleAssetUpload(req: NextRequest) {
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: "no user" }, { status: 401 });
+
+  const form = await req.formData();
+  const planId = String(form.get("planId") ?? "");
+  const file = form.get("file");
+  if (!(file instanceof File)) return NextResponse.json({ error: "No file received." }, { status: 400 });
+
+  const plan = await prisma.lessonPlan.findUnique({ where: { id: planId } });
+  if (!plan) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
+  if (plan.teacherId !== me.id && me.role !== "neurable_admin") {
+    return NextResponse.json({ error: "not your lesson" }, { status: 403 });
+  }
+  if (!file.type.startsWith("image/")) {
+    return NextResponse.json({ error: "Images only for lesson steps." }, { status: 400 });
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: "That image is too large — keep it under 8 MB." }, { status: 413 });
+  }
+
+  const saved = await saveUpload(file, `lessons/${planId}`);
+  const asset = await prisma.lessonAsset.create({
+    data: {
+      lessonId: planId,
+      filename: file.name || "image",
+      mimeType: file.type,
+      bytes: file.size,
+      path: saved.path,
+    },
+  });
+  return NextResponse.json({ ok: true, assetId: asset.id });
 }

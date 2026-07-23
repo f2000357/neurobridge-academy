@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import StepVideo from "./StepVideo";
+import StepEditor from "./StepEditor";
 import Link from "next/link";
 
 type WsItem = { question: string; answer: string };
@@ -14,6 +16,12 @@ export type Chunk = {
   seed_question?: string;
   seed_answer?: string;
   read_aloud?: boolean;
+  /** The guide edited this passage in preview: use it as written, don't regenerate. */
+  verbatim?: boolean;
+  /** An image the guide attached while previewing (LessonAsset id). */
+  imageAssetId?: string;
+  /** A video the guide added, by URL. */
+  videoUrl?: string;
 };
 
 type Lesson = { title: string; goal: string; why: string; durationMin: number; workUrl?: string };
@@ -67,6 +75,7 @@ export default function Player({
   initialTodayPoints = 0,
   preview = false,
   previewBackHref,
+  planId,
 }: {
   childId: string;
   dayHref?: string;
@@ -80,6 +89,8 @@ export default function Player({
   initialTodayPoints?: number;
   preview?: boolean;
   previewBackHref?: string;
+  /** Set in preview so the guide can fix a step where they spot the problem. */
+  planId?: string;
 }) {
   const steps = chunks.filter((c) => c.type !== "wrap_up");
 
@@ -103,6 +114,10 @@ export default function Player({
   );
   const [groundText, setGroundText] = useState<string>("");
   const [teachText, setTeachText] = useState<string>("");
+  // Preview-only: which step the guide is editing, and any edits made this visit
+  // so the preview reflects them without a reload.
+  const [editing, setEditing] = useState<number | null>(null);
+  const [edited, setEdited] = useState<Record<number, Chunk>>({});
   // Delivered text per reading step, so finished passages stay readable as cards.
   const [stepContent, setStepContent] = useState<string[]>(
     ir?.stepContent ?? steps.map(() => "")
@@ -297,6 +312,15 @@ export default function Player({
         saveResume({ phase: "deliver", stepIdx: idx });
         return;
       }
+      if (preview) {
+        // A guide previewing shouldn't have to sit an assessment. Show what the
+        // step will ask and let them step past it.
+        assessmentFor.current = idx;
+        setQuestion(null);
+        setFeedback(null);
+        saveResume({ phase: "deliver", stepIdx: idx });
+        return;
+      }
       assessmentFor.current = idx;
       setFeedback(null);
       setQuestion(null);
@@ -317,7 +341,15 @@ export default function Player({
     setAnswerInput("");
     // Stepping back to a step already delivered? Show the same words again,
     // instantly, rather than asking the tutor for new ones.
-    if (stepContent[idx]) setTeachText(stepContent[idx]);
+    if (chunk.verbatim && chunk.content) {
+      // The guide wrote these words themselves. Show them exactly.
+      setTeachText(chunk.content);
+      setStepContent((prev) => {
+        const n = prev.slice();
+        n[idx] = chunk.content ?? "";
+        return n;
+      });
+    } else if (stepContent[idx]) setTeachText(stepContent[idx]);
     else await fetchTeach(chunk, idx);
     saveResume({ phase: "deliver", stepIdx: idx });
   }
@@ -495,7 +527,7 @@ export default function Player({
     });
   }
 
-  const chunk = steps[stepIdx];
+  const chunk = edited[stepIdx] ?? steps[stepIdx];
   const isAssessment = chunk?.type === "worksheet";
   const isPinned = pinned.includes(stepIdx);
 
@@ -632,6 +664,25 @@ export default function Player({
                 </div>
               )}
 
+              {preview && planId && editing === stepIdx && (
+                <StepEditor
+                  planId={planId}
+                  index={stepIdx}
+                  chunk={chunk}
+                  currentText={teachText}
+                  onClose={() => setEditing(null)}
+                  onSaved={(next) => {
+                    setEdited((e) => ({ ...e, [stepIdx]: next }));
+                    setTeachText(next.content ?? "");
+                    setStepContent((prev) => {
+                      const n = prev.slice();
+                      n[stepIdx] = next.content ?? "";
+                      return n;
+                    });
+                    setEditing(null);
+                  }}
+                />
+              )}
               <div className="card lift tutor-bubble">
                 <div className="step-head">
                   <p className="eyebrow" style={{ margin: 0 }}>
@@ -642,11 +693,28 @@ export default function Player({
                       ← Back
                     </button>
                   )}
+                  {preview && planId && !isAssessment && (
+                    <button
+                      className="chip"
+                      onClick={() => setEditing(editing === stepIdx ? null : stepIdx)}
+                    >
+                      {editing === stepIdx ? "Close editor" : "✎ Edit this step"}
+                    </button>
+                  )}
                 </div>
 
                 {!isAssessment && (
                   <>
                     {chunk.visual === "fraction-bars" && <FractionBars />}
+                    {chunk.imageAssetId && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        className="step-image"
+                        src={`/api/asset/${chunk.imageAssetId}`}
+                        alt={chunk.title ? `Picture for ${chunk.title}` : "Picture for this step"}
+                      />
+                    )}
+                    {chunk.videoUrl && <StepVideo url={chunk.videoUrl} />}
                     <p className="passage">{busy ? "One moment…" : teachText}</p>
                     {hint && (
                       <p className="muted" style={{ fontSize: "0.85rem", margin: "0 0 4px" }}>
@@ -677,7 +745,23 @@ export default function Player({
                   </>
                 )}
 
-                {isAssessment && challengeIntro && (
+                {isAssessment && preview && (
+                  <div className="preview-assess">
+                    <p style={{ marginTop: 0 }}>
+                      This step is the check-in. {childName === "there" ? "The student" : childName} will
+                      answer {CORE_N} questions, then choose whether to try{" "}
+                      {CHAL_N} harder ones worth extra points.
+                    </p>
+                    <p className="muted" style={{ fontSize: "0.9rem" }}>
+                      You don&apos;t have to answer anything to preview a lesson.
+                    </p>
+                    <button className="btn" onClick={finishStep}>
+                      Skip the questions — next step →
+                    </button>
+                  </div>
+                )}
+
+                {isAssessment && !preview && challengeIntro && (
                   <div className="challenge-intro">
                     <p className="eyebrow" style={{ color: "var(--warm)" }}>
                       Bonus round
@@ -697,7 +781,7 @@ export default function Player({
                   </div>
                 )}
 
-                {isAssessment && !challengeIntro && (
+                {isAssessment && !preview && !challengeIntro && (
                   <>
                     <p className="muted" style={{ fontSize: "0.85rem", margin: 0 }}>
                       {round === "challenge" ? "🌟 Challenge" : "Question"} {qNum} of{" "}

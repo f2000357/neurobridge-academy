@@ -38,6 +38,7 @@ export default async function PreviewPage({
   return (
     <Player
       preview
+      planId={plan.id}
       previewBackHref={`/teacher/plans/${plan.id}`}
       childId={plan.childId ?? ""}
       childName={child?.name ?? "there"}

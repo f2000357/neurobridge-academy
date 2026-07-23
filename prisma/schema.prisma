@@ -313,6 +313,7 @@ model LessonPlan {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   slots     ScheduleSlot[]
+  assets       LessonAsset[]
 }
 
 model ScheduleSlot {
@@ -476,4 +477,18 @@ model TeacherMedia {
   path      String // relative to the uploads root
   caption   String      @default("")
   createdAt DateTime    @default(now())
+}
+
+// An image the guide added to a lesson while previewing it — a diagram, a photo
+// of a worked example, a picture that makes the idea land. Teaching material,
+// not a record about a child. Bytes on disk, pointer here.
+model LessonAsset {
+  id         String     @id @default(cuid())
+  lessonId   String
+  lesson     LessonPlan @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  filename   String
+  mimeType   String
+  bytes      Int        @default(0)
+  path       String // relative to the uploads root
+  createdAt  DateTime   @default(now())
 }
