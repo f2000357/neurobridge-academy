@@ -1,19 +1,23 @@
 /* NeuroBridge design system — calm, low-distraction, eucalyptus. */
 
 :root {
-  --bg: #f2f4ef;
-  --surface: #fbfcfa;
-  --surface-2: #ebeee8;
-  --ink: #2b322e;
-  --ink-soft: #5a655c;
-  --border: #dce1d8;
-  --accent: #43836f;
+  --bg: #f2f5f9;
+  --surface: #fbfcfe;
+  --surface-2: #e8eef4;
+  --ink: #17273a;
+  --ink-soft: #566577;
+  --border: #d7dee7;
+  /* Bridge Blue — brand tier: ocean blue + teal secondary, apricot for rewards */
+  --accent: #1e5f9e;
   --accent-ink: #ffffff;
-  --accent-soft: #e3ede8;
-  --warm: #c7824f;
-  --warm-soft: #f3e7da;
+  --accent-soft: #e0eaf3;
+  --coral: #2aa6a0;
+  --coral-soft: #d9efec;
+  --warm: #d6883b;
+  --warm-soft: #f7e8d3;
   --shadow: 0 1px 2px rgba(43, 50, 46, 0.04), 0 8px 24px rgba(43, 50, 46, 0.06);
   --radius: 16px;
+  --bridge-mark: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PGNpcmNsZSBjeD0iNyIgY3k9IjMwIiByPSI0IiBmaWxsPSJibGFjayIvPjxjaXJjbGUgY3g9IjMzIiBjeT0iMzAiIHI9IjQiIGZpbGw9ImJsYWNrIi8+PHBhdGggZD0iTTcgMzAgQSAyMCAyMCAwIDAgMSAzMyAzMCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIzLjIiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMjAgMTMgViAzMCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyLjQiLz48L3N2Zz4=");
   /* Calm, distinct hues so each subject reads at a glance. */
   --subj-math: #4f9a7a;
   --subj-reading: #5f8fc2;
@@ -23,16 +27,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #181d1b;
-    --surface: #212724;
-    --surface-2: #2a312d;
-    --ink: #e7ebe5;
-    --ink-soft: #a4aea6;
-    --border: #333c37;
-    --accent: #7db4a3;
-    --accent-ink: #10201a;
-    --accent-soft: #253430;
-    --warm: #dba477;
+    --bg: #121820;
+    --surface: #1a222c;
+    --surface-2: #222c38;
+    --ink: #e6ebf1;
+    --ink-soft: #a2adba;
+    --border: #2c3846;
+    --accent: #4f97d6;
+    --accent-ink: #07182a;
+    --accent-soft: #17293c;
+    --coral: #3fbdb4;
+    --coral-soft: #14322f;
+    --warm: #e3a765;
     --warm-soft: #33291f;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 10px 28px rgba(0, 0, 0, 0.28);
     --subj-math: #6bbd9b;
@@ -180,22 +186,19 @@ a:focus-visible {
   color: var(--ink);
 }
 
+/* The NeuroBridge mark: an arc bridging two nodes. Drawn via CSS mask so it
+   takes the brand colour (accent on light headers, white on coloured ones). */
 .brand .mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: var(--accent);
-  display: grid;
-  place-items: center;
+  width: 30px;
+  height: 30px;
   flex: none;
+  background: var(--accent);
+  -webkit-mask: var(--bridge-mark) center / contain no-repeat;
+  mask: var(--bridge-mark) center / contain no-repeat;
 }
 
 .brand .mark span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-ink);
-  display: block;
+  display: none;
 }
 
 /* Schedule strip (student Today view) */
@@ -1245,7 +1248,7 @@ select.field {
 }
 
 .parentbar {
-  background: linear-gradient(100deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #12403300));
+  background: linear-gradient(105deg, var(--accent) 52%, var(--coral));
   border-bottom: none;
 }
 
@@ -1257,7 +1260,7 @@ select.field {
 }
 
 .parent-hero {
-  background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #000 14%));
+  background: linear-gradient(120deg, var(--accent) 55%, var(--coral));
   border-radius: 20px;
   padding: 26px 26px 28px;
   margin-top: 8px;
