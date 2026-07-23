@@ -1935,3 +1935,11 @@ input[type="file"] {
   background: var(--warm-soft); border: 1px solid color-mix(in srgb, var(--warm) 35%, transparent);
   page-break-inside: avoid;
 }
+
+/* Move-learner panel (admin) */
+.move-panel {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  margin: 6px 0 0; padding: 12px 16px;
+  border: 1px solid var(--accent); border-top: none;
+  border-radius: 0 0 12px 12px; background: var(--accent-soft);
+}

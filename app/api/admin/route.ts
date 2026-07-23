@@ -51,5 +51,54 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, id: user.id });
   }
 
+  // Move a learner between centers, or out of a center to homeschool.
+  // All three cases are the same change: set the center (or null) and hand them
+  // to a guide who belongs in that scope. Their work follows automatically,
+  // because everything is keyed to the learner, not the center.
+  if (op === "moveLearner") {
+    const { childId, toCenterId, toGuideId } = body as {
+      childId: string;
+      toCenterId: string | null;
+      toGuideId: string;
+    };
+    const child = await prisma.child.findUnique({
+      where: { id: childId },
+      include: { center: { select: { name: true } }, teacher: { select: { name: true } } },
+    });
+    const toGuide = await prisma.user.findUnique({ where: { id: toGuideId } });
+    if (!child || !toGuide) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if (toGuide.role !== "guide") {
+      return NextResponse.json({ error: "Pick a guide to receive them." }, { status: 400 });
+    }
+    const target = toCenterId || null;
+    // The receiving guide must actually belong where the learner is going.
+    if ((toGuide.centerId ?? null) !== target) {
+      return NextResponse.json(
+        { error: "That guide isn't in the destination — pick a guide from there." },
+        { status: 400 }
+      );
+    }
+    if (target) {
+      const center = await prisma.center.findUnique({ where: { id: target } });
+      if (!center) return NextResponse.json({ error: "center not found" }, { status: 404 });
+    }
+
+    await prisma.child.update({
+      where: { id: childId },
+      data: { centerId: target, teacherId: toGuideId },
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorId: me.id,
+        actorName: me.name,
+        action: "move_learner",
+        detail:
+          `${child.name}: ${child.center?.name ?? "Homeschool"} (${child.teacher.name}) → ` +
+          `${target ? (await prisma.center.findUnique({ where: { id: target } }))?.name : "Homeschool"} (${toGuide.name})`,
+      },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ error: "unknown op" }, { status: 400 });
 }
