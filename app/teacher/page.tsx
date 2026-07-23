@@ -81,7 +81,7 @@ export default async function TeacherDashboard() {
               <p className="eyebrow" style={{ color: "var(--accent-ink)", opacity: 0.85 }}>
                 Guide portal
               </p>
-              <h1 style={{ color: "var(--accent-ink)" }}>Good day, {teacher.name}</h1>
+              <h1 style={{ color: "var(--accent-ink)" }}>Hello, {teacher.name}</h1>
               <p style={{ marginTop: 0, color: "var(--accent-ink)", opacity: 0.92 }}>
                 The AI handles today&apos;s lessons. Your time goes where it matters most.
               </p>

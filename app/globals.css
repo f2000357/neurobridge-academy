@@ -2031,3 +2031,38 @@ input[type="file"] {
   padding: 10px 12px;
   break-inside: avoid;
 }
+
+/* "How much longer?" — the child's day timer */
+.timeleft {
+  margin: 16px 0 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--warm-soft, #f4f1ea);
+}
+.timeleft-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.timeleft-row > * { flex: 0 0 auto; }
+.timeleft-main { font-weight: 600; }
+.timeleft-next {
+  color: var(--muted-ink, #6b6660);
+  font-size: 0.88rem;
+  margin-left: auto;
+}
+.timeleft-bar {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+}
+.timeleft-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #45906f);
+  transition: width 1s linear;
+}

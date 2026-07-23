@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { fmtMin, nowMin, todayStr } from "@/lib/time";
+import { todayStr } from "@/lib/time";
 import { ensureMondayTestFallback } from "@/lib/testing";
 import { subjectIcon, subjectKey, subjectLabel } from "@/lib/subjects";
 import { activityLabel } from "@/lib/activities";
 import KidLock from "./KidLock";
+import DayStrip, { type DaySlot } from "./DayStrip";
 import CodeGate from "./CodeGate";
 
 export const dynamic = "force-dynamic";
@@ -85,11 +86,8 @@ export default async function StudentToday({
 
   const homeworkDue = await prisma.homework.count({ where: { childId, status: "assigned" } });
 
-  const now = nowMin();
-  // "Now" = the current or next unfinished slot; the day flows top to bottom.
   const isClosed = (s: (typeof slots)[number]) =>
     s.sessions.some((sess) => sess.state === "closed");
-  const nowIdx = slots.findIndex((s) => !isClosed(s) && s.endMin > now);
 
   // The child sees the SUBJECT big (so they always know Math vs Reading …), with
   // the day's actual topic as a smaller line underneath.
@@ -109,6 +107,22 @@ export default async function StudentToday({
       subj: subjectKey(subject),
     };
   }
+
+  // Which block is "Now" is decided on the client, against a live clock — see
+  // DayStrip. The server sends the day's shape and what is already finished.
+  const daySlots: DaySlot[] = slots.map((slot) => {
+    const info = slotInfo(slot);
+    return {
+      id: slot.id,
+      kind: slot.kind,
+      startMin: slot.startMin,
+      endMin: slot.endMin,
+      main: info.main,
+      sub: info.sub,
+      subj: info.subj,
+      closed: isClosed(slot),
+    };
+  });
 
   return (
     <>
@@ -133,48 +147,7 @@ export default async function StudentToday({
             : "Here is your day. One thing at a time."}
         </p>
 
-        <div className="strip">
-          {slots.map((slot, i) => {
-            const isDone =
-              isClosed(slot) || (nowIdx === -1 ? slot.endMin <= now : i < nowIdx);
-            const isNow = i === nowIdx;
-            const isNext = i === nowIdx + 1 && nowIdx !== -1;
-            const info = slotInfo(slot);
-            return (
-              <div
-                key={slot.id}
-                className={`slot ${isDone ? "done" : ""} ${isNow ? "now" : ""} ${
-                  info.subj ? `subj-${info.subj}` : ""
-                }`}
-              >
-                <span className="time">
-                  {fmtMin(slot.startMin)} – {fmtMin(slot.endMin)}
-                </span>
-                <span className="name">
-                  <span className="subj">{info.main}</span>
-                  {info.sub && <span className="topic">{info.sub}</span>}
-                </span>
-                {isNow && <span className="badge now">Now</span>}
-                {isNext && <span className="badge next">Next</span>}
-                {isNow && slot.kind === "lesson" && (
-                  <Link href={`/student/${linkHandle}/session/${slot.id}`} className="btn">
-                    Start
-                  </Link>
-                )}
-                {isNow && slot.kind === "testing" && (
-                  <Link href={`/student/${linkHandle}/test/${slot.id}`} className="btn">
-                    Start
-                  </Link>
-                )}
-                {isDone && slot.kind === "lesson" && isClosed(slot) && (
-                  <Link href={`/student/${linkHandle}/summary/${slot.id}`} className="chip">
-                    See how I did →
-                  </Link>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <DayStrip slots={daySlots} linkHandle={linkHandle} />
 
         <Link
           href={`/student/${linkHandle}/homework`}
@@ -213,12 +186,6 @@ export default async function StudentToday({
           <span className="muted"> — for a grown-up</span>
         </p>
 
-        {nowIdx === -1 && slots.length > 0 && (
-          <div className="card" style={{ marginTop: 24, background: "var(--warm-soft)", border: "none" }}>
-            <strong>All done for today!</strong>{" "}
-            <span className="muted">You worked through your whole list. 🎉</span>
-          </div>
-        )}
       </main>
     </>
   );
