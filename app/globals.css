@@ -1906,3 +1906,12 @@ input[type="file"] {
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* Lesson step header: position + a way back one step */
+.step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}

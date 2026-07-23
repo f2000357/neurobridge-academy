@@ -124,6 +124,9 @@ export default function Player({
   const [answerInput, setAnswerInput] = useState("");
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null);
   const results = useRef<{ correct: boolean }[]>([]);
+  // Which step the in-progress assessment belongs to, so stepping back and
+  // forward again resumes it instead of starting over.
+  const assessmentFor = useRef<number | null>(null);
 
   // Points (calm running total for today)
   const [points, setPoints] = useState(ir?.points ?? 0);
@@ -283,21 +286,44 @@ export default function Player({
   async function startStep(idx: number) {
     setStepIdx(idx);
     setTeachText("");
-    setFeedback(null);
-    setQuestion(null);
-    setAnswerInput("");
+    setHint(null);
     const chunk = steps[idx];
+
     if (chunk.type === "worksheet") {
+      // Returning to an assessment already in progress (e.g. after stepping back
+      // to re-read): keep their place, points and answers instead of restarting.
+      if (assessmentFor.current === idx) {
+        if (!question) await loadQuestion(chunk, round, qNum);
+        saveResume({ phase: "deliver", stepIdx: idx });
+        return;
+      }
+      assessmentFor.current = idx;
+      setFeedback(null);
+      setQuestion(null);
+      setAnswerInput("");
       setRound("core");
       setQNum(1);
       setDifficulty(DIFF_START);
       results.current = [];
       await loadQuestion(chunk, "core", 1);
       saveResume({ phase: "deliver", stepIdx: idx, round: "core", qNum: 1 });
-    } else {
-      await fetchTeach(chunk, idx);
-      saveResume({ phase: "deliver", stepIdx: idx });
+      return;
     }
+
+    // Keep any in-progress question in state (it only renders during the
+    // assessment) so stepping back to re-read and returning lands on the same
+    // question rather than generating a new one.
+    setFeedback(null);
+    setAnswerInput("");
+    // Stepping back to a step already delivered? Show the same words again,
+    // instantly, rather than asking the tutor for new ones.
+    if (stepContent[idx]) setTeachText(stepContent[idx]);
+    else await fetchTeach(chunk, idx);
+    saveResume({ phase: "deliver", stepIdx: idx });
+  }
+
+  async function goBack() {
+    if (stepIdx > 0) await startStep(stepIdx - 1);
   }
 
   async function beginDeliver() {
@@ -484,7 +510,6 @@ export default function Player({
         (stepContent[i] || steps[i].content)
     );
   const pinnedRefs = refIndices.filter((i) => pinned.includes(i));
-  const belowRefs = refIndices.filter((i) => !pinned.includes(i));
 
   return (
     <div className="player">
@@ -608,9 +633,16 @@ export default function Player({
               )}
 
               <div className="card lift tutor-bubble">
-                <p className="eyebrow" style={{ marginBottom: 6 }}>
-                  Step {stepIdx + 1}: {stepLabel(chunk)}
-                </p>
+                <div className="step-head">
+                  <p className="eyebrow" style={{ margin: 0 }}>
+                    Step {stepIdx + 1} of {steps.length}: {stepLabel(chunk)}
+                  </p>
+                  {stepIdx > 0 && (
+                    <button className="chip" onClick={goBack} disabled={busy}>
+                      ← Back
+                    </button>
+                  )}
+                </div>
 
                 {!isAssessment && (
                   <>
@@ -709,23 +741,6 @@ export default function Player({
                   </>
                 )}
               </div>
-
-              {/* Everything read so far stays here as cards — nothing disappears. */}
-              {belowRefs.length > 0 && (
-                <div className="ref-stack">
-                  <p className="eyebrow ref-eyebrow">What we&apos;ve read</p>
-                  {belowRefs.map((i) => (
-                    <ReferenceCard
-                      key={`ref-${i}`}
-                      label={stepLabel(steps[i])}
-                      text={stepContent[i] || steps[i].content || ""}
-                      pinned={false}
-                      onTogglePin={() => togglePin(i)}
-                      onSpeak={speak}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           </section>
         )}
