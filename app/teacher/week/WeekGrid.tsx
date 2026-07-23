@@ -5,6 +5,7 @@ import Link from "next/link";
 import { addDaysStr, fmtMin, weekdayShort } from "@/lib/time";
 import { subjectKey, subjectLabel } from "@/lib/subjects";
 import { activityLabel } from "@/lib/activities";
+import { slotColor } from "@/lib/slotColor";
 
 type Slot = {
   id: string;
@@ -286,13 +287,16 @@ export default function WeekGrid({
 
       <div className="wg-legend" aria-hidden="true">
         {[
-          ["math", "Math"],
-          ["reading", "Reading"],
-          ["writing", "Writing"],
-          ["science", "Science"],
-        ].map(([k, label]) => (
-          <span key={k} className="wg-legend-item">
-            <span className={`wg-swatch subj-${k}`} />
+          ["Math", slotColor("lesson", "Math")],
+          ["Reading", slotColor("lesson", "ELA — Reading")],
+          ["Writing", slotColor("lesson", "ELA — Writing")],
+          ["Science", slotColor("lesson", "Science")],
+          ["Break", slotColor("break")],
+          ["Flexible", slotColor("flexible")],
+          ["Support", slotColor("service")],
+        ].map(([label, color]) => (
+          <span key={label} className="wg-legend-item">
+            <span className="wg-swatch" style={{ background: color }} />
             {label}
           </span>
         ))}

@@ -82,7 +82,7 @@ export default function DayStrip({
             <div
               key={slot.id}
               className={`slot ${isDone ? "done" : ""} ${isNow ? "now" : ""} ${
-                slot.subj ? `subj-${slot.subj}` : ""
+                slot.kind === "lesson" ? `subj-${slot.subj ?? "other"}` : `k-${slot.kind}`
               }`}
             >
               <span className="time">

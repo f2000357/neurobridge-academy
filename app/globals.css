@@ -273,6 +273,16 @@ a:focus-visible {
 .slot.subj-science {
   border-left: 5px solid var(--subj-science);
 }
+.slot.subj-other {
+  border-left: 5px solid var(--subj-other);
+}
+/* Non-lesson blocks get their own edge too — a break reads red. */
+.slot.k-break { border-left: 5px solid var(--slot-break); }
+.slot.k-flexible { border-left: 5px solid var(--slot-flex); }
+.slot.k-service { border-left: 5px solid var(--slot-service); }
+.slot.k-testing { border-left: 5px solid var(--slot-testing); }
+.slot.k-one_on_one { border-left: 5px solid var(--slot-oneonone); }
+.slot.k-free_time { border-left: 5px solid var(--slot-free); }
 
 .slot.done {
   opacity: 0.55;
