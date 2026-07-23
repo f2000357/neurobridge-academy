@@ -153,8 +153,8 @@ export async function POST(req: NextRequest) {
       `Build the lesson "${wl.title}" for ${child.name}. Subject ${wl.subject}, weekly focus "${wl.focus}", strand ${wl.topic}, standard ${wl.standardCode}. ` +
         `This is step ${wl.level} in a rising-difficulty week, so pitch it accordingly. ` +
         `Return JSON: {"goal","whyItMatters","standardCode","standardText","gradeLevel" ("K"-"12"),"chunks":[...]} with 3-6 chunks ending worksheet then wrap_up.`,
-      1600,
-      "plan"
+      4000,
+      "deep"
     );
 
     const chunks =

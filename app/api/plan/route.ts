@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
       `Design a lesson for ${grade}${strand}. Topic: "${topic}". Subject: "${subject}". Target length: about ${durationMin} minutes. ` +
         `Return JSON: {"title": "short lesson title", "goal": "one concrete thing the learner will be able to do", "whyItMatters": "one friendly sentence a child understands", "standardCode": "the NJSLS code, e.g. 3.NF.A.1", "standardText": "the standard in one plain sentence", "chunks": [ ... ]}. ` +
         `Use 3-6 chunks in a good order, including a worksheet assessment before the wrap_up.`,
-      1600,
-      "plan"
+      4000,
+      "deep"
     );
 
     if (!draft) {

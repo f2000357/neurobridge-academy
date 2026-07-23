@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
       "You design individualized homeschool programs for neurodiverse learners from their own documents (IEP, evaluations, strengths). Be specific, evidence-based, and encouraging. Plain text only. Keep each rationale to one sentence so the JSON stays compact.",
       instruction,
       docs,
-      4000
+      8000
     );
 
     if (!result || !Array.isArray(result.lessons)) {
@@ -208,8 +208,8 @@ export async function POST(req: NextRequest) {
       system,
       `Build the lesson "${proposed.title}" (subject ${proposed.subject}, Grade ${proposed.grade}, strand ${proposed.topic}) for ${child.name}. ` +
         `Return JSON: {"goal": "...", "whyItMatters": "...", "standardCode": "NJSLS code", "standardText": "...", "chunks": [ ... ]} with 3-6 chunks ending in a worksheet then wrap_up.`,
-      1600,
-      "plan"
+      4000,
+      "deep"
     );
 
     const chunks =

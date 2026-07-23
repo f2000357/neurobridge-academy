@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
       " Take your time. Press the button when you feel ready.";
     const text = await tutorText(
       system,
-      `Start the lesson grounding ritual. Lesson: "${title}". Goal: "${goal}". Why it matters: "${why}". Steps: ${JSON.stringify(steps)}. Duration: ${durationMin} minutes. Afterwards comes: "${after || "a break"}". In 3-5 short sentences: greet ${childName} warmly, say what we're doing and why, mention the visible steps and the time, and what comes after. End by inviting them to press "I'm ready" when they feel ready.`
+      `Start the lesson grounding ritual. Lesson: "${title}". Goal: "${goal}". Why it matters: "${why}". Steps: ${JSON.stringify(steps)}. Duration: ${durationMin} minutes. Afterwards comes: "${after || "a break"}". In 3-5 short sentences: greet ${childName} warmly, say what we're doing and why, mention the visible steps and the time, and what comes after. End by inviting them to press "I'm ready" when they feel ready.`,
+      800,
+      "plan"
     );
     return NextResponse.json({ text: text ?? fallback, ai: aiEnabled });
   }
@@ -57,10 +59,14 @@ export async function POST(req: NextRequest) {
       `You are teaching one small step of the lesson "${lessonTitle}" (goal: ${goal || "help the child learn"}). ` +
         `ALWAYS teach the child directly — NEVER say the step is missing a title or content, and NEVER ask for more information. ` +
         `If details are thin, teach the concept from the step title and the lesson goal. ` +
-        `Use AT MOST 3 very short sentences — one small idea only. ` +
+        `Actually TEACH it: use 3-6 short sentences on ONE idea. Give a concrete, worked example ` +
+        `(use their interests when it helps), then say what it means in plain words. Short sentences, ` +
+        `literal language, no walls of text. ` +
         (isVideo
           ? `This step is a short VIDEO. In 1-2 warm sentences, tell the child they will watch a short video and what it is about. Video description: "${chunk.videoNote || topic}".`
-          : `End with a gentle check like "Does that make sense?". Step title: "${chunk.title || topic}". Step notes: "${source}". Step type: ${chunk.type}.`)
+          : `End with a gentle check like "Does that make sense?". Step title: "${chunk.title || topic}". Step notes: "${source}". Step type: ${chunk.type}.`),
+      800,
+      "plan"
     );
     return NextResponse.json({ text: text ?? fallback, ai: aiEnabled });
   }
@@ -70,7 +76,9 @@ export async function POST(req: NextRequest) {
     const fallback = shorten(content, 2);
     const text = await tutorText(
       system,
-      `Rewrite this much simpler for ${childName}. Use AT MOST 2 very short sentences and the easiest words. Keep only the main idea: "${content}"`
+      `Rewrite this much simpler for ${childName}. Use 2-3 very short sentences and the easiest words. Keep the main idea and, if it helps, one tiny concrete example: "${content}"`,
+      600,
+      "plan"
     );
     return NextResponse.json({ text: text ?? fallback, ai: aiEnabled });
   }
@@ -89,7 +97,9 @@ export async function POST(req: NextRequest) {
       : `Create question ${questionNum} of ${totalQuestions} for the lesson "${lessonTitle}" (goal: ${goal}). Difficulty: ${levelWord}.`;
     const q = await tutorJson<WorksheetQ>(
       system,
-      `${ask} One short question with one short, definite answer. Keep the wording simple even when the concept is harder. JSON: {"question": "...", "answer": "..."}`
+      `${ask} One short question with one short, definite answer. Keep the wording simple even when the concept is harder. JSON: {"question": "...", "answer": "..."}`,
+      500,
+      "plan"
     );
     return NextResponse.json({ ...(q ?? fallbackQ), ai: aiEnabled });
   }

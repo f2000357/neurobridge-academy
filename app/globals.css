@@ -398,6 +398,9 @@ main.page {
   font-size: 1.08rem;
   line-height: 1.85;
   max-width: 46ch;
+  /* The tutor uses blank lines to break ideas apart — keep them so the text
+     reads as short chunks instead of one wall. */
+  white-space: pre-wrap;
 }
 
 /* Reference cards: finished passages that stay on the page to look back at. */
