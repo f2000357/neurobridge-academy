@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
-import { topicsFor } from "./njsls";
-import { subjectKey } from "./subjects";
+import { coverageFromNotes, mode, type CoverageNote, type SubjectCoverage } from "./coverage";
+import { getStandards } from "./standards";
 
 export type SubjectReport = {
   subject: string;
@@ -10,30 +10,6 @@ export type SubjectReport = {
   graded: number;
   standardsMastered: string[];
 };
-
-// Which grade-level strands the child's state expects, and how they're doing on
-// each. "not-started" is the gap a homeschool parent most needs to see.
-export type StrandStatus = "secure" | "practicing" | "needs-work" | "not-started";
-export type StrandCoverage = {
-  strand: string;
-  status: StrandStatus;
-  lessons: number;
-  avgScore: number | null;
-  standards: string[];
-};
-export type SubjectCoverage = {
-  subject: string;
-  strands: StrandCoverage[];
-};
-
-// The four subject lanes the app schedules against. `njsls` is the canonical
-// subject name used to look up strands for a grade.
-const COVERAGE_SUBJECTS = [
-  { label: "Math", njsls: "Math" },
-  { label: "ELA — Reading", njsls: "ELA — Reading" },
-  { label: "ELA — Writing", njsls: "ELA — Writing" },
-  { label: "Science / Social", njsls: "Science" },
-];
 
 export type ChildReport = {
   child: {
@@ -69,13 +45,6 @@ export function sinceForRange(range?: string): Date | undefined {
   return undefined;
 }
 export const rangeLabel = (range?: string) => (range === "term" ? "the last term (~120 days)" : "all time");
-
-const mode = (arr: string[]): string => {
-  if (arr.length === 0) return "";
-  const c: Record<string, number> = {};
-  for (const g of arr) c[g] = (c[g] ?? 0) + 1;
-  return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0];
-};
 
 const levelFor = (avg: number | null): SubjectReport["level"] => {
   if (avg == null) return "—";
@@ -126,9 +95,6 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
   const grades: string[] = [];
   const strengths: string[] = [];
   const struggles: string[] = [];
-  // Evidence per (subject lane + NJSLS strand), for the coverage map.
-  const byStrand = new Map<string, { scores: number[]; lessons: number; standards: Set<string> }>();
-
   for (const n of notes) {
     const lp = n.session.slot.lessonPlan;
     const subj = lp?.subject;
@@ -138,15 +104,6 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
       if (n.score != null) b.scores.push(n.score);
       if (n.masteryLevel === "proficient" && lp?.standardCode) b.mastered.add(lp.standardCode);
       bySubject.set(subj, b);
-
-      if (lp?.topic) {
-        const key = `${subjectKey(subj)}::${lp.topic}`;
-        const s = byStrand.get(key) ?? { scores: [], lessons: 0, standards: new Set<string>() };
-        s.lessons += 1;
-        if (n.score != null) s.scores.push(n.score);
-        if (lp.standardCode) s.standards.add(lp.standardCode);
-        byStrand.set(key, s);
-      }
     }
     if (n.workedWell?.trim() && strengths.length < 6) strengths.push(n.workedWell.trim());
     if (n.stuckOn?.trim() && struggles.length < 6) struggles.push(n.stuckOn.trim());
@@ -154,21 +111,12 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
 
   // What this grade is expected to cover, and where the evidence sits.
   const childGrade = mode(grades);
-  const coverage: SubjectCoverage[] = COVERAGE_SUBJECTS.map(({ label, njsls }) => ({
-    subject: label,
-    strands: topicsFor(njsls, childGrade).map((strand): StrandCoverage => {
-      const s = byStrand.get(`${subjectKey(label)}::${strand}`);
-      if (!s || s.lessons === 0) {
-        return { strand, status: "not-started", lessons: 0, avgScore: null, standards: [] };
-      }
-      const avg = s.scores.length
-        ? Math.round(s.scores.reduce((x, y) => x + y, 0) / s.scores.length)
-        : null;
-      const status: StrandStatus =
-        avg == null ? "practicing" : avg >= 80 ? "secure" : avg >= 50 ? "practicing" : "needs-work";
-      return { strand, status, lessons: s.lessons, avgScore: avg, standards: [...s.standards] };
-    }),
-  }));
+  const standards = getStandards(child.standardsCode);
+  const coverage: SubjectCoverage[] = coverageFromNotes(
+    notes as unknown as CoverageNote[],
+    childGrade,
+    standards.code
+  );
 
   const subjects: SubjectReport[] = [...bySubject.entries()].map(([subject, b]) => {
     const avg = b.scores.length ? Math.round(b.scores.reduce((x, y) => x + y, 0) / b.scores.length) : null;
@@ -208,7 +156,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     struggles: [...new Set(struggles)],
     lessonsCompleted: closedSessions,
     generatedAt: new Date().toISOString(),
-    standardsState: "NJ",
+    standardsState: standards.label, // e.g. "NJSLS" — swappable per learner
     coverage,
   };
 }

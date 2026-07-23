@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDaysStr } from "@/lib/time";
 import { tutorJson, aiEnabled } from "@/lib/ai";
+import { gatherCoverage, gapSummary } from "@/lib/coverage";
+import { getStandards } from "@/lib/standards";
 
 // Weekly plan generator. Layer 1 (subject/flexible blocks) is already on the
 // schedule; here we fill each subject with a focus + a difficulty ramp for the
@@ -66,21 +68,36 @@ export async function POST(req: NextRequest) {
     });
     const testScores: Record<string, number> = test ? JSON.parse(test.scores) : {};
 
-    const subjectsForPrompt = Array.from(bySubject.entries()).map(([subject, ss]) => ({
-      subject,
-      blocks: ss.length,
-      testScore: testScores[subject] ?? null,
-      recentScores: (mastery[subject] ?? []).slice(0, 5),
-    }));
+    // Which grade-level strands are still weak or untouched — the gaps this
+    // week should actually close, in whichever standards framework they follow.
+    const { grade: coverageGrade, coverage, standards } = await gatherCoverage(childId);
+    const gaps = gapSummary(coverage);
+    const gapBySubject = new Map(gaps.map((g) => [g.subject, g]));
+
+    const subjectsForPrompt = Array.from(bySubject.entries()).map(([subject, ss]) => {
+      const g = gapBySubject.get(subject);
+      return {
+        subject,
+        blocks: ss.length,
+        testScore: testScores[subject] ?? null,
+        recentScores: (mastery[subject] ?? []).slice(0, 5),
+        needsWork: g?.needsWork ?? [],
+        notStarted: g?.notStarted ?? [],
+        secure: g?.secure ?? [],
+      };
+    });
 
     const p = child.profile;
     const result = await tutorJson<{ subjects: SubjectPlan[] }>(
-      "You design a week of NJSLS-aligned lessons for a neurodiverse learner. For each subject, pick a focus and build a lesson for each of its blocks so the difficulty rises across the week (start where the child is; each lesson a small step harder). Plain, encouraging language.",
-      `Child: ${child.name}, age ${child.age ?? "?"}. Reading level: ${p?.readingLevel ?? "grade-3"}, math level: ${p?.mathLevel || "unknown"}. Interests: ${p?.interests || "unknown"}. ` +
-        (test ? `They took a check-in test — testScore per subject (% correct) is the MAIN signal for where to start: low = reteach fundamentals, high = push ahead. ` : "") +
-        `This week's subject blocks: ${JSON.stringify(subjectsForPrompt)} (testScore = this week's check-in %; recentScores = recent assessments). ` +
-        `For EACH subject, return a "focus" (the week's skill), a best-fit "standardCode" (NJSLS), and a "lessons" array with exactly one lesson per block, in order, difficulty rising. ` +
-        `Each lesson: {"title","topic" (NJSLS strand),"level" (1..N rising),"rationale" (one SHORT sentence: how it steps up)}. Keep rationales short so the JSON stays compact. ` +
+      `You design a week of ${standards.label}-aligned lessons for a neurodiverse learner. For each subject, pick a focus and build a lesson for each of its blocks so the difficulty rises across the week (start where the child is; each lesson a small step harder). Plain, encouraging language.`,
+      `Child: ${child.name}, age ${child.age ?? "?"}${coverageGrade ? `, working at grade ${coverageGrade}` : ""}. Reading level: ${p?.readingLevel ?? "grade-3"}, math level: ${p?.mathLevel || "unknown"}. Interests: ${p?.interests || "unknown"}. ` +
+        (test ? `They took a check-in test — testScore per subject (% correct) is a strong signal: low = reteach fundamentals, high = push ahead. ` : "") +
+        `This week's subject blocks: ${JSON.stringify(subjectsForPrompt)}. ` +
+        `CHOOSING THE FOCUS IS THE MOST IMPORTANT DECISION. For each subject, "needsWork" lists ${standards.label} strands the child scored below 50% on, "notStarted" lists grade-level strands with no work yet, and "secure" lists strands already at 80%+. ` +
+        `Pick the week's focus to CLOSE A REAL GAP: prefer a "needsWork" strand first, then a "notStarted" one. Do NOT pick a "secure" strand unless nothing else remains. ` +
+        `Set "topic" to the exact strand name you chose from those lists, and "standardCode" to a best-fit ${standards.label} code for it. ` +
+        `Return a "lessons" array with exactly one lesson per block, in order, difficulty rising. ` +
+        `Each lesson: {"title","topic" (the strand),"level" (1..N rising),"rationale" (one SHORT sentence saying which gap it closes)}. Keep rationales short so the JSON stays compact. ` +
         `JSON: {"subjects": [{"subject","focus","standardCode","lessons":[...]}]}`,
       5000,
       "plan"
@@ -132,8 +149,9 @@ export async function POST(req: NextRequest) {
     const child = wl.plan.child;
     const p = child.profile;
 
+    const std = getStandards(child.standardsCode);
     const system = [
-      "You design lesson plans for Neurable, a calm school for neurodiverse learners, aligned to NJSLS.",
+      `You design lesson plans for Neurable, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
       "Chunk types: read_text (content), visual (content + optional visual name), worksheet (items 3-5, seed_question, seed_answer), wrap_up.",
       "Include a worksheet assessment before one wrap_up. Plain text only, no Markdown.",
       p?.interests ? `Use the child's interests where natural: ${p.interests}.` : "",

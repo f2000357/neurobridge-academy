@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { gradeLabelShort } from "@/lib/map";
+import { getStandards } from "@/lib/standards";
 
 export type ChildForm = {
   childId: string;
@@ -327,7 +328,7 @@ export default function AdminChild({
                   </div>
                   {l.topic && (
                     <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
-                      NJSLS strand: {l.topic}
+                      {getStandards().label} strand: {l.topic}
                     </p>
                   )}
                   <p style={{ fontSize: "0.9rem", margin: "8px 0 12px" }}>{l.rationale}</p>

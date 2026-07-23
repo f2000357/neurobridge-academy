@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getStandards } from "@/lib/standards";
 import Link from "next/link";
-import { GRADES, SUBJECTS, gradeLabel, topicsFor } from "@/lib/njsls";
 
 export type Chunk = {
   type: "read_text" | "visual" | "video" | "worksheet" | "wrap_up";
@@ -34,6 +34,8 @@ export type PlanState = {
   visibility: string; // private | center | global
   chunks: Chunk[];
 };
+
+const STD = getStandards();
 
 const CHUNK_LABEL: Record<Chunk["type"], string> = {
   read_text: "Read-aloud text",
@@ -131,7 +133,7 @@ export default function Builder({
     }));
     setNote(
       data.standardCode
-        ? `Draft ready, aligned to NJSLS ${data.standardCode}. Read it over, edit anything, then save.`
+        ? `Draft ready, aligned to ${STD.label} ${data.standardCode}. Read it over, edit anything, then save.`
         : "Draft ready. Read it over, edit anything, then save."
     );
   }
@@ -209,7 +211,7 @@ export default function Builder({
                 }}
                 aria-label="Subject"
               >
-                {SUBJECTS.map((s) => (
+                {STD.subjects.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
@@ -225,9 +227,9 @@ export default function Builder({
                 aria-label="Grade"
               >
                 <option value="">Any grade</option>
-                {GRADES.map((g) => (
+                {STD.grades.map((g) => (
                   <option key={g} value={g}>
-                    {gradeLabel(g)}
+                    {STD.gradeLabel(g)}
                   </option>
                 ))}
               </select>
@@ -235,7 +237,7 @@ export default function Builder({
           </div>
           <div className="row">
             <label className="inline muted">
-              NJSLS strand
+              {STD.label} strand
               <select
                 className="field short"
                 value={plan.topic}
@@ -243,7 +245,7 @@ export default function Builder({
                 aria-label="Curriculum strand"
               >
                 <option value="">Any strand</option>
-                {topicsFor(plan.subject, plan.gradeLevel).map((t) => (
+                {STD.topicsFor(plan.subject, plan.gradeLevel).map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -309,7 +311,7 @@ export default function Builder({
         />
         <div className="row" style={{ marginTop: 14, alignItems: "flex-start" }}>
           <label className="inline muted" style={{ flex: "0 0 auto" }}>
-            NJSLS code
+            {STD.label} code
             <input
               className="field tiny"
               style={{ width: 120 }}

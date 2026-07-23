@@ -88,6 +88,8 @@ model Child {
   age       Int?
   accessCode String        @default("") // 8-digit code the child enters at their own link
   archived  Boolean        @default(false) // deactivated: hidden from rosters, no learner access
+  // Which standards framework this learner is held to (see lib/standards.ts).
+  standardsCode String     @default("NJ")
   points    Int            @default(0) // lifetime points collected (never goes down)
   pointsSpent Int          @default(0) // total redeemed on prizes; balance = points - pointsSpent
   pointEvents PointEvent[]

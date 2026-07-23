@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getStandards } from "@/lib/standards";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { todayStr, nextMonday } from "@/lib/time";
 
-// The weekly standardized check-in: a few NJSLS questions per subject. The
+// The weekly standardized check-in: a few standards-aligned questions per subject. The
 // per-subject scores become the strongest signal for next week's plan.
 
 type TQ = { subject: string; question: string; answer: string };
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     if (!aiEnabled) return NextResponse.json({ questions: fallback, ai: false });
 
     const result = await tutorJson<{ questions: TQ[] }>(
-      "You write a short standardized check-in (NJSLS-aligned) for a neurodiverse learner. Plain, clear questions with one short definite answer each.",
+      `You write a short standardized check-in (${getStandards(child.standardsCode).label}-aligned) for a neurodiverse learner. Plain, clear questions with one short definite answer each.`,
       `Child: ${child.name}. Reading level ${p?.readingLevel ?? "grade-3"}, math level ${p?.mathLevel || "grade-3"}. ` +
         `Write 2 questions for EACH of these subjects: ${useSubjects.join(", ")}. Grade-appropriate, one short answer each. ` +
         `JSON: {"questions":[{"subject","question","answer"}]}`,

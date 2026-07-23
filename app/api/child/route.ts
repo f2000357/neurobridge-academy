@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { planJsonFromDocs, tutorJson, aiEnabled, type DocInput } from "@/lib/ai";
 import { usernameFrom } from "@/lib/username";
+import { getStandards } from "@/lib/standards";
 
 // A friendly, unique URL handle from the child's name (append a number if taken).
 async function uniqueUsername(name: string, excludeId?: string): Promise<string> {
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
     }));
 
     const p = child.profile;
+    const std = getStandards(child.standardsCode);
     const instruction =
       `You are reviewing the attached documents about ${child.name}` +
       (child.age != null ? `, age ${child.age}` : "") +
@@ -127,10 +129,10 @@ export async function POST(req: NextRequest) {
       (p?.interests ? ` Interests: ${p.interests}.` : "") +
       (p?.iepNotes ? ` Extra notes from the guide: ${p.iepNotes}.` : "") +
       ` From what these documents say about this child's current levels, goals, strengths, and needs, ` +
-      `propose a starting program of 3-5 lessons aligned to the New Jersey Student Learning Standards (NJSLS). ` +
+      `propose a starting program of 3-5 lessons aligned to ${std.name} (${std.label}). ` +
       `Meet the child at the level the documents indicate — do not assume a grade that isn't supported by the documents. ` +
       `For each lesson give: subject (one of: Math, ELA — Reading, ELA — Writing, Science, Social Studies, Life skills), ` +
-      `grade ("K"-"12"), an NJSLS strand/topic, a short title, and a one-sentence rationale that references what the documents say. ` +
+      `grade ("K"-"12"), a ${std.label} strand/topic, a short title, and a one-sentence rationale that references what the documents say. ` +
       `JSON: {"summary": "2-3 sentences on the whole program and how it fits this child", ` +
       `"lessons": [{"subject": "...", "grade": "...", "topic": "...", "title": "...", "rationale": "..."}]}`;
 
@@ -186,10 +188,11 @@ export async function POST(req: NextRequest) {
     if (!proposed) return NextResponse.json({ error: "not found" }, { status: 404 });
     const child = proposed.proposal.child;
     const p = child.profile;
+    const std = getStandards(child.standardsCode);
 
     // Materialize the approved outline into a full, ready lesson.
     const system = [
-      "You design lesson plans for Neurable, a calm school for neurodiverse learners, aligned to NJSLS.",
+      `You design lesson plans for Neurable, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
       "Chunk types: read_text (content), visual (content + optional visual name), video (videoNote, no invented URL), worksheet (items, seed_question, seed_answer), wrap_up.",
       "Include a worksheet assessment as the second-to-last chunk, then one wrap_up. Plain text only, no Markdown.",
       p?.readingLevel ? `Reading level: ${p.readingLevel}.` : "",
@@ -207,7 +210,7 @@ export async function POST(req: NextRequest) {
     }>(
       system,
       `Build the lesson "${proposed.title}" (subject ${proposed.subject}, Grade ${proposed.grade}, strand ${proposed.topic}) for ${child.name}. ` +
-        `Return JSON: {"goal": "...", "whyItMatters": "...", "standardCode": "NJSLS code", "standardText": "...", "chunks": [ ... ]} with 3-6 chunks ending in a worksheet then wrap_up.`,
+        `Return JSON: {"goal": "...", "whyItMatters": "...", "standardCode": "${std.label} code", "standardText": "...", "chunks": [ ... ]} with 3-6 chunks ending in a worksheet then wrap_up.`,
       4000,
       "deep"
     );
