@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { gradeLabelShort } from "@/lib/map";
 import { getStandards } from "@/lib/standards";
+import InterestBlocks, { type InterestRow } from "./InterestBlocks";
 
 export type ChildForm = {
   childId: string;
@@ -45,11 +46,13 @@ export default function AdminChild({
   documents,
   proposal,
   homework = [],
+  interestBlocks = [],
 }: {
   initial: ChildForm;
   documents: DocMeta[];
   proposal: Proposal | null;
   homework?: HwRow[];
+  interestBlocks?: InterestRow[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<ChildForm>(initial);
@@ -212,6 +215,12 @@ export default function AdminChild({
           </button>
         </div>
       </div>
+
+      <InterestBlocks
+        childId={form.childId}
+        childName={form.name}
+        initial={interestBlocks}
+      />
 
       {/* Child's private sign-in */}
       <div className="card" style={{ marginTop: 16 }}>

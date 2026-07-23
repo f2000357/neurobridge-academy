@@ -98,12 +98,28 @@ model Child {
   absences    Absence[]
   weeklyTests WeeklyTest[]
   redemptions Redemption[]
+  interestBlocks ChildInterest[]
   // The "IEP for the AI" — everything the AI must know to serve this child.
   profile   ChildProfile?
   slots     ScheduleSlot[]
   sessions  Session[]
   documents ChildDocument[]
   proposals ProgramProposal[]
+}
+
+// A special interest the family wants protected time for each week.
+// "2 sessions x 2 slots" = twice a week, two 30-minute blocks each.
+model ChildInterest {
+  id              String   @id @default(cuid())
+  childId         String
+  child           Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  activity        String   // an id from ELECTIVES in lib/activities.ts
+  sessionsPerWeek Int      @default(1)
+  slotsPerSession Int      @default(1)
+  backToBack      Boolean  @default(true) // keep a session's slots contiguous
+  createdAt       DateTime @default(now())
+
+  @@unique([childId, activity])
 }
 
 // Uploaded source material (IEP, strengths list, evaluation, …). The AI reads

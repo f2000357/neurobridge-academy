@@ -180,6 +180,31 @@ export default function WeekGrid({
     );
   }
 
+  // Plant the family's chosen interest blocks into this week's free afternoons.
+  async function placeInterests() {
+    setNote(null);
+    setBusy(true);
+    const res = await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "placeInterests", childId, weekStart: monday }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (data.error) {
+      setNote(data.error);
+      return;
+    }
+    if (data.added === 0) {
+      setNote(data.note ?? "Nothing to place.");
+      return;
+    }
+    setNote(
+      `Added ${data.added} interest block${data.added === 1 ? "" : "s"}. Drag them anywhere, or remove any you don't want.`
+    );
+    void refetch(childId, weekDates);
+  }
+
   const hours: number[] = [];
   for (let m = DAY_START; m <= DAY_END; m += 60) hours.push(m);
   const gridHeight = (DAY_END - DAY_START) * PX_PER_MIN;
@@ -241,6 +266,14 @@ export default function WeekGrid({
           </span>
           <button className="btn quiet" onClick={repeatWeek} disabled={busy}>
             Repeat week →
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 8, justifyContent: "flex-end", gap: 8 }}>
+          <span className="muted" style={{ fontSize: "0.85rem" }}>
+            Suggest this child&apos;s interest blocks in the free afternoons
+          </span>
+          <button className="btn quiet" onClick={placeInterests} disabled={busy}>
+            Add interest blocks →
           </button>
         </div>
       </div>

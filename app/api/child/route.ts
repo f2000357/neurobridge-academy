@@ -88,6 +88,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // The family's special-interest blocks: what, how often, how long, together?
+  if (op === "setInterests") {
+    const { childId, interests } = body as {
+      childId: string;
+      interests: {
+        activity: string;
+        sessionsPerWeek: number;
+        slotsPerSession: number;
+        backToBack: boolean;
+      }[];
+    };
+    await prisma.childInterest.deleteMany({ where: { childId } });
+    const clean = (interests ?? [])
+      .filter((i) => i.activity)
+      .map((i) => ({
+        childId,
+        activity: i.activity,
+        sessionsPerWeek: Math.max(1, Math.min(5, Number(i.sessionsPerWeek) || 1)),
+        slotsPerSession: Math.max(1, Math.min(4, Number(i.slotsPerSession) || 1)),
+        backToBack: Boolean(i.backToBack),
+      }));
+    if (clean.length) await prisma.childInterest.createMany({ data: clean });
+    return NextResponse.json({ ok: true, count: clean.length });
+  }
+
   if (op === "removeDocument") {
     await prisma.childDocument.delete({ where: { id: body.documentId } });
     return NextResponse.json({ ok: true });

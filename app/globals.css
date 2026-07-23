@@ -1943,3 +1943,19 @@ input[type="file"] {
   border: 1px solid var(--accent); border-top: none;
   border-radius: 0 0 12px 12px; background: var(--accent-soft);
 }
+
+/* Special interest blocks (child profile) */
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-wrap > * { flex: 0 0 auto; }
+.interest-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e3e0d8);
+  border-radius: 10px;
+}
+.interest-row > * { flex: 0 0 auto; }
+.interest-name { font-weight: 600; min-width: 190px; }
+.interest-sum { margin-left: auto; }

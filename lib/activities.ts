@@ -13,9 +13,14 @@ export type Activity = {
 
 export const ELECTIVES: Activity[] = [
   { id: "xr_movement", label: "Physical activity with XR", emoji: "🥽" },
+  { id: "vr", label: "VR", emoji: "🕶️" },
   { id: "scratch", label: "Game programming / Scratch", emoji: "💻" },
+  { id: "computer_games", label: "Computer games", emoji: "🎮" },
   { id: "experiments", label: "Science experiments", emoji: "🔬" },
   { id: "music", label: "Music", emoji: "🎵" },
+  { id: "art", label: "Art", emoji: "🎨" },
+  { id: "sports", label: "Sports", emoji: "🏅" },
+  { id: "swimming", label: "Swimming", emoji: "🏊" },
   { id: "outdoor", label: "Outdoor games", emoji: "⚽" },
   { id: "library", label: "Trip to the library", emoji: "📚", blocks: 2 },
   { id: "chess", label: "Chess / Carrom", emoji: "♟️" },

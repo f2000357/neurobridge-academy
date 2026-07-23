@@ -16,6 +16,7 @@ export default async function ChildAdminPage({
       profile: true,
       documents: { orderBy: { createdAt: "asc" } },
       proposals: { include: { lessons: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      interestBlocks: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!child) {
@@ -70,5 +71,20 @@ export default async function ChildAdminPage({
     select: { id: true, title: true, dueDate: true, status: true, score: true },
   });
 
-  return <AdminChild initial={form} documents={documents} proposal={proposal} homework={homework} />;
+  const interestBlocks = child.interestBlocks.map((i) => ({
+    activity: i.activity,
+    sessionsPerWeek: i.sessionsPerWeek,
+    slotsPerSession: i.slotsPerSession,
+    backToBack: i.backToBack,
+  }));
+
+  return (
+    <AdminChild
+      initial={form}
+      documents={documents}
+      proposal={proposal}
+      homework={homework}
+      interestBlocks={interestBlocks}
+    />
+  );
 }

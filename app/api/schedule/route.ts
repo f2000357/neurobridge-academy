@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { planInterestBlocks } from "@/lib/interestBlocks";
 
 // Teacher scheduling: place plans (and breaks/flexible/1:1) onto a child's day.
 
@@ -68,6 +69,31 @@ export async function POST(req: NextRequest) {
     }
     await prisma.scheduleSlot.update({ where: { id }, data: { date, startMin, endMin } });
     return NextResponse.json({ ok: true });
+  }
+
+  // Drop this child's special-interest blocks into a week. Afternoon-first so
+  // mornings stay academic; the guide can move or cancel any of them after.
+  if (op === "placeInterests") {
+    const { childId, weekStart } = body as { childId: string; weekStart: string };
+    const placed = await planInterestBlocks(childId, weekStart);
+    if (placed.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        added: 0,
+        note: "Nothing to place — either no interests are set, or the week is full.",
+      });
+    }
+    await prisma.scheduleSlot.createMany({
+      data: placed.map((p) => ({
+        childId,
+        date: p.date,
+        kind: "flexible",
+        activity: p.activity,
+        startMin: p.startMin,
+        endMin: p.endMin,
+      })),
+    });
+    return NextResponse.json({ ok: true, added: placed.length });
   }
 
   if (op === "add") {
