@@ -23,6 +23,14 @@
   --subj-reading: #5f8fc2;
   --subj-writing: #9b7bb5;
   --subj-science: #c78a4c;
+  --subj-other: #6b7a86;
+  /* Non-lesson block kinds — each its own colour; a break reads red. */
+  --slot-break: #cf5b4e;
+  --slot-flex: #d6883b;
+  --slot-service: #2f9c95;
+  --slot-testing: #5f6bc4;
+  --slot-oneonone: #c56b8a;
+  --slot-free: #8a9299;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +53,13 @@
     --subj-reading: #7fa9d8;
     --subj-writing: #b596cd;
     --subj-science: #d9a566;
+    --subj-other: #8695a2;
+    --slot-break: #e07469;
+    --slot-flex: #e3a765;
+    --slot-service: #45b6ad;
+    --slot-testing: #838ce0;
+    --slot-oneonone: #db8aa6;
+    --slot-free: #97a1ab;
   }
 }
 
@@ -983,25 +998,35 @@ select.field {
 }
 
 /* Slot-type accents */
-.wg-block.k-lesson {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+/* Non-lesson kinds — each its own colour (tinted fill + matching left edge). */
+.wg-block.k-lesson { background: var(--accent-soft); border-color: var(--accent); }
+.wg-block.k-lesson.subj-other {
+  background: color-mix(in srgb, var(--subj-other) 16%, var(--surface));
+  border-color: var(--subj-other);
 }
 .wg-block.k-flexible {
-  background: var(--warm-soft);
-  border-color: var(--warm);
+  background: color-mix(in srgb, var(--slot-flex) 16%, var(--surface));
+  border-color: var(--slot-flex);
 }
 .wg-block.k-break {
-  background: var(--surface-2);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--slot-break) 16%, var(--surface));
+  border-color: var(--slot-break);
+}
+.wg-block.k-service {
+  background: color-mix(in srgb, var(--slot-service) 16%, var(--surface));
+  border-color: var(--slot-service);
+}
+.wg-block.k-testing {
+  background: color-mix(in srgb, var(--slot-testing) 16%, var(--surface));
+  border-color: var(--slot-testing);
 }
 .wg-block.k-one_on_one {
-  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--slot-oneonone) 16%, var(--surface));
+  border-color: var(--slot-oneonone);
 }
 .wg-block.k-free_time {
-  background: var(--surface-2);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--slot-free) 15%, var(--surface));
+  border-color: var(--slot-free);
 }
 
 @media (max-width: 720px) {
