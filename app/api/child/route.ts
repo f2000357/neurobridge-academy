@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { planJsonFromDocs, tutorJson, aiEnabled, type DocInput } from "@/lib/ai";
 import { usernameFrom } from "@/lib/username";
 import { getStandards } from "@/lib/standards";
+import { guardOperate, guardOperatorPresent } from "@/lib/authz";
 
 // A friendly, unique URL handle from the child's name (append a number if taken).
 async function uniqueUsername(name: string, excludeId?: string): Promise<string> {
@@ -39,6 +40,33 @@ export async function POST(req: NextRequest) {
   const { op } = body as { op: string };
 
   const newCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
+
+  // Authorization: "create" makes a new child under the current guide; every
+  // other op targets an existing child — directly, or via a document / proposed
+  // lesson we resolve back to its child. The caller must be able to operate it.
+  if (op === "create") {
+    const denied = await guardOperatorPresent();
+    if (denied) return denied;
+  } else {
+    let targetChildId: string | undefined = body.childId;
+    if (!targetChildId && body.documentId) {
+      const d = await prisma.childDocument.findUnique({
+        where: { id: body.documentId },
+        select: { childId: true },
+      });
+      targetChildId = d?.childId;
+    }
+    if (!targetChildId && body.proposedLessonId) {
+      const pl = await prisma.proposedLesson.findUnique({
+        where: { id: body.proposedLessonId },
+        select: { proposal: { select: { childId: true } } },
+      });
+      targetChildId = pl?.proposal.childId;
+    }
+    if (!targetChildId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+    const denied = await guardOperate(targetChildId);
+    if (denied) return denied;
+  }
 
   if (op === "create") {
     const teacher = await getCurrentUser();

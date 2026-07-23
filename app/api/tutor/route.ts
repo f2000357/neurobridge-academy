@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tutorSystem, tutorText, tutorJson, aiEnabled } from "@/lib/ai";
+import { guardSession, guardOperatorPresent } from "@/lib/authz";
 
 // One endpoint for all in-lesson tutor operations. Every op degrades to a
 // calm scripted fallback when no API key is configured, so the app always works.
@@ -20,6 +21,12 @@ function shorten(text: string, maxSentences = 3): string {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op, childId } = body as { op: string; childId: string };
+
+  // Authorization: a real child session must belong to the child or their
+  // operator; a generic preview (no childId) at least needs a signed-in operator
+  // so the AI can't be driven anonymously.
+  const denied = childId ? await guardSession(childId) : await guardOperatorPresent();
+  if (denied) return denied;
 
   // childId may be absent (previewing a shared lesson): fall back to a generic student.
   const child = childId

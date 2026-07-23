@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { newTeacherCode } from "@/lib/specialists";
+import { guardOperate } from "@/lib/authz";
 
 // Managing visiting specialists. Anyone may add one — a center admin, or a
 // homeschool parent who hired a piano teacher. The code itself is never
@@ -66,6 +67,9 @@ export async function POST(req: NextRequest) {
       childId: string;
       subject?: string;
     };
+    // You can only assign a specialist to a learner you manage.
+    const denied = await guardOperate(childId);
+    if (denied) return denied;
     const teacher = await prisma.specialistTeacher.findUnique({ where: { id: teacherId } });
     if (!teacher) return NextResponse.json({ error: "teacher not found" }, { status: 404 });
     await prisma.teacherAssignment.upsert({
@@ -79,6 +83,8 @@ export async function POST(req: NextRequest) {
   // Removing the grant. Notes they wrote stay — those are the learner's record.
   if (op === "unassign") {
     const { teacherId, childId } = body as { teacherId: string; childId: string };
+    const denied = await guardOperate(childId);
+    if (denied) return denied;
     await prisma.teacherAssignment.deleteMany({ where: { teacherId, childId } });
     const child = await prisma.child.findUnique({ where: { id: childId }, select: { name: true } });
     await prisma.auditLog.create({

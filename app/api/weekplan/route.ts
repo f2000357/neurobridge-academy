@@ -4,6 +4,7 @@ import { addDaysStr } from "@/lib/time";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { gatherCoverage, gapSummary } from "@/lib/coverage";
 import { getStandards } from "@/lib/standards";
+import { guardOperate } from "@/lib/authz";
 
 // Weekly plan generator. Layer 1 (subject/flexible blocks) is already on the
 // schedule; here we fill each subject with a focus + a difficulty ramp for the
@@ -19,6 +20,27 @@ type SubjectPlan = {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op } = body as { op: string };
+
+  // Authorization: resolve the child this op plans for — directly (generate),
+  // via the weekly plan (approve), or via the weekly lesson (materializeOne).
+  let targetChildId: string | undefined = body.childId;
+  if (!targetChildId && body.planId) {
+    const wp = await prisma.weeklyPlan.findUnique({
+      where: { id: body.planId },
+      select: { childId: true },
+    });
+    targetChildId = wp?.childId;
+  }
+  if (!targetChildId && body.weeklyLessonId) {
+    const wl = await prisma.weeklyLesson.findUnique({
+      where: { id: body.weeklyLessonId },
+      select: { plan: { select: { childId: true } } },
+    });
+    targetChildId = wl?.plan.childId;
+  }
+  if (!targetChildId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+  const denied = await guardOperate(targetChildId);
+  if (denied) return denied;
 
   if (op === "generate") {
     const { childId, weekStart } = body as { childId: string; weekStart: string };

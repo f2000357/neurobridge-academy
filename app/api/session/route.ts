@@ -4,12 +4,24 @@ import { getStandards } from "@/lib/standards";
 import { tutorJson } from "@/lib/ai";
 import { todayStr, nextMonday } from "@/lib/time";
 import { nextGrade } from "@/lib/njsls";
+import { guardSession } from "@/lib/authz";
 
 // Session lifecycle + the ambient evaluation stream.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op, sessionId } = body as { op: string; sessionId: string };
+
+  // Authorization: resolve the child this op touches (directly, or via the
+  // session it names) and require the child themselves or their operator.
+  let targetChildId: string | undefined = body.childId;
+  if (!targetChildId && sessionId) {
+    const s = await prisma.session.findUnique({ where: { id: sessionId }, select: { childId: true } });
+    targetChildId = s?.childId;
+  }
+  if (!targetChildId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+  const denied = await guardSession(targetChildId);
+  if (denied) return denied;
 
   // Persist a resume snapshot so a closed/reopened browser lands in the same spot.
   if (op === "resume") {

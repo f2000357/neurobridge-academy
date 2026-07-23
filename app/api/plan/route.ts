@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getStandards, DEFAULT_STANDARDS } from "@/lib/standards";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
+import { guardOperate, guardOperatorPresent } from "@/lib/authz";
 
 // The teacher's lesson builder backend: draft a plan with AI, then persist it.
 
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
 
   if (op === "generate") {
     const { topic, subject, durationMin, childId, gradeLevel, curriculumTopic } = body;
+
+    // A child-specific draft must be for a learner you manage; a generic draft
+    // just needs a signed-in operator (it isn't tied to anyone yet).
+    const denied = childId ? await guardOperate(childId) : await guardOperatorPresent();
+    if (denied) return denied;
 
     // Personalize to the target child, if one is chosen (including which
     // standards framework they follow).
@@ -108,6 +114,21 @@ export async function POST(req: NextRequest) {
     } = body;
     const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
+
+    // Editing an existing plan: it must be yours (or you're Neurable admin) —
+    // otherwise the update below would silently reassign it to you.
+    if (id) {
+      const existing = await prisma.lessonPlan.findUnique({ where: { id }, select: { teacherId: true } });
+      if (!existing) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
+      if (existing.teacherId !== teacher.id && teacher.role !== "neurable_admin") {
+        return NextResponse.json({ error: "not your lesson" }, { status: 403 });
+      }
+    }
+    // A child-specific lesson must be for a learner you manage.
+    if (childId) {
+      const denied = await guardOperate(childId);
+      if (denied) return denied;
+    }
 
     // Guides set private or center; a Neurable admin can author global directly.
     const allowed = teacher.role === "neurable_admin"

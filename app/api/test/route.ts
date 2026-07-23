@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getStandards } from "@/lib/standards";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { todayStr, nextMonday } from "@/lib/time";
+import { guardSession } from "@/lib/authz";
 
 // The weekly standardized check-in: a few standards-aligned questions per subject. The
 // per-subject scores become the strongest signal for next week's plan.
@@ -14,6 +15,11 @@ const DEFAULT_SUBJECTS = ["Math", "ELA — Reading", "ELA — Writing", "Science
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op } = body as { op: string };
+
+  // Both ops name the child; require the child themselves or their operator.
+  if (!body.childId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+  const denied = await guardSession(body.childId);
+  if (denied) return denied;
 
   if (op === "generate") {
     const { childId } = body;

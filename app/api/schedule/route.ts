@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { planInterestBlocks } from "@/lib/interestBlocks";
+import { guardOperate } from "@/lib/authz";
 
 // Teacher scheduling: place plans (and breaks/flexible/1:1) onto a child's day.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op } = body as { op: string };
+
+  // Authorization: every op targets one child — directly via childId, or via a
+  // slot id we resolve back to its child. The caller must be able to operate it.
+  let targetChildId: string | undefined = body.childId;
+  if (!targetChildId && body.id) {
+    const slot = await prisma.scheduleSlot.findUnique({
+      where: { id: body.id },
+      select: { childId: true },
+    });
+    targetChildId = slot?.childId;
+  }
+  if (!targetChildId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+  const denied = await guardOperate(targetChildId);
+  if (denied) return denied;
 
   if (op === "list") {
     const { childId, date } = body;
