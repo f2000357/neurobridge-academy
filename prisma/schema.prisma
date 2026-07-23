@@ -31,9 +31,20 @@ model User {
   centerId    String?
   center      Center?      @relation(fields: [centerId], references: [id])
   pin         String       @default("2468") // parental gate to exit a child's locked session
+  ixlUrl      String       @default("") // guide's own IXL account link (a reference, not credentials)
   children    Child[]      // learners this user guides (role=guide)
   lessonPlans LessonPlan[] // lessons this user authored
   rewards     Reward[]
+}
+
+// Audit trail for admin-level actions (learner transfers, lesson promotions).
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorName String
+  action    String   // transfer_learner | promote_lesson | create_user | create_center
+  detail    String   @default("")
+  createdAt DateTime @default(now())
 }
 
 // A prize the guide offers in exchange for points (school or home reward).
@@ -68,12 +79,15 @@ model Child {
   // one-field change; all the learner's data below is keyed to childId, not this.
   teacherId String
   teacher   User           @relation(fields: [teacherId], references: [id])
-  centerId  String
-  center    Center         @relation(fields: [centerId], references: [id])
+  // Optional: a pure homeschool parent has no center. Association with a center
+  // happens later through a separate intake process.
+  centerId  String?
+  center    Center?        @relation(fields: [centerId], references: [id])
   name      String
   username  String?        @unique // friendly URL handle, e.g. "paiyer" for Prithvi Aiyer
   age       Int?
   accessCode String        @default("") // 8-digit code the child enters at their own link
+  archived  Boolean        @default(false) // deactivated: hidden from rosters, no learner access
   points    Int            @default(0) // lifetime points collected (never goes down)
   pointsSpent Int          @default(0) // total redeemed on prizes; balance = points - pointsSpent
   pointEvents PointEvent[]
@@ -206,7 +220,7 @@ model Homework {
 model ChildProfile {
   id      String @id @default(cuid())
   childId String @unique
-  child   Child  @relation(fields: [childId], references: [id])
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
 
   // Communication
   readingLevel   String @default("grade-3") // working level, e.g. "grade-3" (adjusted from MAP)
@@ -252,6 +266,10 @@ model LessonPlan {
   // Who can find & reuse it: private (author + the child's current guide) |
   // center (same-center guides) | global (all centers).
   visibility String        @default("private")
+  // A guide can nominate a center lesson for the global shelf; an admin promotes it.
+  submittedForGlobal Boolean @default(false)
+  // If this lesson was copied from a shared one, the source id (provenance).
+  copiedFromId String?
   // Customized program: a plan designed for one child. Null = shared library plan,
   // still personalized at delivery time via the child's profile.
   childId   String?
@@ -264,6 +282,9 @@ model LessonPlan {
   standardText String       @default("") // human-readable standard description
   goal      String
   whyItMatters String      @default("")
+  // Optional link to practice on an external tool (e.g. an IXL skill URL). A pointer
+  // only — no points or completion are tracked from it.
+  workUrl   String         @default("")
   // Ordered chunk list: video | visual | read_text | worksheet | wrap_up (JSON)
   chunks    String
   durationMin Int          @default(25)
@@ -277,7 +298,7 @@ model LessonPlan {
 model ScheduleSlot {
   id           String      @id @default(cuid())
   childId      String
-  child        Child       @relation(fields: [childId], references: [id])
+  child        Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
   lessonPlanId String?
   lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
   kind         String      @default("lesson") // lesson | one_on_one | break | free_time
@@ -292,9 +313,9 @@ model ScheduleSlot {
 model Session {
   id            String       @id @default(cuid())
   slotId        String
-  slot          ScheduleSlot @relation(fields: [slotId], references: [id])
+  slot          ScheduleSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
   childId       String
-  child         Child        @relation(fields: [childId], references: [id])
+  child         Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
   origin        String       @default("scheduled") // scheduled | relaunch | guided_replay
   state         String       @default("arrived") // arrived | grounded | delivering | checking | closed
   chunkProgress String       @default("[]")      // JSON: per-chunk completion

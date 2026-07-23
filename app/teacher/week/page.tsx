@@ -2,11 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { addDaysStr, mondayOfStr, todayStr } from "@/lib/time";
 import WeekGrid from "./WeekGrid";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function WeekPage() {
-  const teacher = await prisma.user.findFirst({ include: { children: true } });
+  const teacher = await getCurrentUser({ include: { children: true } });
   if (!teacher || teacher.children.length === 0) {
     return (
       <main className="page wrap">

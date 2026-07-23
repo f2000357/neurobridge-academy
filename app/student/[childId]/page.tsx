@@ -21,7 +21,7 @@ export default async function StudentToday({
     include: { profile: true },
   });
 
-  if (!child) {
+  if (!child || child.archived) {
     return (
       <main className="page wrap">
         <h1>Hmm, we couldn&apos;t find you</h1>
@@ -203,6 +203,11 @@ export default async function StudentToday({
             ⭐ {child.points - child.pointsSpent}
           </span>
         </Link>
+
+        <p className="grownup-link">
+          <Link href={`/report/${linkHandle}`}>📊 Progress report</Link>
+          <span className="muted"> — for a grown-up</span>
+        </p>
 
         {nowIdx === -1 && slots.length > 0 && (
           <div className="card" style={{ marginTop: 24, background: "var(--warm-soft)", border: "none" }}>

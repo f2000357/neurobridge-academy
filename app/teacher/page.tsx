@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { fmtMin, todayStr } from "@/lib/time";
+import { todayStr } from "@/lib/time";
+import { getCurrentUser } from "@/lib/auth";
+import TodayCalendar from "./TodayCalendar";
+import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherDashboard() {
-  const teacher = await prisma.user.findFirst({
+  const teacher = await getCurrentUser({
     include: {
-      children: { include: { profile: true } },
-      lessonPlans: { orderBy: { updatedAt: "desc" } },
+      children: { where: { archived: false }, include: { profile: true } },
     },
   });
 
@@ -23,22 +25,53 @@ export default async function TeacherDashboard() {
     );
   }
 
+  const kidIds = teacher.children.map((c) => c.id);
   const date = todayStr();
-  const slots = await prisma.scheduleSlot.findMany({
-    where: { date, childId: { in: teacher.children.map((c) => c.id) } },
-    include: { lessonPlan: true, child: true, sessions: true },
-    orderBy: { startMin: "asc" },
-  });
 
-  // Advancement suggestions waiting for the guide to approve/reject.
-  const advSuggestions = await prisma.proposedLesson.findMany({
-    where: {
-      source: "advancement",
-      status: "pending",
-      proposal: { childId: { in: teacher.children.map((c) => c.id) } },
-    },
-    include: { proposal: { include: { child: true } } },
-  });
+  // Everything waiting on the guide's yes/no: proposed lessons (from documents
+  // or advancement) and AI-drafted weekly plans.
+  const [slots, pendingLessons, pendingWeeks] = await Promise.all([
+    prisma.scheduleSlot.findMany({
+      where: { date, childId: { in: kidIds } },
+      include: { lessonPlan: true, child: true, sessions: true },
+      orderBy: { startMin: "asc" },
+    }),
+    prisma.proposedLesson.findMany({
+      where: { status: "pending", proposal: { childId: { in: kidIds } } },
+      include: { proposal: { include: { child: { select: { id: true, name: true } } } } },
+    }),
+    prisma.weeklyPlan.findMany({
+      where: { status: "proposed", childId: { in: kidIds } },
+      include: { child: { select: { id: true, name: true } }, _count: { select: { lessons: true } } },
+      orderBy: { weekStart: "asc" },
+    }),
+  ]);
+  // One capped list — weekly plans first, then proposed lessons.
+  const approvalItems: ApprovalItem[] = [
+    ...pendingWeeks.map((w) => ({
+      key: `w-${w.id}`,
+      kind: "week" as const,
+      href: `/teacher/week-plan?childId=${w.child.id}&weekStart=${w.weekStart}`,
+      icon: "🗓",
+      title: `${w.child.name}: week of ${w.weekStart}`,
+      sub: `${w._count.lessons} lessons proposed`,
+      cta: "Review the week →",
+    })),
+    ...pendingLessons.map((l) => ({
+      key: `l-${l.id}`,
+      kind: "lesson" as const,
+      proposedLessonId: l.id,
+      href: `/teacher/admin/${l.proposal.child.id}`,
+      icon: l.source === "advancement" ? "⬆" : "📄",
+      title: `${l.proposal.child.name}: ${l.title}`,
+      sub: `${l.subject}${l.grade ? ` · Grade ${l.grade}` : ""} · ${
+        l.source === "advancement" ? "next-level suggestion" : "from documents"
+      }`,
+      cta: "Review →",
+    })),
+  ];
+  const approvalCount = approvalItems.length;
+  const APPROVAL_MAX = 6;
 
   return (
     <main className="page">
@@ -59,24 +92,25 @@ export default async function TeacherDashboard() {
           </div>
         </div>
 
-        {advSuggestions.length > 0 && (
-          <section className="action-banner" style={{ marginTop: 20 }}>
-            <div>
-              <strong>⬆ {advSuggestions.length} next-level suggestion{advSuggestions.length === 1 ? "" : "s"} to review</strong>
-              <div className="muted" style={{ fontSize: "0.88rem" }}>
-                Based on skills your children just mastered.{" "}
-                {advSuggestions.map((s, i) => (
-                  <span key={s.id}>
-                    {i > 0 ? " · " : ""}
-                    <Link href={`/teacher/admin/${s.proposal.childId}`}>
-                      {s.proposal.child.name}: {s.title}
-                    </Link>
-                  </span>
-                ))}
-              </div>
+        <section style={{ marginTop: 24 }}>
+          <h2 style={{ margin: "0 0 12px" }}>
+            Needs your approval{approvalCount > 0 ? ` (${approvalCount})` : ""}
+          </h2>
+          {approvalCount === 0 ? (
+            <p className="muted">You&apos;re all caught up. 🎉</p>
+          ) : (
+            <div className="approvals">
+              {approvalItems.slice(0, APPROVAL_MAX).map((it) => (
+                <ApprovalRow key={it.key} item={it} />
+              ))}
+              {approvalCount > APPROVAL_MAX && (
+                <Link href="/teacher/admin" className="muted approval-more">
+                  + {approvalCount - APPROVAL_MAX} more to review →
+                </Link>
+              )}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         <section style={{ marginTop: 28 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
@@ -90,39 +124,18 @@ export default async function TeacherDashboard() {
               </Link>
             </span>
           </div>
-          {slots.length === 0 ? (
-            <p className="muted">Nothing scheduled today.</p>
-          ) : (
-            <div className="stack">
-              {slots.map((slot) => (
-                <div key={slot.id} className="slot">
-                  <span className="time">
-                    {fmtMin(slot.startMin)} – {fmtMin(slot.endMin)}
-                  </span>
-                  <span className="name">
-                    {slot.child.name} ·{" "}
-                    {slot.kind === "lesson"
-                      ? slot.lessonPlan?.title ?? "Lesson"
-                      : slot.kind === "one_on_one"
-                        ? "1:1 with you"
-                        : slot.kind === "flexible"
-                          ? "Flexible period"
-                          : slot.kind === "break"
-                            ? "Break / Lunch"
-                            : "Free time"}
-                  </span>
-                  {(slot.kind === "one_on_one" || slot.kind === "flexible") && (
-                    <span className="badge next">
-                      {slot.kind === "flexible" ? "your 1:1 window" : "1:1"}
-                    </span>
-                  )}
-                  {slot.sessions.some((s) => s.state === "closed") && (
-                    <span className="badge now">done</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <TodayCalendar
+            kids={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+            slots={slots.map((s) => ({
+              id: s.id,
+              childId: s.childId,
+              kind: s.kind,
+              startMin: s.startMin,
+              endMin: s.endMin,
+              lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,
+              done: s.sessions.some((x) => x.state === "closed"),
+            }))}
+          />
         </section>
 
         <section style={{ marginTop: 36 }}>
@@ -138,60 +151,23 @@ export default async function TeacherDashboard() {
                     {child.profile?.groundingStyle ?? "—"}
                   </p>
                 </div>
-                <Link
-                  href={`/api/child-access?childId=${child.id}&code=${child.accessCode}&redirect=/student/${child.username ?? child.id}`}
-                  className="btn"
-                >
-                  ▶ Start {child.name}&apos;s day
-                </Link>
+                <div className="row" style={{ gap: 8 }}>
+                  <Link
+                    href={`/api/child-access?childId=${child.id}&code=${child.accessCode}&redirect=/student/${child.username ?? child.id}`}
+                    className="btn"
+                  >
+                    ▶ Start {child.name}&apos;s day
+                  </Link>
+                  <Link href={`/report/${child.username ?? child.id}`} className="btn quiet">
+                    📊 Report
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
           <p className="muted" style={{ fontSize: "0.82rem", marginTop: 10 }}>
             Launching a child opens their locked learning space. Getting back here needs your PIN.
           </p>
-        </section>
-
-        <section style={{ marginTop: 36 }}>
-          <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-            <h2 style={{ margin: 0 }}>Lesson plans</h2>
-            <span className="row">
-              <Link href="/teacher/library" className="btn quiet">
-                Browse library →
-              </Link>
-              <Link href="/teacher/plans/new" className="btn">
-                ✦ New lesson
-              </Link>
-            </span>
-          </div>
-          <div className="stack">
-            {teacher.lessonPlans.map((plan) => {
-              const forChild = teacher.children.find((c) => c.id === plan.childId);
-              return (
-                <Link
-                  key={plan.id}
-                  href={`/teacher/plans/${plan.id}`}
-                  className="card row"
-                  style={{ justifyContent: "space-between", color: "inherit" }}
-                >
-                  <div>
-                    <strong>{plan.title}</strong>
-                    <div className="muted" style={{ fontSize: "0.9rem" }}>
-                      {plan.subject} · {plan.durationMin} min ·{" "}
-                      {plan.published ? "published" : "draft"}
-                      {forChild ? ` · for ${forChild.name}` : ""}
-                    </div>
-                  </div>
-                  <span className="muted" aria-hidden="true">
-                    Edit →
-                  </span>
-                </Link>
-              );
-            })}
-            {teacher.lessonPlans.length === 0 && (
-              <p className="muted">No lesson plans yet.</p>
-            )}
-          </div>
         </section>
     </main>
   );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { planJsonFromDocs, tutorJson, aiEnabled, type DocInput } from "@/lib/ai";
 import { usernameFrom } from "@/lib/username";
 
@@ -39,15 +40,14 @@ export async function POST(req: NextRequest) {
   const newCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
 
   if (op === "create") {
-    const teacher = await prisma.user.findFirst({ where: { role: "guide" } });
-    if (!teacher || !teacher.centerId) {
-      return NextResponse.json({ error: "no guide/center" }, { status: 400 });
-    }
+    const teacher = await getCurrentUser();
+    if (!teacher) return NextResponse.json({ error: "no guide" }, { status: 400 });
     const name = body.name?.trim() || "New child";
     const child = await prisma.child.create({
       data: {
         teacherId: teacher.id,
-        centerId: teacher.centerId,
+        centerId: teacher.centerId ?? null, // homeschool parent: no center
+
         name,
         username: await uniqueUsername(name),
         accessCode: newCode(),
@@ -122,7 +122,8 @@ export async function POST(req: NextRequest) {
     const instruction =
       `You are reviewing the attached documents about ${child.name}` +
       (child.age != null ? `, age ${child.age}` : "") +
-      `. They may include an IEP, an evaluation, a list of strengths, or other notes.` +
+      `. They may include an IEP, an evaluation, a list of strengths, a practice-tool report ` +
+      `(e.g. IXL or MobyMax showing per-skill mastery and standards), or other notes.` +
       (p?.interests ? ` Interests: ${p.interests}.` : "") +
       (p?.iepNotes ? ` Extra notes from the guide: ${p.iepNotes}.` : "") +
       ` From what these documents say about this child's current levels, goals, strengths, and needs, ` +
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
       "You design individualized homeschool programs for neurodiverse learners from their own documents (IEP, evaluations, strengths). Be specific, evidence-based, and encouraging. Plain text only. Keep each rationale to one sentence so the JSON stays compact.",
       instruction,
       docs,
-      4000
+      8000
     );
 
     if (!result || !Array.isArray(result.lessons)) {
@@ -207,8 +208,8 @@ export async function POST(req: NextRequest) {
       system,
       `Build the lesson "${proposed.title}" (subject ${proposed.subject}, Grade ${proposed.grade}, strand ${proposed.topic}) for ${child.name}. ` +
         `Return JSON: {"goal": "...", "whyItMatters": "...", "standardCode": "NJSLS code", "standardText": "...", "chunks": [ ... ]} with 3-6 chunks ending in a worksheet then wrap_up.`,
-      1600,
-      "plan"
+      4000,
+      "deep"
     );
 
     const chunks =

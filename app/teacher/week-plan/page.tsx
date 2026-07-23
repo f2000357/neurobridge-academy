@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { mondayOfStr, todayStr } from "@/lib/time";
 import WeekPlanReview, { type PlanData } from "./WeekPlanReview";
+import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export default async function WeekPlanPage({
 }: {
   searchParams: Promise<{ childId?: string; weekStart?: string }>;
 }) {
-  const teacher = await prisma.user.findFirst({ include: { children: { orderBy: { name: "asc" } } } });
+  const teacher = await getCurrentUser({ include: { children: { orderBy: { name: "asc" } } } });
   if (!teacher || teacher.children.length === 0) {
     return (
       <main className="page">

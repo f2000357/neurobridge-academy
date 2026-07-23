@@ -398,6 +398,9 @@ main.page {
   font-size: 1.08rem;
   line-height: 1.85;
   max-width: 46ch;
+  /* The tutor uses blank lines to break ideas apart — keep them so the text
+     reads as short chunks instead of one wall. */
+  white-space: pre-wrap;
 }
 
 /* Reference cards: finished passages that stay on the page to look back at. */
@@ -1664,4 +1667,242 @@ input[type="file"] {
 .icon-opt.on {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* ---- Multi-tenant portals (center admin / neurable admin) ---- */
+.centerbar {
+  background: linear-gradient(100deg, var(--role-center, #2f8279), color-mix(in srgb, var(--role-center, #2f8279) 70%, transparent));
+  border-bottom: none;
+}
+.adminbar {
+  background: linear-gradient(100deg, var(--role-neurable, #5b5fae), color-mix(in srgb, var(--role-neurable, #5b5fae) 70%, transparent));
+  border-bottom: none;
+}
+.who-pill {
+  font-size: 0.85rem;
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--accent-ink) 45%, transparent);
+  border-radius: 999px;
+  padding: 4px 12px;
+  opacity: 0.95;
+}
+.who-pill:hover { opacity: 1; border-color: var(--accent-ink); }
+
+/* Dev sign-in / role switcher */
+.switch-list { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.switch-row {
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid var(--line, var(--border)); border-radius: 12px; padding: 12px 16px;
+  background: var(--surface); color: inherit; text-decoration: none;
+}
+.switch-row:hover { border-color: var(--accent); }
+.switch-row.here { border-color: var(--accent); background: var(--accent-soft); }
+.switch-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent);
+}
+.switch-meta { display: flex; flex-direction: column; flex: 1; }
+.switch-name { font-weight: 640; }
+.switch-sub { font-size: 0.82rem; color: var(--ink-soft); }
+.switch-go { font-family: var(--mono, monospace); font-size: 0.82rem; color: var(--accent); }
+
+/* Center roster / progress */
+.group-head { font-size: 1.05rem; margin: 0 0 10px; color: var(--ink-soft); }
+.roster { display: flex; flex-direction: column; gap: 8px; }
+.roster-row {
+  display: grid;
+  grid-template-columns: 1.4fr 2fr auto auto 1.2fr;
+  gap: 16px; align-items: center;
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px;
+  background: var(--surface);
+}
+@media (max-width: 760px) { .roster-row { grid-template-columns: 1fr 1fr; row-gap: 10px; } }
+.roster-id { display: flex; flex-direction: column; gap: 2px; }
+.roster-name { font-weight: 640; color: var(--ink); text-decoration: none; }
+.roster-name:hover { text-decoration: underline; }
+.roster-sub { font-size: 0.78rem; color: var(--ink-soft); }
+.roster-mastery { display: flex; flex-direction: column; gap: 4px; }
+.roster-metric { font-size: 0.82rem; color: var(--ink-soft); white-space: nowrap; }
+.tabnum { font-variant-numeric: tabular-nums; }
+.roster-guide { display: flex; flex-direction: column; gap: 2px; }
+
+/* Audit log (admin) */
+.audit-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.audit-list li {
+  display: grid; grid-template-columns: 140px 1fr auto; gap: 14px; align-items: baseline;
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  font-size: 0.88rem;
+}
+@media (max-width: 640px) { .audit-list li { grid-template-columns: 1fr; gap: 2px; } }
+.audit-action { font-weight: 640; text-transform: capitalize; }
+.audit-detail { color: var(--ink-soft); }
+.audit-who { color: var(--ink-faint); font-size: 0.8rem; white-space: nowrap; }
+
+/* Lesson library: sharing badges + marketplace */
+.lib-tabs { display: flex; gap: 8px; margin: 16px 0; }
+.vis-badge {
+  font-family: var(--mono, monospace); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
+}
+.vis-badge.center { background: color-mix(in srgb, #2f8279 18%, transparent); color: #2f8279; }
+.vis-badge.global { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.vis-badge.submitted { background: color-mix(in srgb, var(--warm) 20%, transparent); color: var(--warm); }
+
+/* Onboarding forms (admin / center) */
+.onboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+@media (max-width: 640px) { .onboard-grid { grid-template-columns: 1fr; } }
+.onboard-grid h3 { font-size: 1rem; }
+
+/* ---- Progress report ---- */
+.report-actions { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.report-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  border-bottom: 2px solid var(--accent); padding-bottom: 16px;
+}
+.report-date {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
+  font-weight: 600; color: var(--accent);
+}
+.report-date .mark { width: 20px; height: 20px; border-radius: 6px; background: var(--accent); display: grid; place-items: center; }
+.report-date .mark span { width: 7px; height: 7px; border-radius: 50%; background: var(--surface); }
+.report-date em { width: 100%; text-align: right; font-style: normal; font-size: 0.78rem; color: var(--ink-soft); font-weight: 400; }
+.report-h2 { font-size: 1.25rem; margin: 30px 0 12px; letter-spacing: -0.01em; }
+.report-h3 { font-size: 1rem; margin: 0 0 6px; }
+.report-narrative { margin-top: 22px; }
+.report-narrative-bar { display: flex; gap: 10px; }
+.report-narrative-hint { max-width: 60ch; margin-top: 12px; }
+.report-summary {
+  margin-top: 16px; padding: 20px 22px; border: 1px solid var(--line, var(--border));
+  border-radius: 14px; background: var(--surface); page-break-inside: avoid;
+}
+.report-overview { font-size: 1.05rem; line-height: 1.7; margin: 0 0 12px; }
+.report-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px; }
+@media (max-width: 600px) { .report-two { grid-template-columns: 1fr; } }
+.report-ul { margin: 0; padding-left: 18px; }
+.report-ul li { margin: 4px 0; line-height: 1.5; }
+.report-table-wrap { overflow-x: auto; }
+.report-table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+.report-table th, .report-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line, var(--border)); }
+.report-table thead th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+.std-list { font-family: var(--mono, monospace); font-size: 0.8rem; }
+.report-foot { margin-top: 30px; font-size: 0.8rem; border-top: 1px solid var(--line, var(--border)); padding-top: 12px; }
+
+@media print {
+  .no-print { display: none !important; }
+  .topbar, .console-side, .console-shell > .console-side { display: none !important; }
+  .report { max-width: 100% !important; }
+  body, .doc { background: #fff !important; }
+}
+
+/* Discreet grown-up link on the child's day (progress report) */
+.grownup-link { margin-top: 16px; font-size: 0.85rem; text-align: center; }
+.grownup-link a { color: var(--ink-soft); text-decoration: none; }
+.grownup-link a:hover { color: var(--accent); text-decoration: underline; }
+
+/* Explicit report link in the center roster */
+.roster-report { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.roster-report:hover { text-decoration: underline; }
+
+/* External practice link (e.g. IXL) shown in the lesson */
+.work-link {
+  align-self: flex-start;
+  text-decoration: none;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+.work-link:hover { border-color: var(--accent); }
+
+/* ---- Compact multi-child today calendar (guide landing) ---- */
+.tcal {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.tcal-corner { border-bottom: 1px solid var(--border); }
+.tcal-colhead {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 12px; font-weight: 640; font-size: 0.9rem;
+  border-bottom: 1px solid var(--border); border-left: 1px solid var(--border);
+}
+.tcal-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.tcal-times { position: relative; grid-column: 1; }
+.tcal-time {
+  position: absolute; right: 6px; transform: translateY(-50%);
+  font-size: 0.68rem; color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.tcal-col { position: relative; border-left: 1px solid var(--border); }
+.tcal-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); opacity: 0.5; }
+.tcal-block {
+  position: absolute; left: 4px; right: 4px;
+  border: 1px solid; border-radius: 7px; padding: 2px 7px; overflow: hidden;
+  display: flex; flex-direction: column; gap: 0; line-height: 1.15;
+}
+.tcal-block.done { opacity: 0.5; }
+.tcal-block > span { flex: 0 0 auto; min-height: 0; }
+.tcal-bt { font-size: 0.76rem; font-weight: 600; line-height: 1.15; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.tcal-bm { font-size: 0.64rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* Compact lessons summary */
+.lesson-drafts {
+  display: inline-block; text-decoration: none;
+  font-size: 0.85rem; color: var(--warm);
+  background: color-mix(in srgb, var(--warm) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warm) 35%, var(--border));
+  border-radius: 999px; padding: 5px 14px;
+}
+.lesson-recent { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 8px; }
+.lesson-chip {
+  display: flex; flex-direction: column; gap: 2px;
+  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  background: var(--surface); color: inherit; text-decoration: none;
+}
+.lesson-chip:hover { border-color: var(--accent); }
+.lesson-chip .muted { font-size: 0.8rem; }
+
+/* Approvals list (guide landing) */
+.approvals { display: flex; flex-direction: column; gap: 8px; }
+.approval-row {
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid var(--border); border-left: 3px solid var(--warm);
+  border-radius: 12px; padding: 12px 16px; background: var(--surface);
+  text-decoration: none; color: inherit;
+}
+.approval-row:hover { border-color: var(--accent); border-left-color: var(--warm); }
+.approval-icon { font-size: 1.2rem; flex: none; }
+.approval-main { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.approval-main .muted { font-size: 0.85rem; }
+.approval-go { color: var(--accent); font-size: 0.88rem; white-space: nowrap; }
+
+.approval-more { display: inline-block; font-size: 0.85rem; padding: 6px 2px; text-decoration: none; }
+.approval-more:hover { color: var(--accent); }
+
+/* Inline approve chip + sidebar approvals badge */
+.chip.approve {
+  color: var(--good, #45906f);
+  border-color: color-mix(in srgb, var(--good, #45906f) 45%, var(--border));
+  background: color-mix(in srgb, var(--good, #45906f) 10%, transparent);
+}
+.chip.approve:hover { border-color: var(--good, #45906f); }
+.nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--warm);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
 }

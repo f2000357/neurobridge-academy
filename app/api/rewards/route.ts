@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 // Prizes the guide offers + guide-assisted redemptions.
 // Spendable balance = child.points (lifetime earned) − child.pointsSpent.
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!name?.trim() || !Number.isFinite(cost) || cost <= 0) {
       return NextResponse.json({ error: "Give the prize a name and a point cost above 0." }, { status: 400 });
     }
-    const teacher = await prisma.user.findFirst();
+    const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 404 });
     const reward = await prisma.reward.create({
       data: { teacherId: teacher.id, name: name.trim(), cost: Math.round(cost), emoji: emoji?.trim() || "🎁" },

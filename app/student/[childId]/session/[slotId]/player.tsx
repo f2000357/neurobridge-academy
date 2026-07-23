@@ -16,7 +16,7 @@ export type Chunk = {
   read_aloud?: boolean;
 };
 
-type Lesson = { title: string; goal: string; why: string; durationMin: number };
+type Lesson = { title: string; goal: string; why: string; durationMin: number; workUrl?: string };
 type Phase = "arrive" | "ground" | "deliver" | "close";
 type Round = "core" | "challenge";
 
@@ -560,6 +560,16 @@ export default function Player({
                 <p className="muted" style={{ fontSize: "0.9rem" }}>
                   About {lesson.durationMin} minutes · Then: {after}
                 </p>
+                {lesson.workUrl && (
+                  <a
+                    className="chip work-link"
+                    href={lesson.workUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    📗 Open the practice (for a grown-up) ↗
+                  </a>
+                )}
               </div>
             </div>
             <button className="btn big" onClick={beginDeliver} disabled={busy}>

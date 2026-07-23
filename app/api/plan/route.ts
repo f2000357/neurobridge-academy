@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tutorJson, aiEnabled } from "@/lib/ai";
+import { getCurrentUser } from "@/lib/auth";
 
 // The teacher's lesson builder backend: draft a plan with AI, then persist it.
 
@@ -76,8 +77,8 @@ export async function POST(req: NextRequest) {
       `Design a lesson for ${grade}${strand}. Topic: "${topic}". Subject: "${subject}". Target length: about ${durationMin} minutes. ` +
         `Return JSON: {"title": "short lesson title", "goal": "one concrete thing the learner will be able to do", "whyItMatters": "one friendly sentence a child understands", "standardCode": "the NJSLS code, e.g. 3.NF.A.1", "standardText": "the standard in one plain sentence", "chunks": [ ... ]}. ` +
         `Use 3-6 chunks in a good order, including a worksheet assessment before the wrap_up.`,
-      1600,
-      "plan"
+      4000,
+      "deep"
     );
 
     if (!draft) {
@@ -98,18 +99,27 @@ export async function POST(req: NextRequest) {
   if (op === "save") {
     const {
       id, title, subject, goal, whyItMatters, chunks, durationMin, childId, published,
-      gradeLevel, topic, standardCode, standardText,
+      gradeLevel, topic, standardCode, standardText, visibility, workUrl,
     } = body;
-    const teacher = await prisma.user.findFirst();
+    const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
+
+    // Guides set private or center; a Neurable admin can author global directly.
+    const allowed = teacher.role === "neurable_admin"
+      ? ["private", "center", "global"]
+      : ["private", "center"];
+    const vis = allowed.includes(visibility) ? visibility : "private";
 
     const data = {
       teacherId: teacher.id,
+      centerId: teacher.centerId,
+      visibility: vis,
       childId: childId || null,
       title,
       subject,
       goal,
       whyItMatters: whyItMatters ?? "",
+      workUrl: (workUrl ?? "").trim(),
       gradeLevel: gradeLevel ?? "",
       topic: topic ?? "",
       standardCode: standardCode ?? "",

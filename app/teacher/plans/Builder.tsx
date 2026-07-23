@@ -27,9 +27,11 @@ export type PlanState = {
   standardText: string;
   goal: string;
   whyItMatters: string;
+  workUrl: string;
   durationMin: number;
   childId: string | null;
   published: boolean;
+  visibility: string; // private | center | global
   chunks: Chunk[];
 };
 
@@ -44,9 +46,11 @@ const CHUNK_LABEL: Record<Chunk["type"], string> = {
 export default function Builder({
   initial,
   children,
+  canGlobal = false,
 }: {
   initial: PlanState;
   children: { id: string; name: string }[];
+  canGlobal?: boolean;
 }) {
   const router = useRouter();
   const [plan, setPlan] = useState<PlanState>(initial);
@@ -295,6 +299,14 @@ export default function Builder({
           value={plan.whyItMatters}
           onChange={(e) => set("whyItMatters", e.target.value)}
         />
+        <label className="lbl">Practice link (optional — e.g. an IXL skill URL)</label>
+        <input
+          className="field"
+          type="url"
+          value={plan.workUrl}
+          onChange={(e) => set("workUrl", e.target.value)}
+          placeholder="https://www.ixl.com/math/grade-3/…"
+        />
         <div className="row" style={{ marginTop: 14, alignItems: "flex-start" }}>
           <label className="inline muted" style={{ flex: "0 0 auto" }}>
             NJSLS code
@@ -415,7 +427,41 @@ export default function Builder({
         ))}
       </div>
 
-      <div className="row" style={{ marginTop: 28, gap: 12 }}>
+      <div className="card" style={{ marginTop: 24 }}>
+        <label className="inline muted" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <strong style={{ color: "var(--ink)" }}>Sharing</strong>
+          <select
+            className="field short"
+            value={plan.visibility}
+            onChange={(e) => set("visibility", e.target.value)}
+          >
+            <option value="private">Private — just my learners</option>
+            <option value="center">My center — guides here can add a copy</option>
+            {canGlobal && <option value="global">Global — every center</option>}
+          </select>
+          {!canGlobal && plan.id && plan.visibility !== "global" && (
+            <button
+              className="chip"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                await fetch("/api/lessons", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ op: "submitForGlobal", planId: plan.id }),
+                });
+                setBusy(false);
+                setNote("Submitted for the global shelf — a Neurable admin will review it.");
+                set("visibility", plan.visibility === "private" ? "center" : plan.visibility);
+              }}
+            >
+              ⤴ Submit for global review
+            </button>
+          )}
+        </label>
+      </div>
+
+      <div className="row" style={{ marginTop: 20, gap: 12 }}>
         <button className="btn" onClick={() => save(true)} disabled={busy}>
           {plan.published ? "Save (published)" : "Publish to student"}
         </button>

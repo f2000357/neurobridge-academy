@@ -35,6 +35,7 @@ const KIND_LABEL: Record<string, string> = {
   iep: "IEP",
   strengths: "Strengths",
   evaluation: "Evaluation",
+  external_report: "IXL / external report",
   other: "Other",
 };
 
@@ -267,6 +268,7 @@ export default function AdminChild({
               <option value="iep">IEP</option>
               <option value="strengths">Strengths list</option>
               <option value="evaluation">Evaluation</option>
+              <option value="external_report">IXL / external report</option>
               <option value="other">Other</option>
             </select>
           </label>

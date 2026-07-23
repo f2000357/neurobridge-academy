@@ -13,6 +13,8 @@ export type LibPlan = {
   standardCode: string;
   durationMin: number;
   published: boolean;
+  visibility: string;
+  submittedForGlobal: boolean;
   forChild: string | null;
 };
 
@@ -111,7 +113,12 @@ export default function LibraryView({ plans }: { plans: LibPlan[] }) {
                     <span className="lib-subject">{p.subject}</span>
                     {p.standardCode && <span className="lib-code">{p.standardCode}</span>}
                   </div>
-                  <strong className="lib-title">{p.title}</strong>
+                  <strong className="lib-title">
+                    {p.title}
+                    {p.visibility === "global" && <span className="vis-badge global">global</span>}
+                    {p.visibility === "center" && <span className="vis-badge center">center</span>}
+                    {p.submittedForGlobal && <span className="vis-badge submitted">submitted</span>}
+                  </strong>
                   <span className="muted" style={{ fontSize: "0.8rem" }}>
                     {groupBy === "topic"
                       ? p.gradeLevel

@@ -5,10 +5,16 @@ const key = process.env.ANTHROPIC_API_KEY;
 export const aiEnabled = Boolean(key && key !== "your-key-here");
 const client = aiEnabled ? new Anthropic({ apiKey: key }) : null;
 
-// Fast model for in-lesson turns where latency = lost attention;
-// stronger model for lesson planning and progress reports, where quality matters.
-const FAST_MODEL = "claude-haiku-4-5-20251001";
+// Model tiers, chosen by stakes x frequency x latency:
+//   deep — rare, high-stakes, irreversible reasoning (reading a child's IEP /
+//          evaluation to propose their whole program; drafting a lesson).
+//          Latency and cost don't matter; being right does.
+//   plan — quality work the child or guide waits briefly on: in-lesson teaching,
+//          weekly plans, progress reports.
+//   fast — trivial, high-frequency turns where latency = lost attention.
+const DEEP_MODEL = "claude-opus-4-8";
 const PLAN_MODEL = "claude-sonnet-5";
+const FAST_MODEL = "claude-haiku-4-5-20251001";
 
 export function tutorSystem(childName: string, profile: ChildProfile | null): string {
   const p = profile;
@@ -29,8 +35,9 @@ export function tutorSystem(childName: string, profile: ChildProfile | null): st
     .join("\n");
 }
 
-type Kind = "fast" | "plan";
-const modelFor = (kind: Kind) => (kind === "plan" ? PLAN_MODEL : FAST_MODEL);
+type Kind = "fast" | "plan" | "deep";
+const modelFor = (kind: Kind) =>
+  kind === "deep" ? DEEP_MODEL : kind === "plan" ? PLAN_MODEL : FAST_MODEL;
 
 export async function tutorText(
   system: string,
@@ -58,11 +65,14 @@ export async function tutorText(
 // Each doc is turned into the right Anthropic content block so Claude reads it natively.
 export type DocInput = { mimeType: string; data: string; filename: string };
 
+// Reads a child's own documents (IEP, evaluation) to propose their program.
+// The highest-stakes call in the product — runs on the deep tier.
 export async function planJsonFromDocs<T>(
   system: string,
   instruction: string,
   docs: DocInput[],
-  maxTokens = 1800
+  maxTokens = 1800,
+  kind: Kind = "deep"
 ): Promise<T | null> {
   if (!client) return null;
 
@@ -96,7 +106,7 @@ export async function planJsonFromDocs<T>(
 
   try {
     const msg = await client.messages.create({
-      model: PLAN_MODEL,
+      model: modelFor(kind),
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: blocks }],
