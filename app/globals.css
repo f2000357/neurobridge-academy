@@ -1915,3 +1915,23 @@ input[type="file"] {
   gap: 12px;
   margin-bottom: 6px;
 }
+
+/* ---- Standards coverage map (report) ---- */
+.cov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 640px) { .cov-grid { grid-template-columns: 1fr; } }
+.cov-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--surface); page-break-inside: avoid; }
+.cov-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cov-row { display: flex; align-items: center; gap: 9px; font-size: 0.9rem; }
+.cov-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--border); }
+.cov-name { flex: 1; }
+.cov-meta { font-size: 0.76rem; color: var(--ink-faint, var(--ink-soft)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cov-row.st-secure .cov-dot { background: var(--good); }
+.cov-row.st-practicing .cov-dot { background: var(--warn); }
+.cov-row.st-needs-work .cov-dot { background: var(--crit); }
+.cov-row.st-not-started { color: var(--ink-soft); }
+.cov-row.st-not-started .cov-dot { background: transparent; border: 1px dashed var(--line, var(--border)); }
+.callout-focus {
+  margin-top: 16px; padding: 14px 18px; border-radius: 12px;
+  background: var(--warm-soft); border: 1px solid color-mix(in srgb, var(--warm) 35%, transparent);
+  page-break-inside: avoid;
+}

@@ -114,6 +114,57 @@ export default async function ReportPage({
 
       <ReportNarrative key={range ?? "all"} childId={child.id} childName={data.child.name} range={range} />
 
+      {(() => {
+        const all = data.coverage.flatMap((c) => c.strands);
+        const covered = all.filter((s) => s.status !== "not-started").length;
+        const focus = all.filter((s) => s.status === "needs-work" || s.status === "not-started");
+        const gradeLabel = data.child.grade ? `Grade ${data.child.grade}` : "this grade";
+        return (
+          <>
+            <h2 className="report-h2">
+              {data.standardsState} standards coverage · {gradeLabel}
+            </h2>
+            <p className="muted" style={{ marginTop: -6 }}>
+              {covered} of {all.length} grade-level areas have assessed work.
+            </p>
+
+            <div className="cov-grid">
+              {data.coverage.map((c) => (
+                <div key={c.subject} className="cov-card">
+                  <h3 className="report-h3">{c.subject}</h3>
+                  <ul className="cov-list">
+                    {c.strands.map((s) => (
+                      <li key={s.strand} className={`cov-row st-${s.status}`}>
+                        <span className="cov-dot" aria-hidden="true" />
+                        <span className="cov-name">{s.strand}</span>
+                        <span className="cov-meta">
+                          {s.status === "not-started"
+                            ? "not started"
+                            : `${s.avgScore ?? "—"}%${s.lessons ? ` · ${s.lessons}` : ""}`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            {focus.length > 0 && (
+              <div className="callout-focus">
+                <strong>Where to focus next</strong>
+                <p className="muted" style={{ margin: "4px 0 0" }}>
+                  {focus
+                    .slice(0, 6)
+                    .map((s) => `${s.strand}${s.status === "needs-work" ? " (needs work)" : ""}`)
+                    .join(" · ")}
+                  {focus.length > 6 ? ` · +${focus.length - 6} more` : ""}
+                </p>
+              </div>
+            )}
+          </>
+        );
+      })()}
+
       <h2 className="report-h2">
         Mastery by subject{isTerm ? " · this term" : ""}
       </h2>
