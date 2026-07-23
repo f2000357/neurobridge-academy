@@ -6,7 +6,7 @@ export default function ReportActions({ childName }: { childName: string }) {
     const subject = `Progress report — ${childName}`;
     const body =
       `Hi,\n\n` +
-      `Please find ${childName}'s Neurable progress report.\n\n` +
+      `Please find ${childName}'s NeuroBridge progress report.\n\n` +
       `You can view it online here:\n${url}\n\n` +
       `(If you were sent a PDF, it's the printable version of this same report.)\n\n` +
       `Thank you.`;

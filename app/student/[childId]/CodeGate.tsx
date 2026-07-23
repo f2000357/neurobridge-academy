@@ -34,7 +34,7 @@ export default function CodeGate({ childId, childName }: { childId: string; chil
             <span className="mark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge
           </span>
         </div>
       </header>

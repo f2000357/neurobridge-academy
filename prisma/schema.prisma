@@ -8,7 +8,7 @@ datasource db {
 }
 
 // A learning center (tenant). Guides and learners belong to a center; the
-// Neurable company sits above all centers.
+// NeuroBridge company sits above all centers.
 model Center {
   id          String       @id @default(cuid())
   name        String
@@ -405,7 +405,7 @@ model ProgressNote {
 // A visiting specialist: a chess coach, a piano teacher, a math tutor, an SLP.
 // Not an operator account — no dashboard, no password. They hold one code that
 // works for every learner they are assigned to, and it is their identity: the
-// code says who is writing. Only Neurable admin can ever read it back; everyone
+// code says who is writing. Only NeuroBridge admin can ever read it back; everyone
 // else adds a teacher and the code goes to the teacher directly.
 model SpecialistTeacher {
   id          String              @id @default(cuid())
@@ -413,14 +413,14 @@ model SpecialistTeacher {
   name        String
   phone       String              @default("")
   specialty   String              @default("misc") // see SPECIALTIES in lib/specialists.ts
-  code        String              @unique // "T" + 8 digits — never shown outside Neurable admin
+  code        String              @unique // "T" + 8 digits — never shown outside NeuroBridge admin
   // Whoever added them. Anyone may: a center admin, or a homeschool parent who
   // hired a piano teacher. It does not restrict who can assign them later.
   createdById String
   createdByName String            @default("")
   archived    Boolean             @default(false)
   // Has the code actually reached them yet? Email/SMS delivery is not built,
-  // so this stays false and Neurable admin works the pending list by hand.
+  // so this stays false and NeuroBridge admin works the pending list by hand.
   codeSentAt  DateTime?
   createdAt   DateTime            @default(now())
   assignments TeacherAssignment[]
@@ -442,7 +442,7 @@ model TeacherAssignment {
 }
 
 // What the specialist writes after a session. Never shown to the learner;
-// visible to the guide, the center, Neurable admin, and the child's other
+// visible to the guide, the center, NeuroBridge admin, and the child's other
 // specialists. Feeds the progress report.
 model TeacherNote {
   id            String            @id @default(cuid())

@@ -38,7 +38,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
             <span className="mark parentmark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge
           </Link>
           <AccountMenu label={`Guide · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
         </div>

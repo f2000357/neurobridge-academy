@@ -18,12 +18,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="mark parentmark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge
           </Link>
           <Link href="/admin/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
             Visiting teachers
           </Link>
-          <AccountMenu label={`Neurable Admin · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
+          <AccountMenu label={`NeuroBridge Admin · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
         </div>
       </header>
       <main className="page wrap" style={{ maxWidth: 1000 }}>

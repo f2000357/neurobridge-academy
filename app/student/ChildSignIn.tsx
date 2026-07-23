@@ -37,7 +37,7 @@ export default function ChildSignIn() {
             <span className="mark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge
           </span>
         </div>
       </header>

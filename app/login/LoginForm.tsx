@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-// Email + password sign-in for guides, center admins, and Neurable admins.
+// Email + password sign-in for guides, center admins, and NeuroBridge admins.
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,9 +29,9 @@ export default function LoginForm() {
 
   return (
     <main className="page wrap" style={{ maxWidth: 420 }}>
-      <p className="eyebrow">Neurable</p>
+      <p className="eyebrow">NeuroBridge</p>
       <h1>Sign in</h1>
-      <p className="muted">For guides, centre admins, and Neurable admins.</p>
+      <p className="muted">For guides, centre admins, and NeuroBridge admins.</p>
       <form className="card" style={{ marginTop: 18 }} onSubmit={submit}>
         <label className="lbl" htmlFor="email">Email</label>
         <input
@@ -62,7 +62,7 @@ export default function LoginForm() {
         </button>
       </form>
       <p className="muted" style={{ marginTop: 14, fontSize: "0.85rem" }}>
-        No password yet? Ask your centre or Neurable admin to set one up for you.
+        No password yet? Ask your centre or NeuroBridge admin to set one up for you.
       </p>
     </main>
   );

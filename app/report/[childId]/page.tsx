@@ -87,7 +87,7 @@ export default async function ReportPage({
           <span className="mark" aria-hidden="true">
             <span></span>
           </span>
-          <span>Neurable</span>
+          <span>NeuroBridge</span>
           <em>Generated {genDate}</em>
         </div>
       </header>
@@ -304,7 +304,7 @@ export default async function ReportPage({
       )}
 
       <p className="muted report-foot">
-        This report reflects {data.child.name}&apos;s recorded work in Neurable as of {genDate}. Levels:
+        This report reflects {data.child.name}&apos;s recorded work in NeuroBridge as of {genDate}. Levels:
         emerging (&lt;50%), approaching (50–79%), proficient (80%+).
       </p>
     </main>

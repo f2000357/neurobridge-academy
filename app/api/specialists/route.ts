@@ -6,7 +6,7 @@ import { guardOperate } from "@/lib/authz";
 
 // Managing visiting specialists. Anyone may add one — a center admin, or a
 // homeschool parent who hired a piano teacher. The code itself is never
-// returned by this route; only Neurable admin can read it, through /api/admin.
+// returned by this route; only NeuroBridge admin can read it, through /api/admin.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword, passwordProblem } from "@/lib/password";
 import { makeToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 
-// Operator sign-in for guides, center admins, and Neurable admins.
+// Operator sign-in for guides, center admins, and NeuroBridge admins.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

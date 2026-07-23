@@ -23,7 +23,7 @@ export default async function AdminHome() {
 
   return (
     <div>
-      <p className="eyebrow">Neurable admin</p>
+      <p className="eyebrow">NeuroBridge admin</p>
       <h1>Company overview</h1>
 
       <div className="stat-row" style={{ marginTop: 18 }}>

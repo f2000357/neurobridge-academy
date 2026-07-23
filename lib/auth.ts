@@ -31,7 +31,7 @@ export function homeForRole(role: string | undefined): string {
 }
 
 export function roleLabel(role: string | undefined): string {
-  if (role === "neurable_admin") return "Neurable Admin";
+  if (role === "neurable_admin") return "NeuroBridge Admin";
   if (role === "center_admin") return "Center Admin";
   return "Guide";
 }

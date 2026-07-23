@@ -45,7 +45,7 @@ export function isTeacherCode(code: string): boolean {
   return /^T\d{8}$/i.test(code.trim());
 }
 
-/** Never show a code to anyone but Neurable admin. This is what everyone else sees. */
+/** Never show a code to anyone but NeuroBridge admin. This is what everyone else sees. */
 export function maskedCode(): string {
   return "T•••••••• ";
 }

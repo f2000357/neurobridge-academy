@@ -12,7 +12,7 @@ import { promisify } from "node:util";
 const scryptAsync = promisify(scrypt);
 const prisma = new PrismaClient();
 
-const DEV_PASSWORD = "neurable-dev";
+const DEV_PASSWORD = "neurobridge-dev";
 
 async function hash(password) {
   const salt = randomBytes(16).toString("hex");
@@ -25,7 +25,7 @@ const passwordHash = await hash(DEV_PASSWORD);
 
 for (const u of users) {
   // Give anyone without an email a dev one so they can sign in.
-  const email = u.email ?? `${u.name.toLowerCase().replace(/[^a-z]+/g, ".")}@dev.neurable`;
+  const email = u.email ?? `${u.name.toLowerCase().replace(/[^a-z]+/g, ".")}@dev.neurobridge`;
   await prisma.user.update({ where: { id: u.id }, data: { email, passwordHash } });
   console.log(`${u.role.padEnd(14)} ${email}`);
 }

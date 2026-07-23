@@ -17,7 +17,7 @@ export default async function SwitchPage() {
 
   return (
     <main className="page wrap" style={{ maxWidth: 640 }}>
-      <p className="eyebrow">Neurable</p>
+      <p className="eyebrow">NeuroBridge</p>
       <h1>Who are you signing in as?</h1>
       <p className="muted">
         A stand-in for real sign-in while we build. Pick an account to see the app from their seat.

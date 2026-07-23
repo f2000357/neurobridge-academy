@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// One code, no password. It arrives by email or text from Neurable and works
+// One code, no password. It arrives by email or text from NeuroBridge and works
 // for every learner the teacher is assigned to.
 
 export default function SignIn() {
@@ -32,7 +32,7 @@ export default function SignIn() {
 
   return (
     <main className="page wrap teach-wrap">
-      <p className="eyebrow">Neurable</p>
+      <p className="eyebrow">NeuroBridge</p>
       <h1>Teacher notes</h1>
       <p className="muted">
         Enter the code that was sent to you. It opens the learners you teach, so you can read their
@@ -62,7 +62,7 @@ export default function SignIn() {
         </button>
       </form>
       <p className="muted" style={{ marginTop: 14, fontSize: "0.85rem" }}>
-        Don&apos;t have a code? Ask the family or centre that hired you — they can have Neurable send
+        Don&apos;t have a code? Ask the family or centre that hired you — they can have NeuroBridge send
         it to you.
       </p>
     </main>

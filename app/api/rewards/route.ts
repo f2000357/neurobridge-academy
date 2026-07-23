@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { guardOperate, currentOperator } from "@/lib/authz";
 
-// A guide may only touch a prize they own (or Neurable admin, for support).
+// A guide may only touch a prize they own (or NeuroBridge admin, for support).
 async function ownsReward(rewardId: string): Promise<boolean> {
   const [me, reward] = await Promise.all([
     currentOperator(),

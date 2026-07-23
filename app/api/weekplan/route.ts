@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
 
     const std = getStandards(child.standardsCode);
     const system = [
-      `You design lesson plans for Neurable, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
+      `You design lesson plans for NeuroBridge, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
       "Chunk types: read_text (content), visual (content + optional visual name), worksheet (items 3-5, seed_question, seed_answer), wrap_up.",
       "Include a worksheet assessment before one wrap_up. Plain text only, no Markdown.",
       p?.interests ? `Use the child's interests where natural: ${p.interests}.` : "",

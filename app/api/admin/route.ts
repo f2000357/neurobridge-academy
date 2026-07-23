@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { hashPassword, passwordProblem } from "@/lib/password";
 
-// Neurable-admin actions: stand up centers and staff accounts.
+// NeuroBridge-admin actions: stand up centers and staff accounts.
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op } = body as { op: string };

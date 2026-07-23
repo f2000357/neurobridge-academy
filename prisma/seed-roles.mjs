@@ -4,11 +4,11 @@ async function main() {
   const sunrise = await prisma.center.findFirst({ where: { name: "Sunrise Center" } });
   if (!sunrise) throw new Error("Sunrise Center not found");
 
-  // Neurable company admin (spans all centers)
+  // NeuroBridge company admin (spans all centers)
   const hq = await prisma.user.upsert({
-    where: { email: "admin@neurable.co" },
+    where: { email: "admin@neurobridge.co" },
     update: {},
-    create: { name: "Neurable HQ", email: "admin@neurable.co", role: "neurable_admin" },
+    create: { name: "NeuroBridge HQ", email: "admin@neurobridge.co", role: "neurable_admin" },
   });
 
   // Sunrise center admin + a second guide (for the transfer demo)

@@ -5,7 +5,7 @@ import ChangePassword from "./ChangePassword";
 
 export const dynamic = "force-dynamic";
 
-// One account page for any operator (guide / centre admin / Neurable admin).
+// One account page for any operator (guide / centre admin / NeuroBridge admin).
 export default async function AccountPage() {
   const me = await getCurrentUser({ select: { name: true, email: true, role: true, passwordHash: true } });
   if (!me) redirect("/login");

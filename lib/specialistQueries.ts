@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import type { TeacherRow } from "@/app/components/SpecialistsPanel";
 
 // Which specialists a given role should see: the ones teaching learners that
-// role is responsible for. The code is only ever included for Neurable admin.
+// role is responsible for. The code is only ever included for NeuroBridge admin.
 
 export async function specialistsForChildren(
   childIds: string[],
@@ -21,7 +21,7 @@ export async function specialistsForChildren(
   return teachers.map((t) => toRow(t, includeCode));
 }
 
-/** Every specialist on the platform — Neurable admin only. */
+/** Every specialist on the platform — NeuroBridge admin only. */
 export async function allSpecialists(): Promise<TeacherRow[]> {
   const teachers = await prisma.specialistTeacher.findMany({
     include: { assignments: { include: { child: { select: { id: true, name: true } } } } },

@@ -578,7 +578,7 @@ export default function Builder({
                   body: JSON.stringify({ op: "submitForGlobal", planId: plan.id }),
                 });
                 setBusy(false);
-                setNote("Submitted for the global shelf — a Neurable admin will review it.");
+                setNote("Submitted for the global shelf — a NeuroBridge admin will review it.");
                 set("visibility", plan.visibility === "private" ? "center" : plan.visibility);
               }}
             >

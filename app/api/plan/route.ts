@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     const std = getStandards(stdCode);
     const system = [
-      "You design lesson plans for Neurable, a calm school for neurodiverse learners.",
+      "You design lesson plans for NeuroBridge, a calm school for neurodiverse learners.",
       "A plan is delivered chunk by chunk through an executive-functioning routine, so keep each chunk small, concrete, and in a sensible teaching order.",
       "Chunk types you may use:",
       "- read_text: a short passage to read (give 'content', 2-5 short sentences, plain language).",
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
 
-    // Editing an existing plan: it must be yours (or you're Neurable admin) —
+    // Editing an existing plan: it must be yours (or you're NeuroBridge admin) —
     // otherwise the update below would silently reassign it to you.
     if (id) {
       const existing = await prisma.lessonPlan.findUnique({ where: { id }, select: { teacherId: true } });
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       if (denied) return denied;
     }
 
-    // Guides set private or center; a Neurable admin can author global directly.
+    // Guides set private or center; a NeuroBridge admin can author global directly.
     const allowed = teacher.role === "neurable_admin"
       ? ["private", "center", "global"]
       : ["private", "center"];

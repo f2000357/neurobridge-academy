@@ -7,7 +7,7 @@ import { getCurrentTeacher, teacherCanSee } from "@/lib/teacherAuth";
 import { resolveUpload } from "@/lib/uploads";
 
 // Serves a note's photo or video. Never public: an operator (guide, center,
-// Neurable admin) or a specialist still assigned to that learner.
+// NeuroBridge admin) or a specialist still assigned to that learner.
 
 export async function GET(
   _req: NextRequest,

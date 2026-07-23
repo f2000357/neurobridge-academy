@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
 
     // Materialize the approved outline into a full, ready lesson.
     const system = [
-      `You design lesson plans for Neurable, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
+      `You design lesson plans for NeuroBridge, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
       "Chunk types: read_text (content), visual (content + optional visual name), video (videoNote, no invented URL), worksheet (items, seed_question, seed_answer), wrap_up.",
       "Include a worksheet assessment as the second-to-last chunk, then one wrap_up. Plain text only, no Markdown.",
       p?.readingLevel ? `Reading level: ${p.readingLevel}.` : "",

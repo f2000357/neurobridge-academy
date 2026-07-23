@@ -4,7 +4,7 @@ import SpecialistsPanel from "@/app/components/SpecialistsPanel";
 
 export const dynamic = "force-dynamic";
 
-// Neurable admin is the only place a teacher's code can be read back — and the
+// NeuroBridge admin is the only place a teacher's code can be read back — and the
 // only place that knows which codes still need to reach their teacher.
 
 export default async function AdminSpecialists() {
@@ -21,7 +21,7 @@ export default async function AdminSpecialists() {
 
   return (
     <div>
-      <p className="eyebrow">Neurable admin</p>
+      <p className="eyebrow">NeuroBridge admin</p>
       <h1>Visiting teachers</h1>
 
       {pending.length > 0 && (

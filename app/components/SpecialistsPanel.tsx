@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { SPECIALTIES, specialtyLabel } from "@/lib/specialists";
 
 // Adding and assigning visiting specialists. Used by the guide, the centre and
-// Neurable admin — the only difference is `canSeeCode`, which is Neurable admin
+// NeuroBridge admin — the only difference is `canSeeCode`, which is NeuroBridge admin
 // only. Everyone else adds a teacher and the code goes to the teacher directly.
 
 export type TeacherRow = {
@@ -15,7 +15,7 @@ export type TeacherRow = {
   phone: string;
   specialty: string;
   archived: boolean;
-  code?: string; // present only for Neurable admin
+  code?: string; // present only for NeuroBridge admin
   codeSent: boolean;
   createdByName: string;
   assignments: { childId: string; childName: string; subject: string }[];
@@ -67,7 +67,7 @@ export default function SpecialistsPanel({
     setForm({ name: "", email: "", phone: "", specialty: "misc" });
     setNote(
       data.existed
-        ? `${data.teacher.name} already has a Neurable profile — assign them a learner below.`
+        ? `${data.teacher.name} already has a NeuroBridge profile — assign them a learner below.`
         : `${data.teacher.name} added. Their code goes to them directly; nobody here sees it.`
     );
   }
@@ -155,7 +155,7 @@ export default function SpecialistsPanel({
             </label>
           </div>
           <p className="muted" style={{ fontSize: "0.82rem", marginTop: 10 }}>
-            The email address is their identity. If they already teach elsewhere on Neurable, this
+            The email address is their identity. If they already teach elsewhere on NeuroBridge, this
             adds them to your learner rather than making a second profile.
           </p>
           <button
@@ -196,8 +196,8 @@ export default function SpecialistsPanel({
                     {revealed === t.id ? t.code : "Reveal code"}
                   </button>
                 ) : (
-                  <span className="pill" title="Only Neurable admin can read a teacher's code">
-                    code held by Neurable
+                  <span className="pill" title="Only NeuroBridge admin can read a teacher's code">
+                    code held by NeuroBridge
                   </span>
                 )}
                 <button className="chip" onClick={() => call({ op: "archive", teacherId: t.id, archived: true })}>
@@ -208,7 +208,7 @@ export default function SpecialistsPanel({
 
             {!t.codeSent && (
               <p className="pill warn" style={{ marginTop: 8 }}>
-                Code not sent yet — email and text delivery isn&apos;t built, so Neurable passes it on by
+                Code not sent yet — email and text delivery isn&apos;t built, so NeuroBridge passes it on by
                 hand.
               </p>
             )}

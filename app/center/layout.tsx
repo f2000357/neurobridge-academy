@@ -24,7 +24,7 @@ export default async function CenterLayout({ children }: { children: React.React
             <span className="mark parentmark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge
           </Link>
           <Link href="/center/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
             Visiting teachers

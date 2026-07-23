@@ -37,7 +37,7 @@ export default async function AdminLearnersPage() {
           ← Overview
         </Link>
       </div>
-      <p className="eyebrow">Neurable admin</p>
+      <p className="eyebrow">NeuroBridge admin</p>
       <h1>Learners</h1>
       <p className="muted">Every learner across all centers. Open any report.</p>
       <AdminLearners rows={rows} centers={centers} guides={guides} />

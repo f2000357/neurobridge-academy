@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Neurable admin promotes a submitted lesson onto the global shelf.
+  // NeuroBridge admin promotes a submitted lesson onto the global shelf.
   if (op === "promote") {
     if (me.role !== "neurable_admin") return NextResponse.json({ error: "not allowed" }, { status: 403 });
     const { planId } = body as { planId: string };

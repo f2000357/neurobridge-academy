@@ -15,7 +15,7 @@ import { getCurrentUser } from "./auth";
 
 export type Operator = { id: string; role: string; centerId: string | null };
 
-/** The current operator (guide / center admin / Neurable admin), or null. */
+/** The current operator (guide / center admin / NeuroBridge admin), or null. */
 export async function currentOperator(): Promise<Operator | null> {
   const u = await getCurrentUser({ select: { id: true, role: true, centerId: true } });
   return u ?? null;
@@ -23,7 +23,7 @@ export async function currentOperator(): Promise<Operator | null> {
 
 /**
  * May the current operator manage this child? True for the child's own guide,
- * their center's admin, or Neurable admin. This gates anything that edits the
+ * their center's admin, or NeuroBridge admin. This gates anything that edits the
  * child, their schedule, lessons, points, or program.
  */
 export async function canOperateChild(childId: string): Promise<boolean> {
