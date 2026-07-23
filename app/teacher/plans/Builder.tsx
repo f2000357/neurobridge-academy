@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getStandards } from "@/lib/standards";
 import Link from "next/link";
@@ -15,6 +15,12 @@ export type Chunk = {
   seed_question?: string;
   seed_answer?: string;
   read_aloud?: boolean;
+  /** Use the content exactly as written — don't let the tutor rephrase it. */
+  verbatim?: boolean;
+  /** A picture the guide attached (LessonAsset id). */
+  imageAssetId?: string;
+  /** A video the guide added, by URL — becomes an embed for the child. */
+  videoUrl?: string;
 };
 
 export type PlanState = {
@@ -44,6 +50,25 @@ const CHUNK_LABEL: Record<Chunk["type"], string> = {
   worksheet: "Worksheet",
   wrap_up: "Wrap up",
 };
+
+// A small chip that opens the file dialog and hands back the chosen image.
+function StepImagePicker({ onPick, disabled }: { onPick: (file: File) => void; disabled?: boolean }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button className="chip" onClick={() => ref.current?.click()} disabled={disabled}>
+        🖼 Add a picture
+      </button>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0])}
+      />
+    </>
+  );
+}
 
 export default function Builder({
   initial,
@@ -84,6 +109,71 @@ export default function Builder({
 
   function removeChunk(i: number) {
     setPlan((p) => ({ ...p, chunks: p.chunks.filter((_, k) => k !== i) }));
+  }
+
+  // Make sure the lesson exists so an image can be attached to it. Returns its
+  // id, saving a draft first for a brand-new lesson.
+  async function ensureSaved(): Promise<string | null> {
+    if (plan.id) return plan.id;
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "save", ...plan, published: plan.published }),
+    });
+    const data = await res.json();
+    if (data.ok && data.id) {
+      setPlan((p) => ({ ...p, id: data.id }));
+      return data.id;
+    }
+    setNote(data.error ?? "Could not save the lesson.");
+    return null;
+  }
+
+  // "Make this shorter / simpler" on a step's text — same as in the preview.
+  async function rewriteChunk(i: number, how: "shorter" | "simpler") {
+    const text = plan.chunks[i].content ?? "";
+    if (!text.trim()) {
+      setNote("There's no text on that step to rewrite yet.");
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const res = await fetch("/api/lessons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "rewrite", text, how }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!data.ok) {
+      setNote(data.error ?? "That rewrite didn't work.");
+      return;
+    }
+    // A rewrite is the guide's words now — keep them verbatim.
+    setChunk(i, { content: data.text, verbatim: true });
+    setNote("Rewritten. Edit it further or save.");
+  }
+
+  async function uploadImage(i: number, file: File) {
+    setBusy(true);
+    setNote(null);
+    const planId = await ensureSaved();
+    if (!planId) {
+      setBusy(false);
+      return;
+    }
+    const form = new FormData();
+    form.append("planId", planId);
+    form.append("file", file);
+    const res = await fetch("/api/lessons", { method: "POST", body: form });
+    const data = await res.json();
+    setBusy(false);
+    if (!data.ok) {
+      setNote(data.error ?? "That image didn't upload.");
+      return;
+    }
+    setChunk(i, { imageAssetId: data.assetId });
+    setNote("Picture added. Save the lesson to keep it.");
   }
 
   function addChunk(type: Chunk["type"]) {
@@ -362,13 +452,48 @@ export default function Builder({
               placeholder="Step title"
             />
             {(c.type === "read_text" || c.type === "visual") && (
-              <textarea
-                className="field"
-                rows={3}
-                value={c.content ?? ""}
-                onChange={(e) => setChunk(i, { content: e.target.value })}
-                placeholder={c.type === "visual" ? "Describe the picture or diagram" : "The text to read"}
-              />
+              <>
+                <textarea
+                  className="field"
+                  rows={3}
+                  value={c.content ?? ""}
+                  onChange={(e) => setChunk(i, { content: e.target.value, verbatim: false })}
+                  placeholder={c.type === "visual" ? "Describe the picture or diagram" : "The text to read"}
+                />
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                  <button className="chip" onClick={() => rewriteChunk(i, "shorter")} disabled={busy}>
+                    ✂️ Make it shorter
+                  </button>
+                  <button className="chip" onClick={() => rewriteChunk(i, "simpler")} disabled={busy}>
+                    Make it simpler
+                  </button>
+                  <StepImagePicker onPick={(file) => uploadImage(i, file)} disabled={busy} />
+                  <label className="inline muted" style={{ fontSize: "0.82rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(c.verbatim)}
+                      onChange={(e) => setChunk(i, { verbatim: e.target.checked })}
+                    />
+                    Use my exact words
+                  </label>
+                </div>
+                {c.imageAssetId && (
+                  <div className="row" style={{ marginTop: 10, gap: 10, alignItems: "center" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="editor-thumb" src={`/api/asset/${c.imageAssetId}`} alt="Picture for this step" />
+                    <button className="chip danger" onClick={() => setChunk(i, { imageAssetId: undefined })}>
+                      Remove picture
+                    </button>
+                  </div>
+                )}
+                <input
+                  className="field"
+                  style={{ marginTop: 8 }}
+                  value={c.videoUrl ?? ""}
+                  onChange={(e) => setChunk(i, { videoUrl: e.target.value })}
+                  placeholder="Video link (optional — YouTube or Vimeo)"
+                />
+              </>
             )}
             {c.type === "video" && (
               <>
@@ -381,9 +506,9 @@ export default function Builder({
                 />
                 <input
                   className="field"
-                  value={c.content ?? ""}
-                  onChange={(e) => setChunk(i, { content: e.target.value })}
-                  placeholder="Paste video URL (optional)"
+                  value={c.videoUrl ?? ""}
+                  onChange={(e) => setChunk(i, { videoUrl: e.target.value })}
+                  placeholder="Paste video URL (YouTube or Vimeo)"
                 />
               </>
             )}
