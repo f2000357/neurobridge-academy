@@ -51,6 +51,7 @@ export default async function SchedulePage() {
         initialSlots={slots.map((s) => ({
           id: s.id,
           kind: s.kind,
+          activity: s.activity,
           startMin: s.startMin,
           endMin: s.endMin,
           lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title } : null,

@@ -40,6 +40,7 @@ export default async function WeekPage() {
         initialSlots={slots.map((s) => ({
           id: s.id,
           kind: s.kind,
+          activity: s.activity,
           date: s.date,
           startMin: s.startMin,
           endMin: s.endMin,

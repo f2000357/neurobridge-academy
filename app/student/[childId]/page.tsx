@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { fmtMin, nowMin, todayStr } from "@/lib/time";
 import { ensureMondayTestFallback } from "@/lib/testing";
 import { subjectIcon, subjectKey, subjectLabel } from "@/lib/subjects";
+import { activityLabel } from "@/lib/activities";
 import KidLock from "./KidLock";
 import CodeGate from "./CodeGate";
 
@@ -96,7 +97,10 @@ export default async function StudentToday({
     if (slot.kind === "break") return { main: "🍎 Break time" };
     if (slot.kind === "testing") return { main: "📋 Weekly check-in" };
     if (slot.kind === "one_on_one") return { main: "🧑‍🏫 1:1 time with your guide" };
-    if (slot.kind === "flexible") return { main: "🎨 Flexible time — finish up, or Art" };
+    if (slot.kind === "flexible")
+      return { main: activityLabel(slot.activity) ?? "🎨 Flexible time — finish up, or Art" };
+    if (slot.kind === "service")
+      return { main: activityLabel(slot.activity) ?? "🧩 Support session" };
     if (slot.kind === "free_time") return { main: "💬 Free time — ask me anything" };
     const subject = slot.lessonPlan?.subject;
     return {

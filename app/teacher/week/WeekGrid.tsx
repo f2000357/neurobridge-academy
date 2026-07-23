@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { addDaysStr, fmtMin, weekdayShort } from "@/lib/time";
 import { subjectKey, subjectLabel } from "@/lib/subjects";
+import { activityLabel } from "@/lib/activities";
 
 type Slot = {
   id: string;
@@ -11,6 +12,7 @@ type Slot = {
   date: string;
   startMin: number;
   endMin: number;
+  activity: string;
   lessonPlan: { title: string; subject?: string | null } | null;
   sessions: { state: string }[];
 };
@@ -27,6 +29,8 @@ const KIND_LABEL: Record<string, string> = {
   lesson: "Lesson",
   one_on_one: "1:1",
   flexible: "Flexible",
+  service: "Support",
+  testing: "Check-in",
   break: "Break",
   free_time: "Free time",
 };
@@ -318,7 +322,7 @@ export default function WeekGrid({
                       }
                     >
                       <span className="wg-btitle">
-                        {isLesson ? subjectLabel(s.lessonPlan?.subject) : KIND_LABEL[s.kind]}
+                        {isLesson ? subjectLabel(s.lessonPlan?.subject) : activityLabel(s.activity) ?? KIND_LABEL[s.kind]}
                       </span>
                       {isLesson && s.lessonPlan?.title && (
                         <span className="wg-btopic">{s.lessonPlan.title}</span>

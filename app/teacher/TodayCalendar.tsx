@@ -1,5 +1,6 @@
 import { fmtMin } from "@/lib/time";
 import { subjectLabel } from "@/lib/subjects";
+import { activityFor } from "@/lib/activities";
 
 type Slot = {
   id: string;
@@ -7,6 +8,7 @@ type Slot = {
   kind: string;
   startMin: number;
   endMin: number;
+  activity: string;
   lessonPlan: { title: string; subject: string } | null;
   done: boolean;
 };
@@ -19,6 +21,9 @@ const PX_PER_MIN = 0.85; // ~51px / hour — compact but fits two lines
 
 function shortLabel(s: Slot): string {
   if (s.kind === "lesson") return subjectLabel(s.lessonPlan?.subject);
+  const a = activityFor(s.activity);
+  if (a) return `${a.emoji} ${a.label}`;
+  if (s.kind === "service") return "Support session";
   if (s.kind === "one_on_one") return "1:1 with you";
   if (s.kind === "flexible") return "Flexible";
   if (s.kind === "break") return "Break";

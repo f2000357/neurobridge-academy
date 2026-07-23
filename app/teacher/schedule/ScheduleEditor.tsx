@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { fmtMin, hhmmToMin } from "@/lib/time";
+import { activityLabel, optionsForKind } from "@/lib/activities";
 
 type Plan = { id: string; title: string; subject: string; durationMin: number; childId: string | null };
 type Child = { id: string; name: string };
 type Slot = {
   id: string;
   kind: string;
+  activity: string;
   startMin: number;
   endMin: number;
   lessonPlan: { title: string } | null;
@@ -18,7 +20,8 @@ const KIND_LABEL: Record<string, string> = {
   lesson: "Lesson",
   testing: "Testing (weekly check-in)",
   one_on_one: "1:1 with you",
-  flexible: "Flexible period",
+  flexible: "Flexible period / elective",
+  service: "Related service (speech, OT…)",
   break: "Break / Lunch",
   free_time: "Free time",
 };
@@ -46,9 +49,10 @@ export default function ScheduleEditor({
 
   // New-slot form
   const [kind, setKind] = useState("lesson");
+  const [activity, setActivity] = useState("");
   const [planId, setPlanId] = useState("");
   const [start, setStart] = useState("09:00");
-  const [duration, setDuration] = useState(45);
+  const [duration, setDuration] = useState(30);
 
   const availablePlans = plans.filter((p) => !p.childId || p.childId === childId);
 
@@ -103,6 +107,7 @@ export default function ScheduleEditor({
         date,
         kind,
         lessonPlanId: planId,
+        activity,
         startMin,
         endMin,
       }),
@@ -243,7 +248,9 @@ export default function ScheduleEditor({
               {fmtMin(s.startMin)} – {fmtMin(s.endMin)}
             </span>
             <span className="name">
-              {s.kind === "lesson" ? s.lessonPlan?.title ?? "Lesson" : KIND_LABEL[s.kind] ?? s.kind}
+              {s.kind === "lesson"
+                ? s.lessonPlan?.title ?? "Lesson"
+                : activityLabel(s.activity) ?? KIND_LABEL[s.kind] ?? s.kind}
             </span>
             {s.sessions.some((x) => x.state === "closed") && <span className="badge now">done</span>}
             <button
@@ -264,7 +271,14 @@ export default function ScheduleEditor({
           <div className="row">
             <label className="inline muted">
               Type
-              <select className="field short" value={kind} onChange={(e) => setKind(e.target.value)}>
+              <select
+                className="field short"
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value);
+                  setActivity(""); // the catalog changes with the type
+                }}
+              >
                 {Object.entries(KIND_LABEL).map(([k, label]) => (
                   <option key={k} value={k}>
                     {label}
@@ -272,6 +286,26 @@ export default function ScheduleEditor({
                 ))}
               </select>
             </label>
+            {optionsForKind(kind).length > 0 && (
+              <label className="inline muted">
+                {kind === "service" ? "Service" : "Elective"}
+                <select
+                  className="field short"
+                  value={activity}
+                  onChange={(e) => setActivity(e.target.value)}
+                >
+                  <option value="">
+                    {kind === "service" ? "Choose a service…" : "Open / child's choice"}
+                  </option>
+                  {optionsForKind(kind).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.emoji} {a.label}
+                      {a.blocks && a.blocks > 1 ? ` (needs ${a.blocks} blocks)` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {kind === "lesson" && (
               <label className="inline muted">
                 Lesson
@@ -329,7 +363,7 @@ export default function ScheduleEditor({
       )}
 
       <p className="muted" style={{ marginTop: 24, fontSize: "0.85rem" }}>
-        Tip: a typical day is four 45-minute lessons plus two flexible periods. You can copy this shape to each day.
+        Tip: the day runs in 30-minute blocks — a lesson takes about 25 minutes, so there is room to breathe or take a break if they finish early. Plant flexible periods for electives, and 30-minute blocks for related services like speech or OT. You can copy this shape to each day.
       </p>
     </main>
   );

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "add") {
-    const { childId, date, kind, lessonPlanId, startMin, endMin } = body;
+    const { childId, date, kind, lessonPlanId, startMin, endMin, activity } = body;
     if (endMin <= startMin) {
       return NextResponse.json({ error: "End time must be after start time." }, { status: 400 });
     }
@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
         date,
         kind,
         lessonPlanId: kind === "lesson" ? lessonPlanId || null : null,
+        // Only flexible periods (electives) and related services carry one.
+        activity: kind === "flexible" || kind === "service" ? activity || "" : "",
         startMin,
         endMin,
       },

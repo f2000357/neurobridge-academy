@@ -130,6 +130,7 @@ export default async function TeacherDashboard() {
               id: s.id,
               childId: s.childId,
               kind: s.kind,
+              activity: s.activity,
               startMin: s.startMin,
               endMin: s.endMin,
               lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,

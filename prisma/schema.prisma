@@ -303,7 +303,10 @@ model ScheduleSlot {
   child        Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
   lessonPlanId String?
   lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
-  kind         String      @default("lesson") // lesson | one_on_one | break | free_time
+  kind         String      @default("lesson") // lesson | one_on_one | flexible | break | free_time | testing | service
+  // For flexible periods (an elective) or related services (speech, OT…):
+  // which activity this block actually is. See lib/activities.ts.
+  activity     String      @default("")
   date         String                          // "2026-07-21" (local date)
   startMin     Int                             // minutes from midnight, e.g. 540 = 9:00
   endMin       Int
