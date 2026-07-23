@@ -1959,3 +1959,75 @@ input[type="file"] {
 .interest-row > * { flex: 0 0 auto; }
 .interest-name { font-weight: 600; min-width: 190px; }
 .interest-sum { margin-left: auto; }
+
+/* Visiting specialist teachers */
+.teach-wrap { max-width: 720px; }
+.code-field {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.roster-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.roster-card > * { flex: 0 0 auto; }
+.block-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e3e0d8);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.block-pick:hover { border-color: var(--accent, #45906f); }
+.block-pick > * { flex: 0 0 auto; }
+.block-when { min-width: 110px; color: var(--muted-ink, #6b6660); font-size: 0.85rem; }
+.block-what { flex: 1 1 auto; min-width: 0; }
+.block-go { color: var(--accent-ink, #2f6b4f); font-size: 0.85rem; }
+.focus-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.focus-row > * { flex: 0 0 auto; }
+.note-card .note-who { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.note-card .note-who > * { flex: 0 0 auto; }
+.media-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.media-strip > * { flex: 0 0 auto; }
+.media-thumb {
+  width: 160px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e3e0d8);
+  background: #000;
+}
+.spec-card .spec-name { font-weight: 600; }
+.assign-row { gap: 12px; align-items: center; }
+.assign-row > * { flex: 0 0 auto; }
+.assign-row > span:first-child { flex: 1 1 auto; min-width: 0; }
+.code-inline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+}
+.pending-card { border-color: var(--warn, #c08a3e); }
+.pill.warn {
+  background: #fdf3e3;
+  color: #8a5f1f;
+  border-color: #e8cfa4;
+  display: inline-block;
+}
+.report-note {
+  border: 1px solid var(--line, #e3e0d8);
+  border-radius: 10px;
+  padding: 10px 12px;
+  break-inside: avoid;
+}

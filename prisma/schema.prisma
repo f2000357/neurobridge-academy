@@ -105,6 +105,8 @@ model Child {
   sessions  Session[]
   documents ChildDocument[]
   proposals ProgramProposal[]
+  specialists TeacherAssignment[]
+  teacherNotes TeacherNote[]
 }
 
 // A special interest the family wants protected time for each week.
@@ -326,7 +328,11 @@ model ScheduleSlot {
   date         String                          // "2026-07-21" (local date)
   startMin     Int                             // minutes from midnight, e.g. 540 = 9:00
   endMin       Int
+  // A visiting specialist can hold this block — "Chess with Ravi". Blank means
+  // the guide runs it.
+  teacherId    String?
   sessions     Session[]
+  teacherNotes TeacherNote[]
 }
 
 // One run of the EF loop. A slot can host several runs: the scheduled one,
@@ -390,4 +396,84 @@ model ProgressNote {
   score        Int?    // percent correct on the closing assessment, 0-100
   masteryLevel String  @default("") // struggling | approaching | proficient
   createdAt    DateTime @default(now())
+}
+
+// A visiting specialist: a chess coach, a piano teacher, a math tutor, an SLP.
+// Not an operator account — no dashboard, no password. They hold one code that
+// works for every learner they are assigned to, and it is their identity: the
+// code says who is writing. Only Neurable admin can ever read it back; everyone
+// else adds a teacher and the code goes to the teacher directly.
+model SpecialistTeacher {
+  id          String              @id @default(cuid())
+  email       String              @unique // the identity key — one profile per person
+  name        String
+  phone       String              @default("")
+  specialty   String              @default("misc") // see SPECIALTIES in lib/specialists.ts
+  code        String              @unique // "T" + 8 digits — never shown outside Neurable admin
+  // Whoever added them. Anyone may: a center admin, or a homeschool parent who
+  // hired a piano teacher. It does not restrict who can assign them later.
+  createdById String
+  createdByName String            @default("")
+  archived    Boolean             @default(false)
+  // Has the code actually reached them yet? Email/SMS delivery is not built,
+  // so this stays false and Neurable admin works the pending list by hand.
+  codeSentAt  DateTime?
+  createdAt   DateTime            @default(now())
+  assignments TeacherAssignment[]
+  notes       TeacherNote[]
+}
+
+// The grant. Delete it and the learner disappears from the teacher's roster —
+// notes they already wrote stay, because those are the learner's record.
+model TeacherAssignment {
+  id        String            @id @default(cuid())
+  teacherId String
+  teacher   SpecialistTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  childId   String
+  child     Child             @relation(fields: [childId], references: [id], onDelete: Cascade)
+  subject   String            @default("") // what they teach THIS learner; blank = their specialty
+  createdAt DateTime          @default(now())
+
+  @@unique([teacherId, childId])
+}
+
+// What the specialist writes after a session. Never shown to the learner;
+// visible to the guide, the center, Neurable admin, and the child's other
+// specialists. Feeds the progress report.
+model TeacherNote {
+  id            String            @id @default(cuid())
+  childId       String
+  child         Child             @relation(fields: [childId], references: [id], onDelete: Cascade)
+  teacherId     String
+  teacher       SpecialistTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  // The block it is about, when there is one. A specialist who met the learner
+  // off-schedule still gets to write the note.
+  slotId        String?
+  slot          ScheduleSlot?     @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  date          String            // "YYYY-MM-DD" — the day being written about
+  subject       String            @default("")
+  whatWeDid     String            @default("")
+  wentWell      String            @default("")
+  struggledWith String            @default("")
+  nextTime      String            @default("")
+  focus         Int? // 1-5, optional: how settled the learner was
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  media         TeacherMedia[]
+}
+
+// A photo or short video attached to a note — the finished painting, the swim
+// stroke, three minutes of the piano piece. Bytes live on disk under .uploads;
+// the database keeps only the pointer.
+model TeacherMedia {
+  id        String      @id @default(cuid())
+  noteId    String
+  note      TeacherNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  filename  String
+  mimeType  String
+  kind      String      @default("image") // image | video
+  bytes     Int         @default(0)
+  path      String // relative to the uploads root
+  caption   String      @default("")
+  createdAt DateTime    @default(now())
 }

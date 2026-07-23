@@ -10,6 +10,7 @@ type Slot = {
   id: string;
   kind: string;
   activity: string;
+  teacherId?: string | null;
   startMin: number;
   endMin: number;
   lessonPlan: { title: string } | null;
@@ -32,16 +33,21 @@ export default function ScheduleEditor({
   initialChildId,
   initialDate,
   initialSlots,
+  specialistList = [],
 }: {
   childrenList: Child[];
   plans: Plan[];
   initialChildId: string;
   initialDate: string;
   initialSlots: Slot[];
+  /** Visiting teachers, with the learners each is assigned to. */
+  specialistList?: { id: string; name: string; childIds: string[] }[];
 }) {
   const [childId, setChildId] = useState(initialChildId);
   const [date, setDate] = useState(initialDate);
   const [slots, setSlots] = useState<Slot[]>(initialSlots);
+  // Only the specialists assigned to the learner currently being scheduled.
+  const specialists = specialistList.filter((t) => t.childIds.includes(childId));
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [confirmingCopy, setConfirmingCopy] = useState(false);
@@ -50,6 +56,8 @@ export default function ScheduleEditor({
   // New-slot form
   const [kind, setKind] = useState("lesson");
   const [activity, setActivity] = useState("");
+  // A visiting specialist can hold the block — "Chess with Ravi".
+  const [slotTeacherId, setSlotTeacherId] = useState("");
   const [planId, setPlanId] = useState("");
   const [start, setStart] = useState("09:00");
   const [duration, setDuration] = useState(30);
@@ -108,6 +116,7 @@ export default function ScheduleEditor({
         kind,
         lessonPlanId: planId,
         activity,
+        teacherId: slotTeacherId || null,
         startMin,
         endMin,
       }),
@@ -251,6 +260,12 @@ export default function ScheduleEditor({
               {s.kind === "lesson"
                 ? s.lessonPlan?.title ?? "Lesson"
                 : activityLabel(s.activity) ?? KIND_LABEL[s.kind] ?? s.kind}
+              {s.teacherId && (
+                <span className="muted">
+                  {" "}
+                  · with {specialists.find((t) => t.id === s.teacherId)?.name ?? "a visiting teacher"}
+                </span>
+              )}
             </span>
             {s.sessions.some((x) => x.state === "closed") && <span className="badge now">done</span>}
             <button
@@ -301,6 +316,23 @@ export default function ScheduleEditor({
                     <option key={a.id} value={a.id}>
                       {a.emoji} {a.label}
                       {a.blocks && a.blocks > 1 ? ` (needs ${a.blocks} blocks)` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {specialists.length > 0 && kind !== "lesson" && (
+              <label className="inline muted">
+                Taught by
+                <select
+                  className="field short"
+                  value={slotTeacherId}
+                  onChange={(e) => setSlotTeacherId(e.target.value)}
+                >
+                  <option value="">You</option>
+                  {specialists.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
                 </select>

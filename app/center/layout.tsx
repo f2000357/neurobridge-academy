@@ -25,6 +25,9 @@ export default async function CenterLayout({ children }: { children: React.React
             </span>
             Neurable
           </Link>
+          <Link href="/center/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
+            Visiting teachers
+          </Link>
           <Link href="/switch" className="who-pill" style={{ color: "var(--accent-ink)" }} title="Switch account">
             {center?.name ?? "Center"} · {user.name} <span aria-hidden="true">⇄</span>
           </Link>

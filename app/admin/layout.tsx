@@ -19,6 +19,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </span>
             Neurable
           </Link>
+          <Link href="/admin/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
+            Visiting teachers
+          </Link>
           <Link href="/switch" className="who-pill" style={{ color: "var(--accent-ink)" }} title="Switch account">
             Neurable Admin · {user.name} <span aria-hidden="true">⇄</span>
           </Link>

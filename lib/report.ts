@@ -33,6 +33,20 @@ export type ChildReport = {
   generatedAt: string;
   standardsState: string; // "NJ" today; other states later
   coverage: SubjectCoverage[];
+  // What the child's visiting specialists wrote — the human half of the record.
+  teacherNotes: TeacherNoteSummary[];
+};
+
+export type TeacherNoteSummary = {
+  date: string;
+  teacher: string;
+  subject: string;
+  whatWeDid: string;
+  wentWell: string;
+  struggledWith: string;
+  nextTime: string;
+  focus: number | null;
+  mediaCount: number;
 };
 
 // Report time window. "term" ≈ the last ~120 days; anything else = all time.
@@ -90,6 +104,28 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
       orderBy: { weekStart: "asc" },
     }),
   ]);
+
+  // Notes from visiting specialists — the piano teacher, the OT, the tutor.
+  const specialistNotes = await prisma.teacherNote.findMany({
+    where: { childId, ...(sinceStr ? { date: { gte: sinceStr } } : {}) },
+    include: {
+      teacher: { select: { name: true, specialty: true } },
+      _count: { select: { media: true } },
+    },
+    orderBy: { date: "desc" },
+    take: 40,
+  });
+  const teacherNotes: TeacherNoteSummary[] = specialistNotes.map((n) => ({
+    date: n.date,
+    teacher: n.teacher.name,
+    subject: n.subject || n.teacher.specialty,
+    whatWeDid: n.whatWeDid,
+    wentWell: n.wentWell,
+    struggledWith: n.struggledWith,
+    nextTime: n.nextTime,
+    focus: n.focus,
+    mediaCount: n._count.media,
+  }));
 
   const bySubject = new Map<string, { scores: number[]; mastered: Set<string> }>();
   const grades: string[] = [];
@@ -157,6 +193,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     lessonsCompleted: closedSessions,
     generatedAt: new Date().toISOString(),
     standardsState: standards.label, // e.g. "NJSLS" — swappable per learner
+    teacherNotes,
     coverage,
   };
 }

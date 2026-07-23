@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { gatherReport, canReport, childIsAuthed, sinceForRange } from "@/lib/report";
+import { specialtyLabel } from "@/lib/specialists";
 import ReportNarrative from "./ReportNarrative";
 import ReportActions from "./ReportActions";
 
@@ -224,6 +225,52 @@ export default async function ReportPage({
             </ul>
           </div>
         </div>
+      )}
+
+      {data.teacherNotes.length > 0 && (
+        <>
+          <h2 className="report-h2">From their teachers</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Written by the specialists who work with {data.child.name} in person.
+          </p>
+          <div className="stack" style={{ gap: 10 }}>
+            {data.teacherNotes.map((n, i) => (
+              <div key={i} className="report-note">
+                <div className="row" style={{ justifyContent: "space-between" }}>
+                  <strong>
+                    {n.teacher} · {specialtyLabel(n.subject)}
+                  </strong>
+                  <span className="muted tabnum">{n.date}</span>
+                </div>
+                <p style={{ margin: "4px 0" }}>{n.whatWeDid}</p>
+                {n.wentWell && (
+                  <p className="muted" style={{ margin: "2px 0" }}>
+                    <strong>Went well:</strong> {n.wentWell}
+                  </p>
+                )}
+                {n.struggledWith && (
+                  <p className="muted" style={{ margin: "2px 0" }}>
+                    <strong>Hard:</strong> {n.struggledWith}
+                  </p>
+                )}
+                {n.nextTime && (
+                  <p className="muted" style={{ margin: "2px 0" }}>
+                    <strong>Next time:</strong> {n.nextTime}
+                  </p>
+                )}
+                {(n.focus != null || n.mediaCount > 0) && (
+                  <p className="muted" style={{ margin: "2px 0", fontSize: "0.85rem" }}>
+                    {n.focus != null ? `Settled ${n.focus}/5` : ""}
+                    {n.focus != null && n.mediaCount > 0 ? " · " : ""}
+                    {n.mediaCount > 0
+                      ? `${n.mediaCount} photo${n.mediaCount === 1 ? "" : "s"} or video${n.mediaCount === 1 ? "" : "s"} attached`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {data.weeklyTests.length > 0 && (
