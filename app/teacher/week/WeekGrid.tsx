@@ -206,6 +206,29 @@ export default function WeekGrid({
     void refetch(childId, weekDates);
   }
 
+  // Two 30-minute assessment slots on Friday at 2pm.
+  async function placeAssessments() {
+    setNote(null);
+    setBusy(true);
+    const res = await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "placeAssessments", childId, weekStart: monday }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (data.error) {
+      setNote(data.error);
+      return;
+    }
+    setNote(
+      data.added === 0
+        ? (data.note ?? "Nothing added.")
+        : `Added ${data.added} Friday assessment slot${data.added === 1 ? "" : "s"} at 2pm.`
+    );
+    void refetch(childId, weekDates);
+  }
+
   const hours: number[] = [];
   for (let m = DAY_START; m <= DAY_END; m += 60) hours.push(m);
   const gridHeight = (DAY_END - DAY_START) * PX_PER_MIN;
@@ -275,6 +298,14 @@ export default function WeekGrid({
           </span>
           <button className="btn quiet" onClick={placeInterests} disabled={busy}>
             Add interest blocks →
+          </button>
+        </div>
+        <div className="row" style={{ marginTop: 8, justifyContent: "flex-end", gap: 8 }}>
+          <span className="muted" style={{ fontSize: "0.85rem" }}>
+            Two 30-min assessment slots, Friday 2pm
+          </span>
+          <button className="btn quiet" onClick={placeAssessments} disabled={busy}>
+            Add Friday assessments →
           </button>
         </div>
       </div>

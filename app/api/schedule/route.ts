@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { planInterestBlocks } from "@/lib/interestBlocks";
 import { guardOperate } from "@/lib/authz";
+import { addDaysStr } from "@/lib/time";
 
 // Teacher scheduling: place plans (and breaks/flexible/1:1) onto a child's day.
 
@@ -109,6 +110,36 @@ export async function POST(req: NextRequest) {
       })),
     });
     return NextResponse.json({ ok: true, added: placed.length });
+  }
+
+  // Two 30-minute assessment (check-in) slots on Friday at 2pm. The child takes
+  // each on the provider (IXL/Khan/MAP deep link) or a native check-in.
+  if (op === "placeAssessments") {
+    const { childId, weekStart } = body as { childId: string; weekStart: string };
+    const friday = addDaysStr(weekStart, 4);
+    const wanted = [
+      { startMin: 14 * 60, endMin: 14 * 60 + 30 }, // 2:00–2:30
+      { startMin: 14 * 60 + 30, endMin: 15 * 60 }, // 2:30–3:00
+    ];
+    const existing = await prisma.scheduleSlot.findMany({
+      where: { childId, date: friday },
+      select: { startMin: true, endMin: true },
+    });
+    let added = 0;
+    for (const w of wanted) {
+      const clash = existing.some((e) => w.startMin < e.endMin && w.endMin > e.startMin);
+      if (clash) continue;
+      await prisma.scheduleSlot.create({
+        data: { childId, date: friday, kind: "testing", startMin: w.startMin, endMin: w.endMin },
+      });
+      existing.push(w);
+      added++;
+    }
+    return NextResponse.json({
+      ok: true,
+      added,
+      note: added === 0 ? "Friday 2–3pm already has slots there." : undefined,
+    });
   }
 
   if (op === "add") {
