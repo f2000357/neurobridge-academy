@@ -31,8 +31,12 @@ const GRADES = (process.env.GRADES || "3").split(",").map((g) => g.trim()).filte
 // (composition, language knowledge, conventions); R/V/S = reading (reading,
 // vocabulary, speaking).
 function elaLane(code) {
-  const alpha = code.split(".").filter((s) => /^[A-Z]+$/.test(s));
-  const strand = alpha[alpha.length - 1] || "";
+  const segs = code.split(".");
+  // The grade segment is a number or a lone "K"; the strand is the alphabetic
+  // segment just before it (so kindergarten's "K" isn't mistaken for a strand).
+  const gradeIdx = segs.findIndex((s) => /^(?:[0-9]{1,2}|K)$/.test(s));
+  const before = gradeIdx > 0 ? segs.slice(0, gradeIdx) : segs.filter((s) => /^[A-Z]+$/.test(s));
+  const strand = before[before.length - 1] || "";
   return ["W", "L", "K"].includes(strand[0]) ? "writing" : "reading";
 }
 
