@@ -23,6 +23,7 @@ export type DaySlot = {
   sub?: string;
   subj?: string;
   closed: boolean;
+  ready?: boolean; // a lesson slot with no plan yet isn't startable
 };
 
 const TICK_MS = 10000; // the display is in whole minutes; 10s is plenty
@@ -94,10 +95,13 @@ export default function DayStrip({
               </span>
               {isNow && <span className="badge now">Now</span>}
               {isNext && <span className="badge next">Next</span>}
-              {isNow && slot.kind === "lesson" && (
+              {isNow && slot.kind === "lesson" && slot.ready !== false && (
                 <Link href={`/student/${linkHandle}/session/${slot.id}`} className="btn">
                   Start
                 </Link>
+              )}
+              {isNow && slot.kind === "lesson" && slot.ready === false && (
+                <span className="badge next">Getting ready</span>
               )}
               {isNow && slot.kind === "testing" && (
                 <Link href={`/student/${linkHandle}/test/${slot.id}`} className="btn">

@@ -85,7 +85,6 @@ export default function Builder({
 }) {
   const router = useRouter();
   const [plan, setPlan] = useState<PlanState>(initial);
-  const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -192,48 +191,6 @@ export default function Builder({
     setPlan((p) => ({ ...p, chunks: [...p.chunks, base] }));
   }
 
-  async function generate() {
-    if (!topic.trim()) {
-      setNote("Tell me the topic first — even a rough phrase is fine.");
-      return;
-    }
-    setBusy(true);
-    setNote("Drafting a lesson… this uses the stronger model, so give it a moment.");
-    const res = await fetch("/api/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        op: "generate",
-        topic,
-        subject: plan.subject || "General",
-        durationMin: plan.durationMin,
-        childId: plan.childId,
-        gradeLevel: plan.gradeLevel,
-        curriculumTopic: plan.topic,
-      }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (data.error) {
-      setNote(data.error);
-      return;
-    }
-    setPlan((p) => ({
-      ...p,
-      title: data.title ?? p.title,
-      goal: data.goal ?? p.goal,
-      whyItMatters: data.whyItMatters ?? p.whyItMatters,
-      standardCode: data.standardCode ?? p.standardCode,
-      standardText: data.standardText ?? p.standardText,
-      chunks: Array.isArray(data.chunks) ? data.chunks : p.chunks,
-    }));
-    setNote(
-      data.standardCode
-        ? `Draft ready, aligned to ${STD.label} ${data.standardCode}. Read it over, edit anything, then save.`
-        : "Draft ready. Read it over, edit anything, then save."
-    );
-  }
-
   async function save(publish: boolean) {
     if (!plan.title.trim()) {
       setNote("Give the lesson a title before saving.");
@@ -281,20 +238,13 @@ export default function Builder({
       <p className="eyebrow">Lesson builder</p>
       <h1>{plan.id ? "Edit lesson" : "New lesson"}</h1>
 
-      {/* Draft-with-AI starter */}
+      {/* Lesson details */}
       <div className="card lift" style={{ marginTop: 16 }}>
-        <h2>Start with a rough idea</h2>
+        <h2>Lesson details</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Describe the lesson in a sentence. The AI drafts the steps; you stay in control and edit.
+          Set the subject, grade, and standard. Add the steps below — including a Practice step that deep-links to IXL or Khan.
         </p>
         <div className="stack">
-          <textarea
-            className="field"
-            rows={2}
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g. Intro to telling time on an analog clock, to the half hour"
-          />
           <div className="row">
             <label className="inline muted">
               Subject
@@ -372,9 +322,6 @@ export default function Builder({
                 </option>
               ))}
             </select>
-            <button className="btn" onClick={generate} disabled={busy}>
-              {busy ? "Working…" : "✦ Draft with AI"}
-            </button>
           </div>
         </div>
       </div>

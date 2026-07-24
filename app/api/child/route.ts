@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { planJsonFromDocs, tutorJson, aiEnabled, type DocInput } from "@/lib/ai";
+import { planJsonFromDocs, aiEnabled, type DocInput } from "@/lib/ai";
+import { subjectKey } from "@/lib/subjects";
+import {
+  childProviders,
+  contentForStandard,
+  contentForSkillName,
+  preferredOrder,
+  providerBrowseUrl,
+} from "@/lib/contentIndex";
 import { usernameFrom } from "@/lib/username";
 import { getStandards } from "@/lib/standards";
 import { guardOperate, guardOperatorPresent } from "@/lib/authz";
@@ -236,46 +244,37 @@ export async function POST(req: NextRequest) {
   if (op === "approveLesson") {
     const proposed = await prisma.proposedLesson.findUnique({
       where: { id: body.proposedLessonId },
-      include: { proposal: { include: { child: { include: { profile: true } } } } },
+      include: { proposal: { include: { child: true } } },
     });
     if (!proposed) return NextResponse.json({ error: "not found" }, { status: 404 });
     const child = proposed.proposal.child;
-    const p = child.profile;
-    const std = getStandards(child.standardsCode);
+    const framework = getStandards(child.standardsCode).code;
+    const providers = childProviders(child.providers);
+    const subjKey = subjectKey(proposed.subject);
 
-    // Materialize the approved outline into a full, ready lesson.
-    const system = [
-      `You design lesson plans for NeuroBridge, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
-      "Chunk types: read_text (content), visual (content + optional visual name), video (videoNote, no invented URL), worksheet (items, seed_question, seed_answer), wrap_up.",
-      "Include a worksheet assessment as the second-to-last chunk, then one wrap_up. Plain text only, no Markdown.",
-      p?.readingLevel ? `Reading level: ${p.readingLevel}.` : "",
-      p?.interests ? `Use the child's interests where natural: ${p.interests}.` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // Index-driven: the exact IXL/Khan skill for the standard, no AI content.
+    let links = await contentForStandard({ standardCode: proposed.standardCode, providers, framework });
+    if (links.length === 0 && proposed.topic) {
+      links = await contentForSkillName({ skill: proposed.topic, providers, framework });
+    }
+    const order = preferredOrder(providers);
+    links.sort((a, b) => order.indexOf(a.provider) - order.indexOf(b.provider));
+    const best = links[0];
 
-    const draft = await tutorJson<{
-      goal: string;
-      whyItMatters: string;
-      standardCode: string;
-      standardText: string;
-      chunks: unknown[];
-    }>(
-      system,
-      `Build the lesson "${proposed.title}" (subject ${proposed.subject}, Grade ${proposed.grade}, strand ${proposed.topic}) for ${child.name}. ` +
-        `Return JSON: {"goal": "...", "whyItMatters": "...", "standardCode": "${std.label} code", "standardText": "...", "chunks": [ ... ]} with 3-6 chunks ending in a worksheet then wrap_up.`,
-      4000,
-      "deep"
-    );
+    const provider = best?.provider ?? order[0] ?? "khan";
+    const skillName = best?.skillName || proposed.topic || proposed.title;
+    const videoUrl = best?.videoUrl || "";
+    const practiceUrl = best?.practiceUrl || providerBrowseUrl(provider, subjKey, best?.gradeLevel || proposed.grade);
+    const label = provider === "khan" ? "Khan Academy" : provider === "ixl" ? "IXL" : provider;
 
-    const chunks =
-      draft?.chunks && Array.isArray(draft.chunks) && draft.chunks.length > 0
-        ? draft.chunks
-        : [
-            { type: "read_text", title: proposed.title, content: `A lesson on ${proposed.topic}.`, read_aloud: true },
-            { type: "worksheet", title: "Try it", items: 3, difficulty: "adaptive" },
-            { type: "wrap_up", title: "Look what you did" },
-          ];
+    const chunk = {
+      type: "practice",
+      title: proposed.title,
+      provider,
+      videoUrl,
+      practiceUrl,
+      content: `Today: ${skillName}. Watch the video on ${label}, then do the practice. Come back here when you're finished.`,
+    };
 
     const plan = await prisma.lessonPlan.create({
       data: {
@@ -283,13 +282,14 @@ export async function POST(req: NextRequest) {
         childId: child.id,
         title: proposed.title,
         subject: proposed.subject,
-        gradeLevel: proposed.grade,
+        gradeLevel: best?.gradeLevel || proposed.grade,
         topic: proposed.topic,
-        standardCode: draft?.standardCode ?? "",
-        standardText: draft?.standardText ?? "",
-        goal: draft?.goal ?? proposed.title,
-        whyItMatters: draft?.whyItMatters ?? "",
-        chunks: JSON.stringify(chunks),
+        standardCode: proposed.standardCode,
+        standardText: "",
+        goal: `Practice: ${skillName}`,
+        whyItMatters: "",
+        workUrl: practiceUrl,
+        chunks: JSON.stringify([chunk]),
         durationMin: 25,
         published: false, // approved into the library as a draft to review/schedule
       },
@@ -300,7 +300,7 @@ export async function POST(req: NextRequest) {
       data: { status: "approved", lessonPlanId: plan.id },
     });
 
-    return NextResponse.json({ ok: true, lessonPlanId: plan.id });
+    return NextResponse.json({ ok: true, lessonPlanId: plan.id, provider, indexed: Boolean(best) });
   }
 
   return NextResponse.json({ error: "unknown op" }, { status: 400 });

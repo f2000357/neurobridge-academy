@@ -121,6 +121,9 @@ export default async function StudentToday({
       sub: info.sub,
       subj: info.subj,
       closed: isClosed(slot),
+      // A lesson slot with no plan yet isn't startable — the guide still has to
+      // fill it. Non-lesson blocks are always ready.
+      ready: slot.kind !== "lesson" || Boolean(slot.lessonPlanId),
     };
   });
 
