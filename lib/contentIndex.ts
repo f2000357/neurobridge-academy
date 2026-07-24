@@ -8,6 +8,8 @@ export type ProviderLinks = {
   provider: string;
   skillName: string;
   standardCode: string;
+  subject: string;
+  gradeLevel: string;
   videoUrl: string;
   practiceUrl: string;
 };
@@ -29,6 +31,8 @@ function toLinks(i: {
   provider: string;
   skillName: string;
   standardCode: string;
+  subject: string;
+  gradeLevel: string;
   videoUrl: string;
   practiceUrl: string;
 }): ProviderLinks {
@@ -36,9 +40,26 @@ function toLinks(i: {
     provider: i.provider,
     skillName: i.skillName,
     standardCode: i.standardCode,
+    subject: i.subject,
+    gradeLevel: i.gradeLevel,
     videoUrl: i.videoUrl,
     practiceUrl: i.practiceUrl,
   };
+}
+
+/** Order a child's providers, preferring their paid ones (e.g. IXL) over free Khan. */
+export function preferredOrder(providers: string[]): string[] {
+  return providers.filter((p) => p !== "khan").concat(providers.includes("khan") ? ["khan"] : []);
+}
+
+/** A fallback deep link to the provider's subject area when the index has no exact skill. */
+export function providerBrowseUrl(provider: string, subjectKey: string, grade: string): string {
+  const g = grade || "3";
+  if (provider === "ixl") {
+    const area = subjectKey === "math" ? "math" : subjectKey === "science" ? "science" : "ela";
+    return `https://www.ixl.com/${area}/grade-${g}`;
+  }
+  return "https://www.khanacademy.org";
 }
 
 /** Best deep links for a standard, limited to the providers the child has. */

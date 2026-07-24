@@ -5,6 +5,14 @@ import { tutorJson, aiEnabled } from "@/lib/ai";
 import { gatherCoverage, gapSummary } from "@/lib/coverage";
 import { getStandards } from "@/lib/standards";
 import { guardOperate } from "@/lib/authz";
+import { subjectKey } from "@/lib/subjects";
+import {
+  childProviders,
+  contentForStandard,
+  contentForSkillName,
+  preferredOrder,
+  providerBrowseUrl,
+} from "@/lib/contentIndex";
 
 // Weekly plan generator. Layer 1 (subject/flexible blocks) is already on the
 // schedule; here we fill each subject with a focus + a difficulty ramp for the
@@ -178,50 +186,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Turn one reviewed outline into a real, scheduled lesson (client loops these).
+  // Turn one reviewed outline into a real, scheduled lesson — a provider deep
+  // link from the index. No AI-authored content: the AI chose the standard, the
+  // index supplies the exact IXL/Khan skill for the child's providers.
   if (op === "materializeOne") {
     const wl = await prisma.weeklyLesson.findUnique({
       where: { id: body.weeklyLessonId },
-      include: { plan: { include: { child: { include: { profile: true } } } } },
+      include: { plan: { include: { child: true } } },
     });
     if (!wl) return NextResponse.json({ error: "not found" }, { status: 404 });
     const child = wl.plan.child;
-    const p = child.profile;
+    const framework = getStandards(child.standardsCode).code;
+    const providers = childProviders(child.providers);
+    const subjKey = subjectKey(wl.subject);
 
-    const std = getStandards(child.standardsCode);
-    const system = [
-      `You design lesson plans for NeuroBridge, a calm school for neurodiverse learners, aligned to ${std.name} (${std.label}).`,
-      "Chunk types: read_text (content), visual (content + optional visual name), worksheet (items 3-5, seed_question, seed_answer), wrap_up.",
-      "Include a worksheet assessment before one wrap_up. Plain text only, no Markdown.",
-      p?.interests ? `Use the child's interests where natural: ${p.interests}.` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // Find the real skill: by standard first, then by the strand/skill name.
+    let links = await contentForStandard({ standardCode: wl.standardCode, providers, framework });
+    if (links.length === 0 && wl.topic) {
+      links = await contentForSkillName({ skill: wl.topic, providers, framework });
+    }
+    const order = preferredOrder(providers);
+    links.sort((a, b) => order.indexOf(a.provider) - order.indexOf(b.provider));
+    const best = links[0];
 
-    const draft = await tutorJson<{
-      goal: string;
-      whyItMatters: string;
-      standardCode: string;
-      standardText: string;
-      gradeLevel: string;
-      chunks: unknown[];
-    }>(
-      system,
-      `Build the lesson "${wl.title}" for ${child.name}. Subject ${wl.subject}, weekly focus "${wl.focus}", strand ${wl.topic}, standard ${wl.standardCode}. ` +
-        `This is step ${wl.level} in a rising-difficulty week, so pitch it accordingly. ` +
-        `Return JSON: {"goal","whyItMatters","standardCode","standardText","gradeLevel" ("K"-"12"),"chunks":[...]} with 3-6 chunks ending worksheet then wrap_up.`,
-      4000,
-      "deep"
-    );
+    const provider = best?.provider ?? order[0] ?? "khan";
+    const grade = best?.gradeLevel || "";
+    const skillName = best?.skillName || wl.topic || wl.title;
+    const videoUrl = best?.videoUrl || "";
+    const practiceUrl = best?.practiceUrl || providerBrowseUrl(provider, subjKey, grade);
+    const label = provider === "khan" ? "Khan Academy" : provider === "ixl" ? "IXL" : provider;
 
-    const chunks =
-      draft?.chunks && Array.isArray(draft.chunks) && draft.chunks.length > 0
-        ? draft.chunks
-        : [
-            { type: "read_text", title: wl.title, content: `A lesson on ${wl.topic || wl.focus}.`, read_aloud: true },
-            { type: "worksheet", title: "Try it", items: 5 },
-            { type: "wrap_up", title: "Look what you did" },
-          ];
+    const chunk = {
+      type: "practice",
+      title: wl.title,
+      provider,
+      videoUrl,
+      practiceUrl,
+      content: `Today: ${skillName}. Watch the video on ${label}, then do the practice. Come back here when you're finished.`,
+    };
 
     const plan = await prisma.lessonPlan.create({
       data: {
@@ -229,23 +231,23 @@ export async function POST(req: NextRequest) {
         childId: child.id,
         title: wl.title,
         subject: wl.subject,
-        gradeLevel: draft?.gradeLevel ?? "",
+        gradeLevel: grade,
         topic: wl.topic,
-        standardCode: draft?.standardCode || wl.standardCode,
-        standardText: draft?.standardText ?? "",
-        goal: draft?.goal ?? wl.title,
-        whyItMatters: draft?.whyItMatters ?? "",
-        chunks: JSON.stringify(chunks),
-        durationMin: 45,
+        standardCode: wl.standardCode,
+        standardText: "",
+        goal: `Practice: ${skillName}`,
+        whyItMatters: "",
+        workUrl: practiceUrl,
+        chunks: JSON.stringify([chunk]),
+        durationMin: 25,
         published: true,
       },
     });
 
-    // Point the schedule block at the new lesson.
     await prisma.scheduleSlot.update({ where: { id: wl.slotId }, data: { lessonPlanId: plan.id } });
     await prisma.weeklyLesson.update({ where: { id: wl.id }, data: { status: "approved", lessonPlanId: plan.id } });
 
-    return NextResponse.json({ ok: true, lessonPlanId: plan.id });
+    return NextResponse.json({ ok: true, lessonPlanId: plan.id, provider, indexed: Boolean(best) });
   }
 
   return NextResponse.json({ error: "unknown op" }, { status: 400 });
