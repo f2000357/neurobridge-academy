@@ -38,10 +38,11 @@ function elaLane(code) {
 
 // Each subject: its alignment URL segment, its standard-code shape, and how a
 // code becomes one of our lanes.
+// Standard-code shapes accept a leading "K" too (kindergarten: K.CC.A.1, L.RF.K.1, K-PS2-1).
 const SUBJECTS = {
-  math: { urlSubject: "math", codeSrc: "[0-9]\\.[A-Z]{1,3}\\.(?:[A-Z]\\.)?[0-9]+", lane: () => "math" },
-  ela: { urlSubject: "ela", codeSrc: "[A-Z]{1,3}(?:\\.[A-Z]{1,3})?\\.[0-9]{1,2}\\.[0-9]{1,2}[a-z]?", lane: elaLane },
-  science: { urlSubject: "science", codeSrc: "[0-9]-[A-Z]{2,4}[0-9]?-[0-9]+", lane: () => "science" },
+  math: { urlSubject: "math", codeSrc: "[0-9K]\\.[A-Z]{1,3}\\.(?:[A-Z]\\.)?[0-9]+", lane: () => "math" },
+  ela: { urlSubject: "ela", codeSrc: "[A-Z]{1,3}(?:\\.[A-Z]{1,3})?\\.(?:[0-9]{1,2}|K)\\.[0-9]{1,2}[a-z]?", lane: elaLane },
+  science: { urlSubject: "science", codeSrc: "[0-9K]-[A-Z]{2,4}[0-9]?-[0-9]+", lane: () => "science" },
 };
 const PICKED = (process.env.SUBJECTS || "math,ela,science").split(",").map((s) => s.trim()).filter((s) => SUBJECTS[s]);
 
@@ -106,11 +107,12 @@ async function main() {
   const jobs = [];
   for (const subjKey of PICKED) for (const grade of GRADES) jobs.push({ subjKey, grade });
 
+  const gradeSlug = (g) => (g === "K" ? "kindergarten" : `grade-${g}`);
   let total = 0;
   for (let i = 0; i < jobs.length; i++) {
     const { subjKey, grade } = jobs[i];
     try {
-      const r = await crawlPage(subjKey, `grade-${grade}`, grade);
+      const r = await crawlPage(subjKey, gradeSlug(grade), grade);
       total += r.wrote;
       console.log(`  ${r.url} → parsed ${r.parsed}, ${DRY ? "would write" : "wrote"} ${DRY ? r.parsed : r.wrote}`);
     } catch (e) {

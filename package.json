@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:authz": "node tests/authz.mjs"
+    "test:authz": "node tests/authz.mjs",
+    "crawl:index": "node prisma/crawl-index.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",
