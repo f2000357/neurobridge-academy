@@ -93,6 +93,10 @@ model Child {
   archived  Boolean        @default(false) // deactivated: hidden from rosters, no learner access
   // Which standards framework this learner is held to (see lib/standards.ts).
   standardsCode String     @default("NJ")
+  // Which content providers this learner has (CSV of ids). Khan is free, so it's
+  // always available; IXL etc. only if the family subscribed. Drives which
+  // deep-links the index hands back for this child.
+  providers  String        @default("khan")
   points    Int            @default(0) // lifetime points collected (never goes down)
   pointsSpent Int          @default(0) // total redeemed on prizes; balance = points - pointsSpent
   pointEvents PointEvent[]
@@ -532,4 +536,28 @@ model LessonAsset {
   bytes      Int        @default(0)
   path       String // relative to the uploads root
   createdAt  DateTime   @default(now())
+}
+
+// The content index: state standard → provider skill (with deep links). Built
+// from the providers' published standards-alignment pages and refreshed on a
+// schedule. This is what makes a "lesson" the right IXL/Khan skill for where the
+// child stands — deterministic deep links, no AI-invented URLs.
+model ContentItem {
+  id           String   @id @default(cuid())
+  provider     String   // ixl | khan
+  framework    String   @default("NJ") // standards framework (see lib/standards.ts)
+  standardCode String   // e.g. 3.OA.C.7
+  subject      String   // math | reading | writing | science
+  gradeLevel   String   // "K".."12"
+  skillName    String
+  skillCode    String   @default("") // the provider's short code, if any
+  videoUrl     String   @default("")  // deep link to the skill's video
+  practiceUrl  String   @default("")  // deep link to the skill's practice
+  active       Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  @@unique([provider, standardCode, practiceUrl])
+  @@index([framework, standardCode])
+  @@index([provider, subject, gradeLevel])
 }
