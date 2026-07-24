@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import StepVideo from "./StepVideo";
 import StepEditor from "./StepEditor";
+import PracticeStep from "./PracticeStep";
 import Link from "next/link";
 
 type WsItem = { question: string; answer: string };
@@ -76,6 +77,7 @@ type Resume = {
 
 export default function Player({
   childId,
+  slotId,
   dayHref,
   childName,
   sessionId,
@@ -90,6 +92,7 @@ export default function Player({
   planId,
 }: {
   childId: string;
+  slotId?: string;
   dayHref?: string;
   childName: string;
   sessionId: string;
@@ -722,30 +725,14 @@ export default function Player({
                 </div>
 
                 {chunk.type === "practice" && (
-                  <div className="practice-step">
-                    <p className="passage" style={{ marginBottom: 14 }}>
-                      {chunk.content ||
-                        `Watch the video on ${providerName(chunk.provider)}, then do the practice. Come back here when you're finished.`}
-                    </p>
-                    <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
-                      {chunk.videoUrl && (
-                        <a className="btn" href={chunk.videoUrl} target="_blank" rel="noreferrer">
-                          ▶ Watch on {providerName(chunk.provider)}
-                        </a>
-                      )}
-                      {chunk.practiceUrl && (
-                        <a className="btn quiet" href={chunk.practiceUrl} target="_blank" rel="noreferrer">
-                          ✎ Practice on {providerName(chunk.provider)}
-                        </a>
-                      )}
-                    </div>
-                    <p className="muted" style={{ fontSize: "0.85rem", marginTop: 12 }}>
-                      Opens in a new tab. When you&apos;ve finished, come back and press done.
-                    </p>
-                    <button className="btn" style={{ marginTop: 8 }} onClick={finishStep}>
-                      I&apos;m done — next
-                    </button>
-                  </div>
+                  <PracticeStep
+                    chunk={chunk}
+                    durationMin={lesson.durationMin ?? 25}
+                    childId={childId}
+                    slotId={slotId}
+                    preview={preview}
+                    onNext={finishStep}
+                  />
                 )}
 
                 {!isAssessment && chunk.type !== "practice" && (

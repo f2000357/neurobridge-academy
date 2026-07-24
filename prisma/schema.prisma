@@ -111,6 +111,27 @@ model Child {
   specialists TeacherAssignment[]
   teacherNotes TeacherNote[]
   assessmentImports AssessmentImport[]
+  providerCompletions ProviderCompletion[]
+}
+
+// A provider lesson (IXL/Khan) the child did off-platform and marked done. The
+// work happens outside, so the guide validates it: they open the child's work on
+// the provider (practiceUrl), read the accuracy, and enter it — coins = floor(
+// accuracy / 10), 0-10. Points stay native: we never import the provider's score.
+model ProviderCompletion {
+  id           String    @id @default(cuid())
+  childId      String
+  child        Child     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  slotId       String?
+  title        String    @default("")
+  provider     String    @default("")
+  practiceUrl  String    @default("") // deep link the guide opens to check the work
+  accuracy     Int?      // % the guide read off the provider
+  coins        Int       @default(0) // floor(accuracy/10); awarded on validation
+  status       String    @default("pending") // pending | validated | rejected
+  pointEventId String?   // the award, so an undo can reverse it
+  createdAt    DateTime  @default(now())
+  validatedAt  DateTime?
 }
 
 // A practice/assessment report (IXL, Khan, MAP) the guide exported and uploaded.

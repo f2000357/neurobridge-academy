@@ -4,6 +4,7 @@ import { todayStr } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
 import TodayCalendar from "./TodayCalendar";
 import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
+import ValidationList from "./ValidationList";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function TeacherDashboard() {
 
   // Everything waiting on the guide's yes/no: proposed lessons (from documents
   // or advancement) and AI-drafted weekly plans.
-  const [slots, pendingLessons, pendingWeeks] = await Promise.all([
+  const [slots, pendingLessons, pendingWeeks, pendingChecks] = await Promise.all([
     prisma.scheduleSlot.findMany({
       where: { date, childId: { in: kidIds } },
       include: { lessonPlan: true, child: true, sessions: true },
@@ -45,7 +46,19 @@ export default async function TeacherDashboard() {
       include: { child: { select: { id: true, name: true } }, _count: { select: { lessons: true } } },
       orderBy: { weekStart: "asc" },
     }),
+    prisma.providerCompletion.findMany({
+      where: { status: "pending", childId: { in: kidIds } },
+      include: { child: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
+  const checkItems = pendingChecks.map((c) => ({
+    id: c.id,
+    childName: c.child.name,
+    title: c.title,
+    provider: c.provider,
+    practiceUrl: c.practiceUrl,
+  }));
   // One capped list — weekly plans first, then proposed lessons.
   const approvalItems: ApprovalItem[] = [
     ...pendingWeeks.map((w) => ({
@@ -111,6 +124,16 @@ export default async function TeacherDashboard() {
             </div>
           )}
         </section>
+
+        {checkItems.length > 0 && (
+          <section style={{ marginTop: 28 }}>
+            <h2 style={{ margin: "0 0 4px" }}>Waiting for your check ({checkItems.length})</h2>
+            <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
+              Open the child&apos;s work on the provider, read the accuracy, and enter it — coins follow (accuracy ÷ 10, up to 10).
+            </p>
+            <ValidationList items={checkItems} />
+          </section>
+        )}
 
         <section style={{ marginTop: 28 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>

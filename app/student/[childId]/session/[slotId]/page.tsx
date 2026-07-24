@@ -75,6 +75,7 @@ export default async function SessionPage({
   return (
     <Player
       childId={childId}
+      slotId={slot.id}
       dayHref={`/student/${linkHandle}`}
       childName={slot.child.name}
       sessionId={session.id}
