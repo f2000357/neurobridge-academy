@@ -22,6 +22,10 @@ export type Chunk = {
   imageAssetId?: string;
   /** A video the guide added, by URL. */
   videoUrl?: string;
+  /** For a "practice" step: which external provider hosts the content. */
+  provider?: string; // ixl | khan
+  /** Deep link to the provider's practice/skill (opens the provider, no embed). */
+  practiceUrl?: string;
 };
 
 type Lesson = { title: string; goal: string; why: string; durationMin: number; workUrl?: string };
@@ -37,10 +41,18 @@ const DIFF_START = 3; // 1 (easy) … 5 (hard)
 
 function stepLabel(c: Chunk): string {
   if (c.title && c.title.trim()) return c.title.trim();
+  if (c.type === "practice") return `Practice on ${providerName(c.provider)}`;
   if (c.type === "video") return "Watch a short video";
   if (c.type === "visual") return "Look at this";
   if (c.type === "worksheet") return "Questions";
   return "Read this";
+}
+
+// Friendly name for an external content provider.
+export function providerName(p?: string): string {
+  if (p === "khan") return "Khan Academy";
+  if (p === "ixl") return "IXL";
+  return "the practice site";
 }
 
 // A pre-written question for this slot, if the lesson provides a fixed list.
@@ -303,6 +315,12 @@ export default function Player({
     setTeachText("");
     setHint(null);
     const chunk = steps[idx];
+
+    // A practice step is self-contained (deep links to the provider) — no tutor call.
+    if (chunk.type === "practice") {
+      saveResume({ phase: "deliver", stepIdx: idx });
+      return;
+    }
 
     if (chunk.type === "worksheet") {
       // Returning to an assessment already in progress (e.g. after stepping back
@@ -703,7 +721,34 @@ export default function Player({
                   )}
                 </div>
 
-                {!isAssessment && (
+                {chunk.type === "practice" && (
+                  <div className="practice-step">
+                    <p className="passage" style={{ marginBottom: 14 }}>
+                      {chunk.content ||
+                        `Watch the video on ${providerName(chunk.provider)}, then do the practice. Come back here when you're finished.`}
+                    </p>
+                    <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+                      {chunk.videoUrl && (
+                        <a className="btn" href={chunk.videoUrl} target="_blank" rel="noreferrer">
+                          ▶ Watch on {providerName(chunk.provider)}
+                        </a>
+                      )}
+                      {chunk.practiceUrl && (
+                        <a className="btn quiet" href={chunk.practiceUrl} target="_blank" rel="noreferrer">
+                          ✎ Practice on {providerName(chunk.provider)}
+                        </a>
+                      )}
+                    </div>
+                    <p className="muted" style={{ fontSize: "0.85rem", marginTop: 12 }}>
+                      Opens in a new tab. When you&apos;ve finished, come back and press done.
+                    </p>
+                    <button className="btn" style={{ marginTop: 8 }} onClick={finishStep}>
+                      I&apos;m done — next
+                    </button>
+                  </div>
+                )}
+
+                {!isAssessment && chunk.type !== "practice" && (
                   <>
                     {chunk.visual === "fraction-bars" && <FractionBars />}
                     {chunk.imageAssetId && (

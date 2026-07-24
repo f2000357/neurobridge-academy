@@ -6,7 +6,7 @@ import { getStandards } from "@/lib/standards";
 import Link from "next/link";
 
 export type Chunk = {
-  type: "read_text" | "visual" | "video" | "worksheet" | "wrap_up";
+  type: "read_text" | "visual" | "video" | "worksheet" | "wrap_up" | "practice";
   title: string;
   content?: string;
   visual?: string;
@@ -21,6 +21,9 @@ export type Chunk = {
   imageAssetId?: string;
   /** A video the guide added, by URL — becomes an embed for the child. */
   videoUrl?: string;
+  /** Practice step: which external provider, and the deep link to its practice. */
+  provider?: string; // ixl | khan
+  practiceUrl?: string;
 };
 
 export type PlanState = {
@@ -47,6 +50,7 @@ const CHUNK_LABEL: Record<Chunk["type"], string> = {
   read_text: "Read-aloud text",
   visual: "Visual",
   video: "Video",
+  practice: "Practice (IXL / Khan)",
   worksheet: "Worksheet",
   wrap_up: "Wrap up",
 };
@@ -182,7 +186,9 @@ export default function Builder({
         ? { type, title: "Practice", items: 3 }
         : type === "wrap_up"
           ? { type, title: "Look what you did" }
-          : { type, title: CHUNK_LABEL[type], content: "" };
+          : type === "practice"
+            ? { type, title: "Practice this skill", provider: "khan", videoUrl: "", practiceUrl: "" }
+            : { type, title: CHUNK_LABEL[type], content: "" };
     setPlan((p) => ({ ...p, chunks: [...p.chunks, base] }));
   }
 
@@ -512,6 +518,38 @@ export default function Builder({
                 />
               </>
             )}
+            {c.type === "practice" && (
+              <>
+                <div className="row">
+                  <label className="inline muted">
+                    Provider
+                    <select
+                      className="field short"
+                      value={c.provider ?? "khan"}
+                      onChange={(e) => setChunk(i, { provider: e.target.value })}
+                    >
+                      <option value="khan">Khan Academy</option>
+                      <option value="ixl">IXL</option>
+                    </select>
+                  </label>
+                </div>
+                <input
+                  className="field"
+                  value={c.videoUrl ?? ""}
+                  onChange={(e) => setChunk(i, { videoUrl: e.target.value })}
+                  placeholder="Video deep link (opens the provider — not embedded)"
+                />
+                <input
+                  className="field"
+                  value={c.practiceUrl ?? ""}
+                  onChange={(e) => setChunk(i, { practiceUrl: e.target.value })}
+                  placeholder="Practice / skill deep link"
+                />
+                <p className="muted" style={{ fontSize: "0.8rem", margin: "4px 0 0" }}>
+                  The child opens these on {c.provider === "ixl" ? "IXL" : "Khan Academy"} and comes back — content isn&apos;t embedded (licensing).
+                </p>
+              </>
+            )}
             {c.type === "worksheet" && (
               <div className="row">
                 <label className="inline muted">
@@ -547,7 +585,7 @@ export default function Builder({
         <span className="muted" style={{ fontSize: "0.85rem" }}>
           Add a step:
         </span>
-        {(["read_text", "visual", "video", "worksheet", "wrap_up"] as const).map((t) => (
+        {(["read_text", "visual", "video", "practice", "worksheet", "wrap_up"] as const).map((t) => (
           <button key={t} className="chip" onClick={() => addChunk(t)}>
             + {CHUNK_LABEL[t]}
           </button>
