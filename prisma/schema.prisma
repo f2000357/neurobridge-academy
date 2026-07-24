@@ -110,6 +110,23 @@ model Child {
   proposals ProgramProposal[]
   specialists TeacherAssignment[]
   teacherNotes TeacherNote[]
+  assessmentImports AssessmentImport[]
+}
+
+// A practice/assessment report (IXL, Khan, MAP) the guide exported and uploaded.
+// The AI reads the file and pulls out where the child needs work; those focus
+// areas feed the next week's plan. Content stays on the provider — this is only
+// the results coming back.
+model AssessmentImport {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  provider  String   @default("ixl") // ixl | khan | map
+  weekStart String   @default("")    // the Monday this import informs
+  summary   String   @default("")    // one-line overall read
+  focus     String   @default("[]")  // JSON [{lane, subject, skill, questionsMissed}]
+  mastery   String   @default("{}")  // JSON per-lane mastery snapshot
+  createdAt DateTime @default(now())
 }
 
 // A special interest the family wants protected time for each week.

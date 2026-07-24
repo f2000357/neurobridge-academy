@@ -96,6 +96,20 @@ export async function POST(req: NextRequest) {
     const gaps = gapSummary(coverage);
     const gapBySubject = new Map(gaps.map((g) => [g.subject, g]));
 
+    // A recently imported practice/assessment report (IXL/Khan/MAP) is the
+    // freshest, most concrete "where the child is" signal — prioritise its weak
+    // skills as the focus. (Option B: the AI reasons from the report; no map.)
+    const imported = await prisma.assessmentImport.findFirst({
+      where: { childId },
+      orderBy: { createdAt: "desc" },
+    });
+    let importedFocus: { lane?: string; subject?: string; skill?: string; questionsMissed?: number }[] = [];
+    try {
+      if (imported) importedFocus = JSON.parse(imported.focus);
+    } catch {
+      importedFocus = [];
+    }
+
     const subjectsForPrompt = Array.from(bySubject.entries()).map(([subject, ss]) => {
       const g = gapBySubject.get(subject);
       return {
@@ -114,6 +128,9 @@ export async function POST(req: NextRequest) {
       `You design a week of ${standards.label}-aligned lessons for a neurodiverse learner. For each subject, pick a focus and build a lesson for each of its blocks so the difficulty rises across the week (start where the child is; each lesson a small step harder). Plain, encouraging language.`,
       `Child: ${child.name}, age ${child.age ?? "?"}${coverageGrade ? `, working at grade ${coverageGrade}` : ""}. Reading level: ${p?.readingLevel ?? "grade-3"}, math level: ${p?.mathLevel || "unknown"}. Interests: ${p?.interests || "unknown"}. ` +
         (test ? `They took a check-in test — testScore per subject (% correct) is a strong signal: low = reteach fundamentals, high = push ahead. ` : "") +
+        (importedFocus.length
+          ? `IMPORTED PRACTICE REPORT (${imported?.provider ?? "external"}, most recent — the STRONGEST signal of where the child is right now): they struggled most with these skills, worst first — make them the focus this week: ${JSON.stringify(importedFocus)}. `
+          : "") +
         `This week's subject blocks: ${JSON.stringify(subjectsForPrompt)}. ` +
         `CHOOSING THE FOCUS IS THE MOST IMPORTANT DECISION. For each subject, "needsWork" lists ${standards.label} strands the child scored below 50% on, "notStarted" lists grade-level strands with no work yet, and "secure" lists strands already at 80%+. ` +
         `Pick the week's focus to CLOSE A REAL GAP: prefer a "needsWork" strand first, then a "notStarted" one. Do NOT pick a "secure" strand unless nothing else remains. ` +
