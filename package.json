@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "//build": "Hosts that cache node_modules (Vercel) skip Prisma's own postinstall, leaving a stale client — so generate explicitly.",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "test:authz": "node tests/authz.mjs",
