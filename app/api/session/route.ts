@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getStandards } from "@/lib/standards";
 import { tutorJson } from "@/lib/ai";
 import { todayStr, nextMonday } from "@/lib/time";
 import { nextGrade } from "@/lib/njsls";
+import { guardSession } from "@/lib/authz";
 
 // Session lifecycle + the ambient evaluation stream.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op, sessionId } = body as { op: string; sessionId: string };
+
+  // Authorization: resolve the child this op touches (directly, or via the
+  // session it names) and require the child themselves or their operator.
+  let targetChildId: string | undefined = body.childId;
+  if (!targetChildId && sessionId) {
+    const s = await prisma.session.findUnique({ where: { id: sessionId }, select: { childId: true } });
+    targetChildId = s?.childId;
+  }
+  if (!targetChildId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+  const denied = await guardSession(targetChildId);
+  if (denied) return denied;
 
   // Persist a resume snapshot so a closed/reopened browser lands in the same spot.
   if (op === "resume") {
@@ -126,10 +139,11 @@ export async function POST(req: NextRequest) {
     const plan = session.slot.lessonPlan;
     if (masteryLevel === "proficient" && plan) {
       const child = session.child;
+      const std = getStandards(child.standardsCode);
       // 1) Weekly homework: a 10-question worksheet, due next Monday.
       try {
         const hw = await tutorJson<{ questions: { question: string; answer: string }[] }>(
-          `You write short homework worksheets for neurodiverse learners, aligned to NJSLS. Plain language.`,
+          `You write short homework worksheets for neurodiverse learners, aligned to ${std.label}. Plain language.`,
           `Create a 10-question homework worksheet reinforcing "${plan.title}" (subject ${plan.subject}, Grade ${plan.gradeLevel || "?"}, strand ${plan.topic}, standard ${plan.standardCode}). ` +
             `Short questions, each with one short definite answer. JSON: {"questions": [{"question": "...", "answer": "..."}]} with exactly 10.`,
           2000,
@@ -154,14 +168,14 @@ export async function POST(req: NextRequest) {
         console.error("homework generation failed", e);
       }
 
-      // 2) NJSLS advancement: propose the next level up on the same topic.
+      // 2) Standards advancement: propose the next level up on the same topic.
       try {
         const up = nextGrade(plan.gradeLevel || "3");
         const adv = await tutorJson<{ title: string; standardCode: string; rationale: string }>(
-          `You plan NJSLS-aligned advancement for a neurodiverse learner who just mastered a skill. Plain language.`,
+          `You plan ${std.label}-aligned advancement for a neurodiverse learner who just mastered a skill. Plain language.`,
           `${child.name} just showed proficiency (${score}%) on "${plan.title}" — ${plan.subject}, Grade ${plan.gradeLevel}, strand "${plan.topic}", standard ${plan.standardCode}. ` +
-            `Propose the NEXT advanced level on this same topic, at Grade ${up}, following the NJSLS progression. ` +
-            `JSON: {"title": "short lesson title", "standardCode": "the next NJSLS standard code", "rationale": "one sentence: why this is the right next step"}`,
+            `Propose the NEXT advanced level on this same topic, at Grade ${up}, following the ${std.label} progression. ` +
+            `JSON: {"title": "short lesson title", "standardCode": "the next ${std.label} standard code", "rationale": "one sentence: why this is the right next step"}`,
           800,
           "plan"
         );

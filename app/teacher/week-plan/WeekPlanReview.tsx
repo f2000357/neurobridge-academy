@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDaysStr, weekdayShort } from "@/lib/time";
+import { addDaysStr, weekdayShort, todayStr } from "@/lib/time";
 
 type Child = { id: string; name: string };
 export type PlanLesson = {
@@ -38,7 +38,14 @@ export default function WeekPlanReview({
   const [plan, setPlan] = useState<PlanData | null>(initialPlan);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
+  const today = todayStr();
+
+  // After router.refresh() the server sends fresh lessons — adopt them, or the
+  // list would keep showing the state from when the page first loaded.
+  useEffect(() => {
+    setPlan(initialPlan);
+  }, [initialPlan]);
 
   const go = (cId: string, wk: string) =>
     router.push(`/teacher/week-plan?childId=${cId}&weekStart=${wk}`);
@@ -59,6 +66,11 @@ export default function WeekPlanReview({
       setNote(data.error);
       return;
     }
+    if (data.note) {
+      // e.g. nothing upcoming to regenerate — history stays as it is.
+      setNote(data.note);
+      return;
+    }
     setNote(null);
     router.refresh(); // re-fetch server data (same URL) to show the fresh plan
   }
@@ -66,27 +78,51 @@ export default function WeekPlanReview({
   async function approveAndBuild() {
     if (!plan) return;
     setBusy(true);
-    setNote(null);
-    await fetch("/api/weekplan", {
+    setNote("Publishing the week onto each day…");
+    // Drafts were already built at generate time (and may be guide-edited);
+    // approve publishes + schedules them in one call, preserving edits.
+    const res = await fetch("/api/weekplan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ op: "approve", planId: plan.id }),
     });
-    const pending = plan.lessons.filter((l) => l.status !== "approved");
-    setProgress({ done: 0, total: pending.length });
-    for (let i = 0; i < pending.length; i++) {
-      await fetch("/api/weekplan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "materializeOne", weeklyLessonId: pending[i].id }),
-      });
-      setProgress({ done: i + 1, total: pending.length });
-    }
+    const data = await res.json();
     setBusy(false);
-    setProgress(null);
+    if (data.error) {
+      setNote(data.error);
+      return;
+    }
     setNote("Week approved and scheduled. The lessons are now on each day.");
     setPlan((pl) => (pl ? { ...pl, status: "approved" } : pl));
+    router.refresh();
   }
+
+  // Per-lesson approve / unapprove. Unapproving takes it off the schedule and
+  // back to an editable draft (the same skill can then be reused or replaced).
+  async function lessonAction(weeklyLessonId: string, op: "approveOne" | "unapprove") {
+    setActing(weeklyLessonId);
+    setNote(null);
+    const res = await fetch("/api/weekplan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op, weeklyLessonId }),
+    });
+    const data = await res.json();
+    setActing(null);
+    if (data.error) {
+      setNote(data.error);
+      return;
+    }
+    setNote(
+      op === "unapprove"
+        ? "Taken off the schedule — edit it, or regenerate the rest of the week."
+        : "Scheduled onto the day."
+    );
+    router.refresh();
+  }
+
+  // Lessons still waiting to go onto the schedule (past days are never counted).
+  const draftCount = (plan?.lessons ?? []).filter((l) => l.status !== "approved" && l.date >= today).length;
 
   // Group lessons by subject for review.
   const bySubject = new Map<string, PlanLesson[]>();
@@ -97,11 +133,12 @@ export default function WeekPlanReview({
 
   return (
     <main className="page" style={{ maxWidth: 860 }}>
-      <p className="eyebrow">Weekly plan</p>
-      <h1>Review the week</h1>
+      <p className="eyebrow">Lessons</p>
+      <h1>Weekly lessons</h1>
       <p className="muted">
-        At the start of the week, the AI proposes each subject&apos;s focus and a difficulty ramp across
-        the days. Review it, then approve — the lessons drop onto the schedule.
+        Every lesson for the week lives here — drafts <em>and</em> the ones already on the schedule.
+        <strong> Preview or edit any of them any time.</strong> Unapprove an upcoming lesson to take it
+        off the schedule and change it; past days are locked.
       </p>
 
       <div className="card" style={{ marginTop: 12 }}>
@@ -130,7 +167,7 @@ export default function WeekPlanReview({
         </div>
         <div style={{ marginTop: 12 }}>
           <button className="btn" onClick={generate} disabled={busy}>
-            {busy && !progress ? "Working…" : plan ? "✦ Regenerate the week" : "✦ Generate this week"}
+            {busy ? "Working…" : plan ? "✦ Regenerate the rest of the week" : "✦ Generate this week"}
           </button>
         </div>
       </div>
@@ -140,12 +177,6 @@ export default function WeekPlanReview({
           {note}
         </p>
       )}
-      {progress && (
-        <p className="muted" style={{ marginTop: 10 }}>
-          Preparing lessons… {progress.done} / {progress.total}
-        </p>
-      )}
-
       {plan && bySubject.size > 0 && (
         <>
           <div className="stack" style={{ marginTop: 24, gap: 26 }}>
@@ -156,8 +187,11 @@ export default function WeekPlanReview({
                   <span className="pill good">Focus: {lessons[0].focus || lessons[0].topic}</span>
                 </div>
                 <div className="ramp">
-                  {lessons.map((l, i) => (
-                    <div key={l.id} className="ramp-step">
+                  {lessons.map((l, i) => {
+                    const isPast = l.date < today;
+                    const isApproved = l.status === "approved";
+                    return (
+                    <div key={l.id} className="ramp-step" style={isPast ? { opacity: 0.75 } : undefined}>
                       <div className="ramp-meta">
                         <span className="ramp-day">{weekdayShort(l.date)}</span>
                         <span className="ramp-level" title={`Difficulty step ${l.level}`}>
@@ -166,29 +200,70 @@ export default function WeekPlanReview({
                       </div>
                       <strong className="ramp-title">{l.title}</strong>
                       <p className="muted ramp-why">{l.rationale}</p>
-                      {l.status === "approved" && <span className="pill good">scheduled ✓</span>}
+
+                      <div className="row" style={{ gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                        {isApproved ? (
+                          <span className="pill good">scheduled ✓</span>
+                        ) : (
+                          <span className="pill warn">draft</span>
+                        )}
+                        {isPast && <span className="pill">past</span>}
+                      </div>
+
+                      {l.lessonPlanId && (
+                        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                          <a className="chip" href={`/preview/${l.lessonPlanId}`} target="_blank" rel="noreferrer">
+                            Preview →
+                          </a>
+                          <a className="chip" href={`/teacher/plans/${l.lessonPlanId}`} target="_blank" rel="noreferrer">
+                            Edit
+                          </a>
+                          {!isPast && isApproved && (
+                            <button
+                              className="chip danger"
+                              disabled={acting === l.id}
+                              onClick={() => lessonAction(l.id, "unapprove")}
+                              title="Take it off the schedule so you can edit or replace it"
+                            >
+                              {acting === l.id ? "…" : "Unapprove"}
+                            </button>
+                          )}
+                          {!isPast && !isApproved && (
+                            <button
+                              className="chip approve"
+                              disabled={acting === l.id}
+                              onClick={() => lessonAction(l.id, "approveOne")}
+                            >
+                              {acting === l.id ? "…" : "✓ Approve"}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}
           </div>
 
-          {plan.status !== "approved" && (
-            <div className="row" style={{ marginTop: 28, gap: 12 }}>
+          <div className="row" style={{ marginTop: 28, gap: 12, flexWrap: "wrap" }}>
+            {draftCount > 0 && (
               <button className="btn" onClick={approveAndBuild} disabled={busy}>
-                {busy && progress ? "Building the week…" : "Approve & schedule the week"}
+                {busy ? "Publishing…" : `Approve & schedule (${draftCount})`}
               </button>
-              <button className="btn quiet" onClick={generate} disabled={busy}>
-                Regenerate
-              </button>
-            </div>
-          )}
-          {plan.status === "approved" && (
-            <p className="muted" style={{ marginTop: 20 }}>
-              This week is approved and on the schedule. Regenerate to plan it again.
-            </p>
-          )}
+            )}
+            <button className="btn quiet" onClick={generate} disabled={busy}>
+              ✦ Regenerate the rest of the week
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 10, fontSize: "0.85rem" }}>
+            {draftCount === 0
+              ? "Every lesson this week is on the schedule. "
+              : `${draftCount} lesson${draftCount === 1 ? "" : "s"} still to approve. `}
+            Regenerating only replaces <strong>upcoming</strong> lessons — past days stay exactly as
+            they are.
+          </p>
         </>
       )}
     </main>

@@ -1,12 +1,15 @@
 {
-  "name": "neurable",
+  "name": "neurobridge-academy",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "//build": "Hosts that cache node_modules (Vercel) skip Prisma's own postinstall, leaving a stale client — so generate explicitly.",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:authz": "node tests/authz.mjs",
+    "crawl:index": "node prisma/crawl-index.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",

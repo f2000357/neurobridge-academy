@@ -15,18 +15,21 @@ export default async function Home() {
             <span className="mark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge Academy
           </div>
         </div>
       </header>
 
       <main className="page wrap" style={{ maxWidth: 620 }}>
         <div className="parent-welcome">
-          <p className="eyebrow">A calm, AI-powered school for neurodiverse learners</p>
-          <h1>One platform — centers, guides, and learners.</h1>
+          <p className="eyebrow">Personalized learning · Connected support · Meaningful progress</p>
+          <h1>A learning path designed around your child.</h1>
           <p className="muted">
-            The AI teaches each day&apos;s lessons, calmly and one step at a time. Guides plan and
-            watch progress; center admins oversee their center; Neurable curates the shared library.
+            AI-powered, standards-aligned education for neurodiverse learners — with families,
+            educators, and specialists connected in one place.
+          </p>
+          <p className="muted">
+            You know your child. We help you build the education they need.
           </p>
 
           {user ? (
@@ -35,12 +38,11 @@ export default async function Home() {
                 Continue as {user.name} →
               </Link>
               <p className="muted" style={{ fontSize: "0.85rem", marginTop: 14 }}>
-                Signed in as {roleLabel(user.role)} ·{" "}
-                <Link href="/switch">switch account</Link>
+                Signed in as {roleLabel(user.role)}
               </p>
             </>
           ) : (
-            <Link href="/switch" className="btn big" style={{ marginTop: 20 }}>
+            <Link href="/login" className="btn big" style={{ marginTop: 20 }}>
               Staff sign in →
             </Link>
           )}

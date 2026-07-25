@@ -31,7 +31,7 @@ export default async function BrowsePage() {
     durationMin: p.durationMin,
     scope: p.visibility, // center | global
     author: p.teacher.name,
-    center: p.center?.name ?? "Neurable",
+    center: p.center?.name ?? "NeuroBridge",
   }));
 
   return <BrowseView shared={shared} />;

@@ -1,44 +1,65 @@
-/* Neurable design system — calm, low-distraction, eucalyptus. */
+/* NeuroBridge design system — calm, low-distraction, eucalyptus. */
 
 :root {
-  --bg: #f2f4ef;
-  --surface: #fbfcfa;
-  --surface-2: #ebeee8;
-  --ink: #2b322e;
-  --ink-soft: #5a655c;
-  --border: #dce1d8;
-  --accent: #43836f;
+  --bg: #f2f5f9;
+  --surface: #fbfcfe;
+  --surface-2: #e8eef4;
+  --ink: #17273a;
+  --ink-soft: #566577;
+  --border: #d7dee7;
+  /* Bridge Blue — brand tier: ocean blue + teal secondary, apricot for rewards */
+  --accent: #1e5f9e;
   --accent-ink: #ffffff;
-  --accent-soft: #e3ede8;
-  --warm: #c7824f;
-  --warm-soft: #f3e7da;
+  --accent-soft: #e0eaf3;
+  --coral: #2aa6a0;
+  --coral-soft: #d9efec;
+  --warm: #d6883b;
+  --warm-soft: #f7e8d3;
   --shadow: 0 1px 2px rgba(43, 50, 46, 0.04), 0 8px 24px rgba(43, 50, 46, 0.06);
   --radius: 16px;
+  --bridge-mark: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MCA0MCI+PGNpcmNsZSBjeD0iNyIgY3k9IjMwIiByPSI0IiBmaWxsPSJibGFjayIvPjxjaXJjbGUgY3g9IjMzIiBjeT0iMzAiIHI9IjQiIGZpbGw9ImJsYWNrIi8+PHBhdGggZD0iTTcgMzAgQSAyMCAyMCAwIDAgMSAzMyAzMCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIzLjIiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMjAgMTMgViAzMCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyLjQiLz48L3N2Zz4=");
   /* Calm, distinct hues so each subject reads at a glance. */
   --subj-math: #4f9a7a;
   --subj-reading: #5f8fc2;
   --subj-writing: #9b7bb5;
   --subj-science: #c78a4c;
+  --subj-other: #6b7a86;
+  /* Non-lesson block kinds — each its own colour; a break reads red. */
+  --slot-break: #cf5b4e;
+  --slot-flex: #d6883b;
+  --slot-service: #2f9c95;
+  --slot-testing: #5f6bc4;
+  --slot-oneonone: #c56b8a;
+  --slot-free: #8a9299;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #181d1b;
-    --surface: #212724;
-    --surface-2: #2a312d;
-    --ink: #e7ebe5;
-    --ink-soft: #a4aea6;
-    --border: #333c37;
-    --accent: #7db4a3;
-    --accent-ink: #10201a;
-    --accent-soft: #253430;
-    --warm: #dba477;
+    --bg: #121820;
+    --surface: #1a222c;
+    --surface-2: #222c38;
+    --ink: #e6ebf1;
+    --ink-soft: #a2adba;
+    --border: #2c3846;
+    --accent: #4f97d6;
+    --accent-ink: #07182a;
+    --accent-soft: #17293c;
+    --coral: #3fbdb4;
+    --coral-soft: #14322f;
+    --warm: #e3a765;
     --warm-soft: #33291f;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 10px 28px rgba(0, 0, 0, 0.28);
     --subj-math: #6bbd9b;
     --subj-reading: #7fa9d8;
     --subj-writing: #b596cd;
     --subj-science: #d9a566;
+    --subj-other: #8695a2;
+    --slot-break: #e07469;
+    --slot-flex: #e3a765;
+    --slot-service: #45b6ad;
+    --slot-testing: #838ce0;
+    --slot-oneonone: #db8aa6;
+    --slot-free: #97a1ab;
   }
 }
 
@@ -180,22 +201,19 @@ a:focus-visible {
   color: var(--ink);
 }
 
+/* The NeuroBridge mark: an arc bridging two nodes. Drawn via CSS mask so it
+   takes the brand colour (accent on light headers, white on coloured ones). */
 .brand .mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: var(--accent);
-  display: grid;
-  place-items: center;
+  width: 30px;
+  height: 30px;
   flex: none;
+  background: var(--accent);
+  -webkit-mask: var(--bridge-mark) center / contain no-repeat;
+  mask: var(--bridge-mark) center / contain no-repeat;
 }
 
 .brand .mark span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-ink);
-  display: block;
+  display: none;
 }
 
 /* Schedule strip (student Today view) */
@@ -255,6 +273,16 @@ a:focus-visible {
 .slot.subj-science {
   border-left: 5px solid var(--subj-science);
 }
+.slot.subj-other {
+  border-left: 5px solid var(--subj-other);
+}
+/* Non-lesson blocks get their own edge too — a break reads red. */
+.slot.k-break { border-left: 5px solid var(--slot-break); }
+.slot.k-flexible { border-left: 5px solid var(--slot-flex); }
+.slot.k-service { border-left: 5px solid var(--slot-service); }
+.slot.k-testing { border-left: 5px solid var(--slot-testing); }
+.slot.k-one_on_one { border-left: 5px solid var(--slot-oneonone); }
+.slot.k-free_time { border-left: 5px solid var(--slot-free); }
 
 .slot.done {
   opacity: 0.55;
@@ -909,11 +937,14 @@ select.field {
 }
 
 .wg-btopic {
-  font-size: 0.68rem;
-  line-height: 1.2;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--ink);
+  /* Show the scheduled lesson name — up to two lines, then clip. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
@@ -921,6 +952,22 @@ select.field {
   font-size: 0.68rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+}
+
+/* A lesson block shows only its lesson name (colour = subject, position = time),
+   so the name gets the whole block — up to three lines. */
+.wg-bname {
+  /* Fill the block so the name has a real width and wraps normally. */
+  position: absolute;
+  top: 4px;
+  left: 7px;
+  right: 7px;
+  bottom: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow: hidden;
 }
 
 /* Subject-colored lesson blocks so the week reads by subject at a glance.
@@ -980,31 +1027,113 @@ select.field {
 }
 
 /* Slot-type accents */
-.wg-block.k-lesson {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+/* Non-lesson kinds — each its own colour (tinted fill + matching left edge). */
+.wg-block.k-lesson { background: var(--accent-soft); border-color: var(--accent); }
+.wg-block.k-lesson.subj-other {
+  background: color-mix(in srgb, var(--subj-other) 16%, var(--surface));
+  border-color: var(--subj-other);
 }
 .wg-block.k-flexible {
-  background: var(--warm-soft);
-  border-color: var(--warm);
+  background: color-mix(in srgb, var(--slot-flex) 16%, var(--surface));
+  border-color: var(--slot-flex);
 }
 .wg-block.k-break {
-  background: var(--surface-2);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--slot-break) 16%, var(--surface));
+  border-color: var(--slot-break);
+}
+.wg-block.k-service {
+  background: color-mix(in srgb, var(--slot-service) 16%, var(--surface));
+  border-color: var(--slot-service);
+}
+.wg-block.k-testing {
+  background: color-mix(in srgb, var(--slot-testing) 16%, var(--surface));
+  border-color: var(--slot-testing);
 }
 .wg-block.k-one_on_one {
-  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--slot-oneonone) 16%, var(--surface));
+  border-color: var(--slot-oneonone);
 }
 .wg-block.k-free_time {
-  background: var(--surface-2);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--slot-free) 15%, var(--surface));
+  border-color: var(--slot-free);
 }
 
 @media (max-width: 720px) {
   .wg-btime {
     display: none;
   }
+}
+
+/* ---- Day calendar: single-column variant of the week grid ---- */
+.daygrid .wg-body {
+  grid-template-columns: 56px 1fr;
+}
+.daygrid .wg-col {
+  border-right: none;
+}
+/* A larger tap target and readable blocks on the day view. */
+.daygrid .wg-block {
+  padding: 6px 9px;
+}
+.daygrid .wg-block:hover {
+  box-shadow: var(--shadow);
+}
+/* Delete button on each block. */
+.wg-del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  border-radius: 6px;
+  border: none;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.wg-block:hover .wg-del,
+.wg-del:focus-visible {
+  opacity: 1;
+}
+.wg-del:hover {
+  background: var(--slot-break);
+  color: #fff;
+}
+/* Preview a lesson from its schedule block. */
+.wg-preview {
+  position: absolute;
+  top: 3px;
+  right: 26px;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  font-size: 0.72rem;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.wg-block:hover .wg-preview,
+.wg-preview:focus-visible {
+  opacity: 1;
+}
+.wg-preview:hover {
+  background: var(--accent);
+}
+/* The ghost of a block being added. */
+.wg-block.ghost {
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  opacity: 0.85;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* ---- Lesson library (IXL-style browse) ---- */
@@ -1245,7 +1374,7 @@ select.field {
 }
 
 .parentbar {
-  background: linear-gradient(100deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #12403300));
+  background: linear-gradient(105deg, var(--accent) 52%, var(--coral));
   border-bottom: none;
 }
 
@@ -1257,7 +1386,7 @@ select.field {
 }
 
 .parent-hero {
-  background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #000 14%));
+  background: linear-gradient(120deg, var(--accent) 55%, var(--coral));
   border-radius: 20px;
   padding: 26px 26px 28px;
   margin-top: 8px;
@@ -1906,3 +2035,227 @@ input[type="file"] {
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* Lesson step header: position + a way back one step */
+.step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+/* ---- Standards coverage map (report) ---- */
+.cov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 640px) { .cov-grid { grid-template-columns: 1fr; } }
+.cov-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--surface); page-break-inside: avoid; }
+.cov-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cov-row { display: flex; align-items: center; gap: 9px; font-size: 0.9rem; }
+.cov-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--border); }
+.cov-name { flex: 1; }
+.cov-meta { font-size: 0.76rem; color: var(--ink-faint, var(--ink-soft)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cov-row.st-secure .cov-dot { background: var(--good); }
+.cov-row.st-practicing .cov-dot { background: var(--warn); }
+.cov-row.st-needs-work .cov-dot { background: var(--crit); }
+.cov-row.st-not-started { color: var(--ink-soft); }
+.cov-row.st-not-started .cov-dot { background: transparent; border: 1px dashed var(--line, var(--border)); }
+.callout-focus {
+  margin-top: 16px; padding: 14px 18px; border-radius: 12px;
+  background: var(--warm-soft); border: 1px solid color-mix(in srgb, var(--warm) 35%, transparent);
+  page-break-inside: avoid;
+}
+
+/* Move-learner panel (admin) */
+.move-panel {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  margin: 6px 0 0; padding: 12px 16px;
+  border: 1px solid var(--accent); border-top: none;
+  border-radius: 0 0 12px 12px; background: var(--accent-soft);
+}
+
+/* Special interest blocks (child profile) */
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-wrap > * { flex: 0 0 auto; }
+.interest-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e3e0d8);
+  border-radius: 10px;
+}
+.interest-row > * { flex: 0 0 auto; }
+.interest-name { font-weight: 600; min-width: 190px; }
+.interest-sum { margin-left: auto; }
+
+/* Visiting specialist teachers */
+.teach-wrap { max-width: 720px; }
+.code-field {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.roster-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.roster-card > * { flex: 0 0 auto; }
+.block-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e3e0d8);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.block-pick:hover { border-color: var(--accent, #45906f); }
+.block-pick > * { flex: 0 0 auto; }
+.block-when { min-width: 110px; color: var(--muted-ink, #6b6660); font-size: 0.85rem; }
+.block-what { flex: 1 1 auto; min-width: 0; }
+.block-go { color: var(--accent-ink, #2f6b4f); font-size: 0.85rem; }
+.focus-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.focus-row > * { flex: 0 0 auto; }
+.note-card .note-who { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.note-card .note-who > * { flex: 0 0 auto; }
+.media-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.media-strip > * { flex: 0 0 auto; }
+.media-thumb {
+  width: 160px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e3e0d8);
+  background: #000;
+}
+.spec-card .spec-name { font-weight: 600; }
+.assign-row { gap: 12px; align-items: center; }
+.assign-row > * { flex: 0 0 auto; }
+.assign-row > span:first-child { flex: 1 1 auto; min-width: 0; }
+.code-inline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+}
+.pending-card { border-color: var(--warn, #c08a3e); }
+.pill.warn {
+  background: #fdf3e3;
+  color: #8a5f1f;
+  border-color: #e8cfa4;
+  display: inline-block;
+}
+.report-note {
+  border: 1px solid var(--line, #e3e0d8);
+  border-radius: 10px;
+  padding: 10px 12px;
+  break-inside: avoid;
+}
+
+/* "How much longer?" — the child's day timer */
+.timeleft {
+  margin: 16px 0 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--warm-soft, #f4f1ea);
+}
+.timeleft-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.timeleft-row > * { flex: 0 0 auto; }
+.timeleft-main { font-weight: 600; }
+.timeleft-next {
+  color: var(--muted-ink, #6b6660);
+  font-size: 0.88rem;
+  margin-left: auto;
+}
+.timeleft-bar {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+}
+.timeleft-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #45906f);
+  transition: width 1s linear;
+}
+
+/* Editing a lesson step from inside the preview */
+.step-editor { margin-bottom: 14px; border-color: var(--accent, #45906f); }
+.editor-thumb {
+  width: 140px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e3e0d8);
+}
+.step-image {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.step-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 12px;
+}
+.step-video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 10px;
+}
+.step-video-file { width: 100%; border-radius: 10px; margin-bottom: 12px; }
+.preview-assess {
+  border: 1px dashed var(--line, #e3e0d8);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+/* Provider practice step — the calm, timed EF frame around external work */
+.practice-timer {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; border-radius: 14px;
+  background: var(--accent-soft); border: 1px solid var(--accent);
+}
+.practice-timer.up {
+  background: color-mix(in srgb, var(--slot-break) 15%, var(--surface));
+  border-color: var(--slot-break);
+}
+.pt-clock {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.pt-label { flex: 1; color: var(--ink-soft); font-size: 0.9rem; }
+.pt-mute { flex: 0 0 auto; }
+.practice-sent { text-align: center; }
+
+/* Guide validation list ("waiting for your check") */
+.validate-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+}
+.validate-row > .v-main { flex: 1 1 220px; min-width: 0; }
+.validate-row .v-name { font-weight: 600; }
+.validate-row .v-acc { width: 66px; }
+.validate-row .v-coins { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 650; min-width: 62px; }

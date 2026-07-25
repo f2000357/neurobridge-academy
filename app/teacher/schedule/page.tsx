@@ -36,9 +36,22 @@ export default async function SchedulePage() {
     orderBy: { startMin: "asc" },
   });
 
+  // Visiting teachers who can hold a block for one of this guide's learners.
+  const childIds = teacher.children.map((c) => c.id);
+  const specialists = await prisma.specialistTeacher.findMany({
+    where: { archived: false, assignments: { some: { childId: { in: childIds } } } },
+    include: { assignments: { where: { childId: { in: childIds } }, select: { childId: true } } },
+    orderBy: { name: "asc" },
+  });
+
   return (
       <ScheduleEditor
-        childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+        specialistList={specialists.map((t) => ({
+          id: t.id,
+          name: t.name,
+          childIds: t.assignments.map((a) => a.childId),
+        }))}
+        childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name, dayStartMin: c.dayStartMin }))}
         plans={teacher.lessonPlans.map((p) => ({
           id: p.id,
           title: p.title,
@@ -51,9 +64,13 @@ export default async function SchedulePage() {
         initialSlots={slots.map((s) => ({
           id: s.id,
           kind: s.kind,
+          subject: s.subject,
+          activity: s.activity,
+          teacherId: s.teacherId,
+          lessonPlanId: s.lessonPlanId,
           startMin: s.startMin,
           endMin: s.endMin,
-          lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title } : null,
+          lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,
           sessions: s.sessions.map((x) => ({ state: x.state })),
         }))}
       />

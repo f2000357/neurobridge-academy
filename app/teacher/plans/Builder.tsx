@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getStandards } from "@/lib/standards";
 import Link from "next/link";
-import { GRADES, SUBJECTS, gradeLabel, topicsFor } from "@/lib/njsls";
 
 export type Chunk = {
-  type: "read_text" | "visual" | "video" | "worksheet" | "wrap_up";
+  type: "read_text" | "visual" | "video" | "worksheet" | "wrap_up" | "practice";
   title: string;
   content?: string;
   visual?: string;
@@ -15,6 +15,15 @@ export type Chunk = {
   seed_question?: string;
   seed_answer?: string;
   read_aloud?: boolean;
+  /** Use the content exactly as written — don't let the tutor rephrase it. */
+  verbatim?: boolean;
+  /** A picture the guide attached (LessonAsset id). */
+  imageAssetId?: string;
+  /** A video the guide added, by URL — becomes an embed for the child. */
+  videoUrl?: string;
+  /** Practice step: which external provider, and the deep link to its practice. */
+  provider?: string; // ixl
+  practiceUrl?: string;
 };
 
 export type PlanState = {
@@ -35,13 +44,157 @@ export type PlanState = {
   chunks: Chunk[];
 };
 
+const STD = getStandards();
+
 const CHUNK_LABEL: Record<Chunk["type"], string> = {
   read_text: "Read-aloud text",
   visual: "Visual",
   video: "Video",
+  practice: "Practice (IXL)",
   worksheet: "Worksheet",
   wrap_up: "Wrap up",
 };
+
+// A small chip that opens the file dialog and hands back the chosen image.
+function StepImagePicker({ onPick, disabled }: { onPick: (file: File) => void; disabled?: boolean }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button className="chip" onClick={() => ref.current?.click()} disabled={disabled}>
+        🖼 Add a picture
+      </button>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0])}
+      />
+    </>
+  );
+}
+
+type IndexSkill = {
+  provider: string;
+  standardCode: string;
+  gradeLevel: string;
+  skillName: string;
+  videoUrl: string;
+  practiceUrl: string;
+};
+
+// Swap a Practice step's deep link to a REAL skill from the content index —
+// alternatives for the lesson's standard, or anything in the subject + grade.
+// The guide never has to hand-paste a provider URL.
+function SkillPicker({
+  subject,
+  gradeLevel,
+  standardCode,
+  onPick,
+}: {
+  subject: string;
+  gradeLevel: string;
+  standardCode: string;
+  onPick: (s: IndexSkill) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [grade, setGrade] = useState(gradeLevel || "3");
+  const [q, setQ] = useState("");
+  const [onlyStd, setOnlyStd] = useState(Boolean(standardCode));
+  const [items, setItems] = useState<IndexSkill[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function search() {
+    setLoading(true);
+    const res = await fetch("/api/lessons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "indexSkills",
+        subject,
+        grade,
+        standardCode: onlyStd && standardCode ? standardCode : undefined,
+        q,
+      }),
+    });
+    const data = await res.json();
+    setItems(data.items ?? []);
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button
+        className="chip"
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          if (next && items.length === 0) void search();
+        }}
+      >
+        🔎 Find a real skill
+      </button>
+      {open && (
+        <div className="card" style={{ marginTop: 8, background: "var(--accent-soft)" }}>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <label className="inline muted">
+              Grade
+              <select className="field short" value={grade} onChange={(e) => setGrade(e.target.value)}>
+                {["K", "1", "2", "3", "4", "5", "6", "7", "8"].map((g) => (
+                  <option key={g} value={g}>
+                    {g === "K" ? "K" : `Grade ${g}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <input
+              className="field"
+              style={{ flex: 1, minWidth: 160 }}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void search()}
+              placeholder="Search skills (e.g. rounding)"
+            />
+            {standardCode && (
+              <label className="inline muted" style={{ fontSize: "0.82rem" }}>
+                <input type="checkbox" checked={onlyStd} onChange={(e) => setOnlyStd(e.target.checked)} /> only{" "}
+                {standardCode}
+              </label>
+            )}
+            <button className="chip" onClick={() => void search()} disabled={loading}>
+              {loading ? "…" : "Search"}
+            </button>
+          </div>
+          <div className="stack" style={{ marginTop: 10, maxHeight: 240, overflowY: "auto" }}>
+            {items.length === 0 && !loading && (
+              <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+                No skills found — try another grade or search term.
+              </p>
+            )}
+            {items.map((it, k) => (
+              <div
+                key={k}
+                className="row"
+                style={{ justifyContent: "space-between", gap: 8, alignItems: "center" }}
+              >
+                <span style={{ fontSize: "0.85rem" }}>
+                  <span className="badge next">{"IXL"}</span>{" "}
+                  {it.skillName}{" "}
+                  <span className="muted">
+                    · {it.standardCode} · g{it.gradeLevel}
+                  </span>
+                </span>
+                <button className="chip" onClick={() => onPick(it)}>
+                  Use
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Builder({
   initial,
@@ -54,7 +207,6 @@ export default function Builder({
 }) {
   const router = useRouter();
   const [plan, setPlan] = useState<PlanState>(initial);
-  const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -84,56 +236,81 @@ export default function Builder({
     setPlan((p) => ({ ...p, chunks: p.chunks.filter((_, k) => k !== i) }));
   }
 
+  // Make sure the lesson exists so an image can be attached to it. Returns its
+  // id, saving a draft first for a brand-new lesson.
+  async function ensureSaved(): Promise<string | null> {
+    if (plan.id) return plan.id;
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "save", ...plan, published: plan.published }),
+    });
+    const data = await res.json();
+    if (data.ok && data.id) {
+      setPlan((p) => ({ ...p, id: data.id }));
+      return data.id;
+    }
+    setNote(data.error ?? "Could not save the lesson.");
+    return null;
+  }
+
+  // "Make this shorter / simpler" on a step's text — same as in the preview.
+  async function rewriteChunk(i: number, how: "shorter" | "simpler") {
+    const text = plan.chunks[i].content ?? "";
+    if (!text.trim()) {
+      setNote("There's no text on that step to rewrite yet.");
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const res = await fetch("/api/lessons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "rewrite", text, how }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!data.ok) {
+      setNote(data.error ?? "That rewrite didn't work.");
+      return;
+    }
+    // A rewrite is the guide's words now — keep them verbatim.
+    setChunk(i, { content: data.text, verbatim: true });
+    setNote("Rewritten. Edit it further or save.");
+  }
+
+  async function uploadImage(i: number, file: File) {
+    setBusy(true);
+    setNote(null);
+    const planId = await ensureSaved();
+    if (!planId) {
+      setBusy(false);
+      return;
+    }
+    const form = new FormData();
+    form.append("planId", planId);
+    form.append("file", file);
+    const res = await fetch("/api/lessons", { method: "POST", body: form });
+    const data = await res.json();
+    setBusy(false);
+    if (!data.ok) {
+      setNote(data.error ?? "That image didn't upload.");
+      return;
+    }
+    setChunk(i, { imageAssetId: data.assetId });
+    setNote("Picture added. Save the lesson to keep it.");
+  }
+
   function addChunk(type: Chunk["type"]) {
     const base: Chunk =
       type === "worksheet"
         ? { type, title: "Practice", items: 3 }
         : type === "wrap_up"
           ? { type, title: "Look what you did" }
-          : { type, title: CHUNK_LABEL[type], content: "" };
+          : type === "practice"
+            ? { type, title: "Practice this skill", provider: "ixl", videoUrl: "", practiceUrl: "" }
+            : { type, title: CHUNK_LABEL[type], content: "" };
     setPlan((p) => ({ ...p, chunks: [...p.chunks, base] }));
-  }
-
-  async function generate() {
-    if (!topic.trim()) {
-      setNote("Tell me the topic first — even a rough phrase is fine.");
-      return;
-    }
-    setBusy(true);
-    setNote("Drafting a lesson… this uses the stronger model, so give it a moment.");
-    const res = await fetch("/api/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        op: "generate",
-        topic,
-        subject: plan.subject || "General",
-        durationMin: plan.durationMin,
-        childId: plan.childId,
-        gradeLevel: plan.gradeLevel,
-        curriculumTopic: plan.topic,
-      }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (data.error) {
-      setNote(data.error);
-      return;
-    }
-    setPlan((p) => ({
-      ...p,
-      title: data.title ?? p.title,
-      goal: data.goal ?? p.goal,
-      whyItMatters: data.whyItMatters ?? p.whyItMatters,
-      standardCode: data.standardCode ?? p.standardCode,
-      standardText: data.standardText ?? p.standardText,
-      chunks: Array.isArray(data.chunks) ? data.chunks : p.chunks,
-    }));
-    setNote(
-      data.standardCode
-        ? `Draft ready, aligned to NJSLS ${data.standardCode}. Read it over, edit anything, then save.`
-        : "Draft ready. Read it over, edit anything, then save."
-    );
   }
 
   async function save(publish: boolean) {
@@ -183,20 +360,13 @@ export default function Builder({
       <p className="eyebrow">Lesson builder</p>
       <h1>{plan.id ? "Edit lesson" : "New lesson"}</h1>
 
-      {/* Draft-with-AI starter */}
+      {/* Lesson details */}
       <div className="card lift" style={{ marginTop: 16 }}>
-        <h2>Start with a rough idea</h2>
+        <h2>Lesson details</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Describe the lesson in a sentence. The AI drafts the steps; you stay in control and edit.
+          Set the subject, grade, and standard. Add the steps below — including a Practice step that deep-links to an IXL skill.
         </p>
         <div className="stack">
-          <textarea
-            className="field"
-            rows={2}
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g. Intro to telling time on an analog clock, to the half hour"
-          />
           <div className="row">
             <label className="inline muted">
               Subject
@@ -209,7 +379,7 @@ export default function Builder({
                 }}
                 aria-label="Subject"
               >
-                {SUBJECTS.map((s) => (
+                {STD.subjects.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
@@ -225,9 +395,9 @@ export default function Builder({
                 aria-label="Grade"
               >
                 <option value="">Any grade</option>
-                {GRADES.map((g) => (
+                {STD.grades.map((g) => (
                   <option key={g} value={g}>
-                    {gradeLabel(g)}
+                    {STD.gradeLabel(g)}
                   </option>
                 ))}
               </select>
@@ -235,7 +405,7 @@ export default function Builder({
           </div>
           <div className="row">
             <label className="inline muted">
-              NJSLS strand
+              {STD.label} strand
               <select
                 className="field short"
                 value={plan.topic}
@@ -243,7 +413,7 @@ export default function Builder({
                 aria-label="Curriculum strand"
               >
                 <option value="">Any strand</option>
-                {topicsFor(plan.subject, plan.gradeLevel).map((t) => (
+                {STD.topicsFor(plan.subject, plan.gradeLevel).map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -274,9 +444,6 @@ export default function Builder({
                 </option>
               ))}
             </select>
-            <button className="btn" onClick={generate} disabled={busy}>
-              {busy ? "Working…" : "✦ Draft with AI"}
-            </button>
           </div>
         </div>
       </div>
@@ -309,7 +476,7 @@ export default function Builder({
         />
         <div className="row" style={{ marginTop: 14, alignItems: "flex-start" }}>
           <label className="inline muted" style={{ flex: "0 0 auto" }}>
-            NJSLS code
+            {STD.label} code
             <input
               className="field tiny"
               style={{ width: 120 }}
@@ -360,13 +527,48 @@ export default function Builder({
               placeholder="Step title"
             />
             {(c.type === "read_text" || c.type === "visual") && (
-              <textarea
-                className="field"
-                rows={3}
-                value={c.content ?? ""}
-                onChange={(e) => setChunk(i, { content: e.target.value })}
-                placeholder={c.type === "visual" ? "Describe the picture or diagram" : "The text to read"}
-              />
+              <>
+                <textarea
+                  className="field"
+                  rows={3}
+                  value={c.content ?? ""}
+                  onChange={(e) => setChunk(i, { content: e.target.value, verbatim: false })}
+                  placeholder={c.type === "visual" ? "Describe the picture or diagram" : "The text to read"}
+                />
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                  <button className="chip" onClick={() => rewriteChunk(i, "shorter")} disabled={busy}>
+                    ✂️ Make it shorter
+                  </button>
+                  <button className="chip" onClick={() => rewriteChunk(i, "simpler")} disabled={busy}>
+                    Make it simpler
+                  </button>
+                  <StepImagePicker onPick={(file) => uploadImage(i, file)} disabled={busy} />
+                  <label className="inline muted" style={{ fontSize: "0.82rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(c.verbatim)}
+                      onChange={(e) => setChunk(i, { verbatim: e.target.checked })}
+                    />
+                    Use my exact words
+                  </label>
+                </div>
+                {c.imageAssetId && (
+                  <div className="row" style={{ marginTop: 10, gap: 10, alignItems: "center" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="editor-thumb" src={`/api/asset/${c.imageAssetId}`} alt="Picture for this step" />
+                    <button className="chip danger" onClick={() => setChunk(i, { imageAssetId: undefined })}>
+                      Remove picture
+                    </button>
+                  </div>
+                )}
+                <input
+                  className="field"
+                  style={{ marginTop: 8 }}
+                  value={c.videoUrl ?? ""}
+                  onChange={(e) => setChunk(i, { videoUrl: e.target.value })}
+                  placeholder="Video link (optional — YouTube or Vimeo)"
+                />
+              </>
             )}
             {c.type === "video" && (
               <>
@@ -379,10 +581,42 @@ export default function Builder({
                 />
                 <input
                   className="field"
-                  value={c.content ?? ""}
-                  onChange={(e) => setChunk(i, { content: e.target.value })}
-                  placeholder="Paste video URL (optional)"
+                  value={c.videoUrl ?? ""}
+                  onChange={(e) => setChunk(i, { videoUrl: e.target.value })}
+                  placeholder="Paste video URL (YouTube or Vimeo)"
                 />
+              </>
+            )}
+            {c.type === "practice" && (
+              <>
+                <input
+                  className="field"
+                  value={c.videoUrl ?? ""}
+                  onChange={(e) => setChunk(i, { videoUrl: e.target.value })}
+                  placeholder="Video deep link (opens the provider — not embedded)"
+                />
+                <input
+                  className="field"
+                  value={c.practiceUrl ?? ""}
+                  onChange={(e) => setChunk(i, { practiceUrl: e.target.value })}
+                  placeholder="Practice / skill deep link"
+                />
+                <SkillPicker
+                  subject={plan.subject}
+                  gradeLevel={plan.gradeLevel}
+                  standardCode={plan.standardCode}
+                  onPick={(s) =>
+                    setChunk(i, {
+                      provider: s.provider,
+                      videoUrl: s.videoUrl,
+                      practiceUrl: s.practiceUrl,
+                      title: c.title?.trim() ? c.title : s.skillName,
+                    })
+                  }
+                />
+                <p className="muted" style={{ fontSize: "0.8rem", margin: "4px 0 0" }}>
+                  The child opens these on IXL and comes back — content isn&apos;t embedded (licensing).
+                </p>
               </>
             )}
             {c.type === "worksheet" && (
@@ -420,7 +654,7 @@ export default function Builder({
         <span className="muted" style={{ fontSize: "0.85rem" }}>
           Add a step:
         </span>
-        {(["read_text", "visual", "video", "worksheet", "wrap_up"] as const).map((t) => (
+        {(["read_text", "visual", "video", "practice", "worksheet", "wrap_up"] as const).map((t) => (
           <button key={t} className="chip" onClick={() => addChunk(t)}>
             + {CHUNK_LABEL[t]}
           </button>
@@ -451,7 +685,7 @@ export default function Builder({
                   body: JSON.stringify({ op: "submitForGlobal", planId: plan.id }),
                 });
                 setBusy(false);
-                setNote("Submitted for the global shelf — a Neurable admin will review it.");
+                setNote("Submitted for the global shelf — a NeuroBridge admin will review it.");
                 set("visibility", plan.visibility === "private" ? "center" : plan.visibility);
               }}
             >

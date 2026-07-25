@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { todayStr } from "@/lib/time";
+import { guardSession } from "@/lib/authz";
 
 // Mark a homework worksheet done and award points for it.
 export async function POST(req: NextRequest) {
@@ -15,6 +16,10 @@ export async function POST(req: NextRequest) {
     };
     const hw = await prisma.homework.findUnique({ where: { id: homeworkId } });
     if (!hw) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+    // The child completing their own homework, or their operator.
+    const denied = await guardSession(hw.childId);
+    if (denied) return denied;
 
     const score = total > 0 ? Math.round((correct / total) * 100) : 0;
     const points = correct; // homework: 1 point per correct answer

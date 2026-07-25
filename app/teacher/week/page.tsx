@@ -6,8 +6,17 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function WeekPage() {
-  const teacher = await getCurrentUser({ include: { children: true } });
+export default async function WeekPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ childId?: string; monday?: string }>;
+}) {
+  const teacher = await getCurrentUser({
+    include: {
+      children: { orderBy: { name: "asc" } },
+      lessonPlans: { where: { published: true }, orderBy: { updatedAt: "desc" } },
+    },
+  });
   if (!teacher || teacher.children.length === 0) {
     return (
       <main className="page wrap">
@@ -19,8 +28,10 @@ export default async function WeekPage() {
     );
   }
 
-  const childId = teacher.children[0].id;
-  const monday = mondayOfStr(todayStr());
+  // Deep-linkable: arrive on a specific child + week (e.g. from "Generate the week").
+  const sp = await searchParams;
+  const childId = teacher.children.some((c) => c.id === sp.childId) ? sp.childId! : teacher.children[0].id;
+  const monday = sp.monday || mondayOfStr(todayStr());
   const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(monday, i));
 
   const slots = await prisma.scheduleSlot.findMany({
@@ -32,14 +43,38 @@ export default async function WeekPage() {
     orderBy: { startMin: "asc" },
   });
 
+  // Visiting teachers who can hold a block for one of this guide's learners.
+  const childIds = teacher.children.map((c) => c.id);
+  const specialists = await prisma.specialistTeacher.findMany({
+    where: { archived: false, assignments: { some: { childId: { in: childIds } } } },
+    include: { assignments: { where: { childId: { in: childIds } }, select: { childId: true } } },
+    orderBy: { name: "asc" },
+  });
+
   return (
       <WeekGrid
         childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
         initialChildId={childId}
         initialMonday={monday}
+        plans={teacher.lessonPlans.map((p) => ({
+          id: p.id,
+          title: p.title,
+          subject: p.subject,
+          durationMin: p.durationMin,
+          childId: p.childId,
+        }))}
+        specialistList={specialists.map((t) => ({
+          id: t.id,
+          name: t.name,
+          childIds: t.assignments.map((a) => a.childId),
+        }))}
         initialSlots={slots.map((s) => ({
           id: s.id,
           kind: s.kind,
+          subject: s.subject,
+          activity: s.activity,
+          teacherId: s.teacherId,
+          lessonPlanId: s.lessonPlanId,
           date: s.date,
           startMin: s.startMin,
           endMin: s.endMin,

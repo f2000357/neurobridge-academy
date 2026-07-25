@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { guardOperate, currentOperator } from "@/lib/authz";
+
+// A guide may only touch a prize they own (or NeuroBridge admin, for support).
+async function ownsReward(rewardId: string): Promise<boolean> {
+  const [me, reward] = await Promise.all([
+    currentOperator(),
+    prisma.reward.findUnique({ where: { id: rewardId }, select: { teacherId: true } }),
+  ]);
+  if (!me || !reward) return false;
+  return me.role === "neurable_admin" || reward.teacherId === me.id;
+}
 
 // Prizes the guide offers + guide-assisted redemptions.
 // Spendable balance = child.points (lifetime earned) − child.pointsSpent.
@@ -35,12 +46,14 @@ export async function POST(req: NextRequest) {
     if (Number.isFinite(cost) && (cost as number) > 0) data.cost = Math.round(cost as number);
     if (typeof emoji === "string" && emoji.trim()) data.emoji = emoji.trim();
     if (typeof active === "boolean") data.active = active;
+    if (!(await ownsReward(id))) return NextResponse.json({ error: "not your prize" }, { status: 403 });
     const reward = await prisma.reward.update({ where: { id }, data });
     return NextResponse.json({ ok: true, reward });
   }
 
   if (op === "removeReward") {
     const { id } = body as { id: string };
+    if (!(await ownsReward(id))) return NextResponse.json({ error: "not your prize" }, { status: 403 });
     // Keep past redemptions (rewardId set null via schema); just drop the catalog item.
     await prisma.reward.delete({ where: { id } });
     return NextResponse.json({ ok: true });
@@ -48,6 +61,8 @@ export async function POST(req: NextRequest) {
 
   if (op === "redeem") {
     const { childId, rewardId } = body as { childId: string; rewardId: string };
+    const denied = await guardOperate(childId);
+    if (denied) return denied;
     const child = await prisma.child.findUnique({ where: { id: childId } });
     const reward = await prisma.reward.findUnique({ where: { id: rewardId } });
     if (!child || !reward) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -76,6 +91,8 @@ export async function POST(req: NextRequest) {
     const { id } = body as { id: string };
     const r = await prisma.redemption.findUnique({ where: { id } });
     if (!r) return NextResponse.json({ error: "not found" }, { status: 404 });
+    const denied = await guardOperate(r.childId);
+    if (denied) return denied;
     await prisma.redemption.delete({ where: { id } });
     await prisma.child.update({
       where: { id: r.childId },

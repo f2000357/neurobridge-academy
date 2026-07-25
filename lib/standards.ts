@@ -1,0 +1,40 @@
+import * as njsls from "./njsls";
+
+// A pluggable standards framework. NJ (NJSLS) is the only one implemented today,
+// but nothing outside this file should mention NJ by name — add a provider here
+// and set a learner's `standardsCode` to switch them over.
+export type StandardsProvider = {
+  code: string; // "NJ"
+  label: string; // "NJSLS" — used in headings and prompts
+  name: string; // "New Jersey Student Learning Standards"
+  grades: string[];
+  subjects: string[];
+  topicsFor: (subject: string, grade: string) => string[];
+  gradeLabel: (grade: string) => string;
+  nextGrade: (grade: string) => string;
+};
+
+const NJ: StandardsProvider = {
+  code: "NJ",
+  label: "NJSLS",
+  name: "New Jersey Student Learning Standards",
+  grades: njsls.GRADES,
+  subjects: njsls.SUBJECTS,
+  topicsFor: njsls.topicsFor,
+  gradeLabel: njsls.gradeLabel,
+  nextGrade: njsls.nextGrade,
+};
+
+const PROVIDERS: Record<string, StandardsProvider> = { NJ };
+
+export const DEFAULT_STANDARDS = "NJ";
+
+/** Resolve a learner's standards framework, falling back to the default. */
+export function getStandards(code?: string | null): StandardsProvider {
+  return PROVIDERS[(code ?? "").toUpperCase()] ?? PROVIDERS[DEFAULT_STANDARDS];
+}
+
+/** For pickers / settings UI. */
+export function listStandards(): StandardsProvider[] {
+  return Object.values(PROVIDERS);
+}

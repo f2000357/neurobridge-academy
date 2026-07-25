@@ -54,7 +54,7 @@ export default function BrowseView({ shared }: { shared: Shared[] }) {
       <p className="eyebrow">Shared library</p>
       <h1>Browse &amp; add lessons</h1>
       <p className="muted">
-        Lessons shared across your center and the Neurable global shelf. Add a copy to tailor it for
+        Lessons shared across your center and the NeuroBridge global shelf. Add a copy to tailor it for
         your own learners — the original stays untouched.
       </p>
 

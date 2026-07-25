@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { uniqueUsername, newAccessCode } from "@/lib/childSetup";
+import { hashPassword, passwordProblem } from "@/lib/password";
 
 // Center-admin actions: move a learner to a different guide in the same center.
 export async function POST(req: NextRequest) {
@@ -76,15 +77,22 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "addGuide") {
-    const { name, email } = body as { name: string; email?: string };
+    const { name, email, password } = body as { name: string; email?: string; password?: string };
     if (!me.centerId) return NextResponse.json({ error: "no center" }, { status: 400 });
     if (!name?.trim()) return NextResponse.json({ error: "Name the guide." }, { status: 400 });
-    if (email?.trim()) {
-      const clash = await prisma.user.findUnique({ where: { email: email.trim() } });
-      if (clash) return NextResponse.json({ error: "That email is already in use." }, { status: 400 });
-    }
+    if (!email?.trim()) return NextResponse.json({ error: "Give them an email to sign in with." }, { status: 400 });
+    const clash = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (clash) return NextResponse.json({ error: "That email is already in use." }, { status: 400 });
+    const pwProblem = passwordProblem(String(password ?? ""));
+    if (pwProblem) return NextResponse.json({ error: `Initial password: ${pwProblem}` }, { status: 400 });
     const guide = await prisma.user.create({
-      data: { name: name.trim(), email: email?.trim() || null, role: "guide", centerId: me.centerId },
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: "guide",
+        centerId: me.centerId,
+        passwordHash: await hashPassword(String(password)),
+      },
     });
     return NextResponse.json({ ok: true, id: guide.id });
   }

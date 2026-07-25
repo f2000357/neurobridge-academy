@@ -1,21 +1,15 @@
-import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
+import { sessionUserId } from "./session";
 
-// Dev "auth": the current operator is remembered in a cookie set by the role
-// switcher. Real sign-in (email/password or SSO) replaces this at launch.
-const COOKIE = "nb_user";
+// Real operator auth: identity comes from the signed session cookie (see
+// lib/session). No session means no operator — there is no anonymous fallback.
 
 export async function getCurrentUserId(): Promise<string | null> {
-  const jar = await cookies();
-  const id = jar.get(COOKIE)?.value;
-  if (id) {
-    const u = await prisma.user.findUnique({ where: { id }, select: { id: true } });
-    if (u) return u.id;
-  }
-  // Fallback: the first guide, so the app is usable before anyone "signs in".
-  const guide = await prisma.user.findFirst({ where: { role: "guide" }, orderBy: { name: "asc" } });
-  return guide?.id ?? null;
+  const id = await sessionUserId();
+  if (!id) return null;
+  const u = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+  return u?.id ?? null;
 }
 
 // Returns the current user. Generic over Prisma args so include/select typing
@@ -37,7 +31,7 @@ export function homeForRole(role: string | undefined): string {
 }
 
 export function roleLabel(role: string | undefined): string {
-  if (role === "neurable_admin") return "Neurable Admin";
+  if (role === "neurable_admin") return "NeuroBridge Admin";
   if (role === "center_admin") return "Center Admin";
   return "Guide";
 }

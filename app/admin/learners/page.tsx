@@ -5,17 +5,26 @@ import AdminLearners, { type LearnerRow } from "./AdminLearners";
 export const dynamic = "force-dynamic";
 
 export default async function AdminLearnersPage() {
-  const kids = await prisma.child.findMany({
-    where: { archived: false },
-    include: { center: { select: { name: true } }, teacher: { select: { name: true } } },
-    orderBy: [{ center: { name: "asc" } }, { name: "asc" }],
-  });
+  const [kids, centers, guides] = await Promise.all([
+    prisma.child.findMany({
+      where: { archived: false },
+      include: { center: { select: { name: true } }, teacher: { select: { name: true } } },
+      orderBy: [{ center: { name: "asc" } }, { name: "asc" }],
+    }),
+    prisma.center.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({
+      where: { role: "guide" },
+      select: { id: true, name: true, centerId: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const rows: LearnerRow[] = kids.map((c) => ({
     id: c.id,
     name: c.name,
     username: c.username ?? c.id,
     age: c.age ?? null,
+    centerId: c.centerId,
     center: c.center?.name ?? "Homeschool",
     guide: c.teacher.name,
     points: c.points - c.pointsSpent,
@@ -28,10 +37,10 @@ export default async function AdminLearnersPage() {
           ← Overview
         </Link>
       </div>
-      <p className="eyebrow">Neurable admin</p>
+      <p className="eyebrow">NeuroBridge admin</p>
       <h1>Learners</h1>
       <p className="muted">Every learner across all centers. Open any report.</p>
-      <AdminLearners rows={rows} />
+      <AdminLearners rows={rows} centers={centers} guides={guides} />
     </div>
   );
 }

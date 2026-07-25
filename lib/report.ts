@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
+import { coverageFromNotes, mode, type CoverageNote, type SubjectCoverage } from "./coverage";
+import { getStandards } from "./standards";
 
 export type SubjectReport = {
   subject: string;
@@ -29,6 +31,22 @@ export type ChildReport = {
   struggles: string[];
   lessonsCompleted: number;
   generatedAt: string;
+  standardsState: string; // "NJ" today; other states later
+  coverage: SubjectCoverage[];
+  // What the child's visiting specialists wrote — the human half of the record.
+  teacherNotes: TeacherNoteSummary[];
+};
+
+export type TeacherNoteSummary = {
+  date: string;
+  teacher: string;
+  subject: string;
+  whatWeDid: string;
+  wentWell: string;
+  struggledWith: string;
+  nextTime: string;
+  focus: number | null;
+  mediaCount: number;
 };
 
 // Report time window. "term" ≈ the last ~120 days; anything else = all time.
@@ -41,13 +59,6 @@ export function sinceForRange(range?: string): Date | undefined {
   return undefined;
 }
 export const rangeLabel = (range?: string) => (range === "term" ? "the last term (~120 days)" : "all time");
-
-const mode = (arr: string[]): string => {
-  if (arr.length === 0) return "";
-  const c: Record<string, number> = {};
-  for (const g of arr) c[g] = (c[g] ?? 0) + 1;
-  return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0];
-};
 
 const levelFor = (avg: number | null): SubjectReport["level"] => {
   if (avg == null) return "—";
@@ -70,7 +81,15 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
       where: { session: { childId }, ...(since ? { createdAt: { gte: since } } : {}) },
       include: {
         session: {
-          include: { slot: { include: { lessonPlan: { select: { subject: true, standardCode: true, gradeLevel: true } } } } },
+          include: {
+            slot: {
+              include: {
+                lessonPlan: {
+                  select: { subject: true, standardCode: true, gradeLevel: true, topic: true },
+                },
+              },
+            },
+          },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -86,11 +105,32 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     }),
   ]);
 
+  // Notes from visiting specialists — the piano teacher, the OT, the tutor.
+  const specialistNotes = await prisma.teacherNote.findMany({
+    where: { childId, ...(sinceStr ? { date: { gte: sinceStr } } : {}) },
+    include: {
+      teacher: { select: { name: true, specialty: true } },
+      _count: { select: { media: true } },
+    },
+    orderBy: { date: "desc" },
+    take: 40,
+  });
+  const teacherNotes: TeacherNoteSummary[] = specialistNotes.map((n) => ({
+    date: n.date,
+    teacher: n.teacher.name,
+    subject: n.subject || n.teacher.specialty,
+    whatWeDid: n.whatWeDid,
+    wentWell: n.wentWell,
+    struggledWith: n.struggledWith,
+    nextTime: n.nextTime,
+    focus: n.focus,
+    mediaCount: n._count.media,
+  }));
+
   const bySubject = new Map<string, { scores: number[]; mastered: Set<string> }>();
   const grades: string[] = [];
   const strengths: string[] = [];
   const struggles: string[] = [];
-
   for (const n of notes) {
     const lp = n.session.slot.lessonPlan;
     const subj = lp?.subject;
@@ -105,6 +145,15 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     if (n.stuckOn?.trim() && struggles.length < 6) struggles.push(n.stuckOn.trim());
   }
 
+  // What this grade is expected to cover, and where the evidence sits.
+  const childGrade = mode(grades);
+  const standards = getStandards(child.standardsCode);
+  const coverage: SubjectCoverage[] = coverageFromNotes(
+    notes as unknown as CoverageNote[],
+    childGrade,
+    standards.code
+  );
+
   const subjects: SubjectReport[] = [...bySubject.entries()].map(([subject, b]) => {
     const avg = b.scores.length ? Math.round(b.scores.reduce((x, y) => x + y, 0) / b.scores.length) : null;
     return { subject, avgScore: avg, level: levelFor(avg), graded: b.scores.length, standardsMastered: [...b.mastered] };
@@ -116,7 +165,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
       id: child.id,
       name: child.name,
       age: child.age ?? null,
-      grade: mode(grades),
+      grade: childGrade,
       guide: child.teacher.name,
       center: child.center?.name ?? "Homeschool",
       readingLevel: child.profile?.readingLevel ?? "",
@@ -143,6 +192,9 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     struggles: [...new Set(struggles)],
     lessonsCompleted: closedSessions,
     generatedAt: new Date().toISOString(),
+    standardsState: standards.label, // e.g. "NJSLS" — swappable per learner
+    teacherNotes,
+    coverage,
   };
 }
 

@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { switchEnabled } from "@/lib/demo";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import AccountMenu from "@/app/components/AccountMenu";
 
 export const dynamic = "force-dynamic";
 
 export default async function CenterLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/switch");
+  if (!user) redirect("/login");
   // Only center admins run this area; a neurable admin belongs in /admin.
   if (user.role !== "center_admin") redirect(homeForRole(user.role));
 
@@ -23,11 +25,12 @@ export default async function CenterLayout({ children }: { children: React.React
             <span className="mark parentmark" aria-hidden="true">
               <span></span>
             </span>
-            Neurable
+            NeuroBridge
           </Link>
-          <Link href="/switch" className="who-pill" style={{ color: "var(--accent-ink)" }} title="Switch account">
-            {center?.name ?? "Center"} · {user.name} <span aria-hidden="true">⇄</span>
+          <Link href="/center/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
+            Visiting teachers
           </Link>
+          <AccountMenu label={`${center?.name ?? "Center"} · ${user.name}`} dev={switchEnabled} />
         </div>
       </header>
       <main className="page wrap" style={{ maxWidth: 1000 }}>

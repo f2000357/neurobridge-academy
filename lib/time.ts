@@ -38,6 +38,15 @@ export function nextMonday(fromStr = todayStr()): string {
   return addDaysStr(fromStr, daysUntil);
 }
 
+// Planning is capped at the current week + next week (2 weeks). Things change,
+// so we don't let a guide build a schedule further out than that.
+export function planningHorizonEnd(fromStr = todayStr()): string {
+  return addDaysStr(mondayOfStr(fromStr), 13); // Sunday of next week
+}
+export function withinPlanningHorizon(dateStr: string, fromStr = todayStr()): boolean {
+  return dateStr <= planningHorizonEnd(fromStr);
+}
+
 export function weekdayShort(dateStr: string): string {
   const d = parseLocal(dateStr);
   const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

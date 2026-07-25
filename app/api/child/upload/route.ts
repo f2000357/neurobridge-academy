@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { guardOperate } from "@/lib/authz";
 
 // Accept one or more uploaded documents for a child (IEP, strengths list, etc.).
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB per file
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const childId = String(form.get("childId") ?? "");
   const kind = String(form.get("kind") ?? "other");
+  const denied = await guardOperate(childId);
+  if (denied) return denied;
   const child = await prisma.child.findUnique({ where: { id: childId } });
   if (!child) return NextResponse.json({ error: "child not found" }, { status: 404 });
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { gatherReport, canReport, childIsAuthed, sinceForRange } from "@/lib/report";
+import { specialtyLabel } from "@/lib/specialists";
 import ReportNarrative from "./ReportNarrative";
 import ReportActions from "./ReportActions";
 
@@ -86,7 +87,7 @@ export default async function ReportPage({
           <span className="mark" aria-hidden="true">
             <span></span>
           </span>
-          <span>Neurable</span>
+          <span>NeuroBridge</span>
           <em>Generated {genDate}</em>
         </div>
       </header>
@@ -113,6 +114,57 @@ export default async function ReportPage({
       </section>
 
       <ReportNarrative key={range ?? "all"} childId={child.id} childName={data.child.name} range={range} />
+
+      {(() => {
+        const all = data.coverage.flatMap((c) => c.strands);
+        const covered = all.filter((s) => s.status !== "not-started").length;
+        const focus = all.filter((s) => s.status === "needs-work" || s.status === "not-started");
+        const gradeLabel = data.child.grade ? `Grade ${data.child.grade}` : "this grade";
+        return (
+          <>
+            <h2 className="report-h2">
+              {data.standardsState} standards coverage · {gradeLabel}
+            </h2>
+            <p className="muted" style={{ marginTop: -6 }}>
+              {covered} of {all.length} grade-level areas have assessed work.
+            </p>
+
+            <div className="cov-grid">
+              {data.coverage.map((c) => (
+                <div key={c.subject} className="cov-card">
+                  <h3 className="report-h3">{c.subject}</h3>
+                  <ul className="cov-list">
+                    {c.strands.map((s) => (
+                      <li key={s.strand} className={`cov-row st-${s.status}`}>
+                        <span className="cov-dot" aria-hidden="true" />
+                        <span className="cov-name">{s.strand}</span>
+                        <span className="cov-meta">
+                          {s.status === "not-started"
+                            ? "not started"
+                            : `${s.avgScore ?? "—"}%${s.lessons ? ` · ${s.lessons}` : ""}`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            {focus.length > 0 && (
+              <div className="callout-focus">
+                <strong>Where to focus next</strong>
+                <p className="muted" style={{ margin: "4px 0 0" }}>
+                  {focus
+                    .slice(0, 6)
+                    .map((s) => `${s.strand}${s.status === "needs-work" ? " (needs work)" : ""}`)
+                    .join(" · ")}
+                  {focus.length > 6 ? ` · +${focus.length - 6} more` : ""}
+                </p>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       <h2 className="report-h2">
         Mastery by subject{isTerm ? " · this term" : ""}
@@ -175,6 +227,52 @@ export default async function ReportPage({
         </div>
       )}
 
+      {data.teacherNotes.length > 0 && (
+        <>
+          <h2 className="report-h2">From their teachers</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Written by the specialists who work with {data.child.name} in person.
+          </p>
+          <div className="stack" style={{ gap: 10 }}>
+            {data.teacherNotes.map((n, i) => (
+              <div key={i} className="report-note">
+                <div className="row" style={{ justifyContent: "space-between" }}>
+                  <strong>
+                    {n.teacher} · {specialtyLabel(n.subject)}
+                  </strong>
+                  <span className="muted tabnum">{n.date}</span>
+                </div>
+                <p style={{ margin: "4px 0" }}>{n.whatWeDid}</p>
+                {n.wentWell && (
+                  <p className="muted" style={{ margin: "2px 0" }}>
+                    <strong>Went well:</strong> {n.wentWell}
+                  </p>
+                )}
+                {n.struggledWith && (
+                  <p className="muted" style={{ margin: "2px 0" }}>
+                    <strong>Hard:</strong> {n.struggledWith}
+                  </p>
+                )}
+                {n.nextTime && (
+                  <p className="muted" style={{ margin: "2px 0" }}>
+                    <strong>Next time:</strong> {n.nextTime}
+                  </p>
+                )}
+                {(n.focus != null || n.mediaCount > 0) && (
+                  <p className="muted" style={{ margin: "2px 0", fontSize: "0.85rem" }}>
+                    {n.focus != null ? `Settled ${n.focus}/5` : ""}
+                    {n.focus != null && n.mediaCount > 0 ? " · " : ""}
+                    {n.mediaCount > 0
+                      ? `${n.mediaCount} photo${n.mediaCount === 1 ? "" : "s"} or video${n.mediaCount === 1 ? "" : "s"} attached`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {data.weeklyTests.length > 0 && (
         <>
           <h2 className="report-h2">Weekly check-ins</h2>
@@ -206,7 +304,7 @@ export default async function ReportPage({
       )}
 
       <p className="muted report-foot">
-        This report reflects {data.child.name}&apos;s recorded work in Neurable as of {genDate}. Levels:
+        This report reflects {data.child.name}&apos;s recorded work in NeuroBridge as of {genDate}. Levels:
         emerging (&lt;50%), approaching (50–79%), proficient (80%+).
       </p>
     </main>

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import StepVideo from "./StepVideo";
+import StepEditor from "./StepEditor";
+import PracticeStep from "./PracticeStep";
 import Link from "next/link";
 
 type WsItem = { question: string; answer: string };
@@ -14,6 +17,16 @@ export type Chunk = {
   seed_question?: string;
   seed_answer?: string;
   read_aloud?: boolean;
+  /** The guide edited this passage in preview: use it as written, don't regenerate. */
+  verbatim?: boolean;
+  /** An image the guide attached while previewing (LessonAsset id). */
+  imageAssetId?: string;
+  /** A video the guide added, by URL. */
+  videoUrl?: string;
+  /** For a "practice" step: which external provider hosts the content. */
+  provider?: string; // ixl
+  /** Deep link to the provider's practice/skill (opens the provider, no embed). */
+  practiceUrl?: string;
 };
 
 type Lesson = { title: string; goal: string; why: string; durationMin: number; workUrl?: string };
@@ -29,10 +42,17 @@ const DIFF_START = 3; // 1 (easy) … 5 (hard)
 
 function stepLabel(c: Chunk): string {
   if (c.title && c.title.trim()) return c.title.trim();
+  if (c.type === "practice") return `Practice on ${providerName(c.provider)}`;
   if (c.type === "video") return "Watch a short video";
   if (c.type === "visual") return "Look at this";
   if (c.type === "worksheet") return "Questions";
   return "Read this";
+}
+
+// Friendly name for an external content provider.
+export function providerName(p?: string): string {
+    if (p === "ixl") return "IXL";
+  return "the practice site";
 }
 
 // A pre-written question for this slot, if the lesson provides a fixed list.
@@ -56,6 +76,7 @@ type Resume = {
 
 export default function Player({
   childId,
+  slotId,
   dayHref,
   childName,
   sessionId,
@@ -67,8 +88,10 @@ export default function Player({
   initialTodayPoints = 0,
   preview = false,
   previewBackHref,
+  planId,
 }: {
   childId: string;
+  slotId?: string;
   dayHref?: string;
   childName: string;
   sessionId: string;
@@ -80,6 +103,8 @@ export default function Player({
   initialTodayPoints?: number;
   preview?: boolean;
   previewBackHref?: string;
+  /** Set in preview so the guide can fix a step where they spot the problem. */
+  planId?: string;
 }) {
   const steps = chunks.filter((c) => c.type !== "wrap_up");
 
@@ -103,6 +128,10 @@ export default function Player({
   );
   const [groundText, setGroundText] = useState<string>("");
   const [teachText, setTeachText] = useState<string>("");
+  // Preview-only: which step the guide is editing, and any edits made this visit
+  // so the preview reflects them without a reload.
+  const [editing, setEditing] = useState<number | null>(null);
+  const [edited, setEdited] = useState<Record<number, Chunk>>({});
   // Delivered text per reading step, so finished passages stay readable as cards.
   const [stepContent, setStepContent] = useState<string[]>(
     ir?.stepContent ?? steps.map(() => "")
@@ -124,6 +153,9 @@ export default function Player({
   const [answerInput, setAnswerInput] = useState("");
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null);
   const results = useRef<{ correct: boolean }[]>([]);
+  // Which step the in-progress assessment belongs to, so stepping back and
+  // forward again resumes it instead of starting over.
+  const assessmentFor = useRef<number | null>(null);
 
   // Points (calm running total for today)
   const [points, setPoints] = useState(ir?.points ?? 0);
@@ -283,21 +315,67 @@ export default function Player({
   async function startStep(idx: number) {
     setStepIdx(idx);
     setTeachText("");
-    setFeedback(null);
-    setQuestion(null);
-    setAnswerInput("");
+    setHint(null);
     const chunk = steps[idx];
+
+    // A practice step is self-contained (deep links to the provider) — no tutor call.
+    if (chunk.type === "practice") {
+      saveResume({ phase: "deliver", stepIdx: idx });
+      return;
+    }
+
     if (chunk.type === "worksheet") {
+      // Returning to an assessment already in progress (e.g. after stepping back
+      // to re-read): keep their place, points and answers instead of restarting.
+      if (assessmentFor.current === idx) {
+        if (!question) await loadQuestion(chunk, round, qNum);
+        saveResume({ phase: "deliver", stepIdx: idx });
+        return;
+      }
+      if (preview) {
+        // A guide previewing shouldn't have to sit an assessment. Show what the
+        // step will ask and let them step past it.
+        assessmentFor.current = idx;
+        setQuestion(null);
+        setFeedback(null);
+        saveResume({ phase: "deliver", stepIdx: idx });
+        return;
+      }
+      assessmentFor.current = idx;
+      setFeedback(null);
+      setQuestion(null);
+      setAnswerInput("");
       setRound("core");
       setQNum(1);
       setDifficulty(DIFF_START);
       results.current = [];
       await loadQuestion(chunk, "core", 1);
       saveResume({ phase: "deliver", stepIdx: idx, round: "core", qNum: 1 });
-    } else {
-      await fetchTeach(chunk, idx);
-      saveResume({ phase: "deliver", stepIdx: idx });
+      return;
     }
+
+    // Keep any in-progress question in state (it only renders during the
+    // assessment) so stepping back to re-read and returning lands on the same
+    // question rather than generating a new one.
+    setFeedback(null);
+    setAnswerInput("");
+    // Stepping back to a step already delivered? Show the same words again,
+    // instantly, rather than asking the tutor for new ones.
+    if (chunk.verbatim && chunk.content) {
+      // The guide wrote these words themselves. Show them exactly.
+      setTeachText(chunk.content);
+      setStepContent((prev) => {
+        const n = prev.slice();
+        n[idx] = chunk.content ?? "";
+        return n;
+      });
+    } else if (stepContent[idx]) setTeachText(stepContent[idx]);
+    else await fetchTeach(chunk, idx);
+    saveResume({ phase: "deliver", stepIdx: idx });
+  }
+
+  async function goBack() {
+    if (stepIdx > 0) await startStep(stepIdx - 1);
   }
 
   async function beginDeliver() {
@@ -469,7 +547,7 @@ export default function Player({
     });
   }
 
-  const chunk = steps[stepIdx];
+  const chunk = edited[stepIdx] ?? steps[stepIdx];
   const isAssessment = chunk?.type === "worksheet";
   const isPinned = pinned.includes(stepIdx);
 
@@ -484,7 +562,6 @@ export default function Player({
         (stepContent[i] || steps[i].content)
     );
   const pinnedRefs = refIndices.filter((i) => pinned.includes(i));
-  const belowRefs = refIndices.filter((i) => !pinned.includes(i));
 
   return (
     <div className="player">
@@ -607,14 +684,68 @@ export default function Player({
                 </div>
               )}
 
+              {preview && planId && editing === stepIdx && (
+                <StepEditor
+                  planId={planId}
+                  index={stepIdx}
+                  chunk={chunk}
+                  currentText={teachText}
+                  onClose={() => setEditing(null)}
+                  onSaved={(next) => {
+                    setEdited((e) => ({ ...e, [stepIdx]: next }));
+                    setTeachText(next.content ?? "");
+                    setStepContent((prev) => {
+                      const n = prev.slice();
+                      n[stepIdx] = next.content ?? "";
+                      return n;
+                    });
+                    setEditing(null);
+                  }}
+                />
+              )}
               <div className="card lift tutor-bubble">
-                <p className="eyebrow" style={{ marginBottom: 6 }}>
-                  Step {stepIdx + 1}: {stepLabel(chunk)}
-                </p>
+                <div className="step-head">
+                  <p className="eyebrow" style={{ margin: 0 }}>
+                    Step {stepIdx + 1} of {steps.length}: {stepLabel(chunk)}
+                  </p>
+                  {stepIdx > 0 && (
+                    <button className="chip" onClick={goBack} disabled={busy}>
+                      ← Back
+                    </button>
+                  )}
+                  {preview && planId && !isAssessment && (
+                    <button
+                      className="chip"
+                      onClick={() => setEditing(editing === stepIdx ? null : stepIdx)}
+                    >
+                      {editing === stepIdx ? "Close editor" : "✎ Edit this step"}
+                    </button>
+                  )}
+                </div>
 
-                {!isAssessment && (
+                {chunk.type === "practice" && (
+                  <PracticeStep
+                    chunk={chunk}
+                    durationMin={lesson.durationMin ?? 25}
+                    childId={childId}
+                    slotId={slotId}
+                    preview={preview}
+                    onNext={finishStep}
+                  />
+                )}
+
+                {!isAssessment && chunk.type !== "practice" && (
                   <>
                     {chunk.visual === "fraction-bars" && <FractionBars />}
+                    {chunk.imageAssetId && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        className="step-image"
+                        src={`/api/asset/${chunk.imageAssetId}`}
+                        alt={chunk.title ? `Picture for ${chunk.title}` : "Picture for this step"}
+                      />
+                    )}
+                    {chunk.videoUrl && <StepVideo url={chunk.videoUrl} />}
                     <p className="passage">{busy ? "One moment…" : teachText}</p>
                     {hint && (
                       <p className="muted" style={{ fontSize: "0.85rem", margin: "0 0 4px" }}>
@@ -645,7 +776,23 @@ export default function Player({
                   </>
                 )}
 
-                {isAssessment && challengeIntro && (
+                {isAssessment && preview && (
+                  <div className="preview-assess">
+                    <p style={{ marginTop: 0 }}>
+                      This step is the check-in. {childName === "there" ? "The student" : childName} will
+                      answer {CORE_N} questions, then choose whether to try{" "}
+                      {CHAL_N} harder ones worth extra points.
+                    </p>
+                    <p className="muted" style={{ fontSize: "0.9rem" }}>
+                      You don&apos;t have to answer anything to preview a lesson.
+                    </p>
+                    <button className="btn" onClick={finishStep}>
+                      Skip the questions — next step →
+                    </button>
+                  </div>
+                )}
+
+                {isAssessment && !preview && challengeIntro && (
                   <div className="challenge-intro">
                     <p className="eyebrow" style={{ color: "var(--warm)" }}>
                       Bonus round
@@ -665,7 +812,7 @@ export default function Player({
                   </div>
                 )}
 
-                {isAssessment && !challengeIntro && (
+                {isAssessment && !preview && !challengeIntro && (
                   <>
                     <p className="muted" style={{ fontSize: "0.85rem", margin: 0 }}>
                       {round === "challenge" ? "🌟 Challenge" : "Question"} {qNum} of{" "}
@@ -709,23 +856,6 @@ export default function Player({
                   </>
                 )}
               </div>
-
-              {/* Everything read so far stays here as cards — nothing disappears. */}
-              {belowRefs.length > 0 && (
-                <div className="ref-stack">
-                  <p className="eyebrow ref-eyebrow">What we&apos;ve read</p>
-                  {belowRefs.map((i) => (
-                    <ReferenceCard
-                      key={`ref-${i}`}
-                      label={stepLabel(steps[i])}
-                      text={stepContent[i] || steps[i].content || ""}
-                      pinned={false}
-                      onTogglePin={() => togglePin(i)}
-                      onSpeak={speak}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           </section>
         )}
@@ -764,7 +894,7 @@ export default function Player({
             <p className="muted" style={{ marginTop: 20 }}>
               {preview ? "That's the whole lesson." : `Next: ${after}`}
             </p>
-            <Link className="btn big" href={preview ? previewBackHref ?? "/teacher/library" : dayHref ?? `/student/${childId}`}>
+            <Link className="btn big" href={preview ? previewBackHref ?? "/teacher" : dayHref ?? `/student/${childId}`}>
               {preview ? "← Back to editing" : "Back to my day"}
             </Link>
           </section>

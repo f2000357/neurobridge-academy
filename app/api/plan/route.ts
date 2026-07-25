@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getStandards, DEFAULT_STANDARDS } from "@/lib/standards";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
+import { guardOperate, guardOperatorPresent } from "@/lib/authz";
 
 // The teacher's lesson builder backend: draft a plan with AI, then persist it.
 
@@ -32,14 +34,22 @@ export async function POST(req: NextRequest) {
   if (op === "generate") {
     const { topic, subject, durationMin, childId, gradeLevel, curriculumTopic } = body;
 
-    // Personalize to the target child, if one is chosen.
+    // A child-specific draft must be for a learner you manage; a generic draft
+    // just needs a signed-in operator (it isn't tied to anyone yet).
+    const denied = childId ? await guardOperate(childId) : await guardOperatorPresent();
+    if (denied) return denied;
+
+    // Personalize to the target child, if one is chosen (including which
+    // standards framework they follow).
     let childContext = "";
+    let stdCode: string = DEFAULT_STANDARDS;
     if (childId) {
       const child = await prisma.child.findUnique({
         where: { id: childId },
         include: { profile: true },
       });
       if (child) {
+        stdCode = child.standardsCode;
         const p = child.profile;
         childContext = [
           `This lesson is for ${child.name}, a neurodiverse learner.`,
@@ -52,8 +62,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const std = getStandards(stdCode);
     const system = [
-      "You design lesson plans for Neurable, a calm school for neurodiverse learners.",
+      "You design lesson plans for NeuroBridge, a calm school for neurodiverse learners.",
       "A plan is delivered chunk by chunk through an executive-functioning routine, so keep each chunk small, concrete, and in a sensible teaching order.",
       "Chunk types you may use:",
       "- read_text: a short passage to read (give 'content', 2-5 short sentences, plain language).",
@@ -62,7 +73,7 @@ export async function POST(req: NextRequest) {
       "- worksheet: interactive practice. Give 'items' (2-4), a 'seed_question' for the first question, and its 'seed_answer'.",
       "- wrap_up: a closing chunk (title only).",
       "Every plan must include a worksheet as an assessment near the end (the second-to-last chunk), then exactly one wrap_up chunk.",
-      "Align the lesson to the New Jersey Student Learning Standards (NJSLS). Identify the single best-fit standard.",
+      `Align the lesson to ${std.name} (${std.label}). Identify the single best-fit standard.`,
       "Write all learner-facing text in plain language, no Markdown.",
       childContext,
     ]
@@ -75,7 +86,7 @@ export async function POST(req: NextRequest) {
     const draft = await tutorJson<Draft>(
       system,
       `Design a lesson for ${grade}${strand}. Topic: "${topic}". Subject: "${subject}". Target length: about ${durationMin} minutes. ` +
-        `Return JSON: {"title": "short lesson title", "goal": "one concrete thing the learner will be able to do", "whyItMatters": "one friendly sentence a child understands", "standardCode": "the NJSLS code, e.g. 3.NF.A.1", "standardText": "the standard in one plain sentence", "chunks": [ ... ]}. ` +
+        `Return JSON: {"title": "short lesson title", "goal": "one concrete thing the learner will be able to do", "whyItMatters": "one friendly sentence a child understands", "standardCode": "the ${std.label} code, e.g. 3.NF.A.1", "standardText": "the standard in one plain sentence", "chunks": [ ... ]}. ` +
         `Use 3-6 chunks in a good order, including a worksheet assessment before the wrap_up.`,
       4000,
       "deep"
@@ -104,7 +115,22 @@ export async function POST(req: NextRequest) {
     const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
 
-    // Guides set private or center; a Neurable admin can author global directly.
+    // Editing an existing plan: it must be yours (or you're NeuroBridge admin) —
+    // otherwise the update below would silently reassign it to you.
+    if (id) {
+      const existing = await prisma.lessonPlan.findUnique({ where: { id }, select: { teacherId: true } });
+      if (!existing) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
+      if (existing.teacherId !== teacher.id && teacher.role !== "neurable_admin") {
+        return NextResponse.json({ error: "not your lesson" }, { status: 403 });
+      }
+    }
+    // A child-specific lesson must be for a learner you manage.
+    if (childId) {
+      const denied = await guardOperate(childId);
+      if (denied) return denied;
+    }
+
+    // Guides set private or center; a NeuroBridge admin can author global directly.
     const allowed = teacher.role === "neurable_admin"
       ? ["private", "center", "global"]
       : ["private", "center"];

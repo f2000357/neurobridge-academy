@@ -2,7 +2,7 @@ import Builder, { type PlanState } from "@/app/teacher/plans/Builder";
 
 export const dynamic = "force-dynamic";
 
-// Neurable admin authors a generic lesson for the global shelf.
+// NeuroBridge admin authors a generic lesson for the global shelf.
 export default async function NewGlobalLesson({
   searchParams,
 }: {

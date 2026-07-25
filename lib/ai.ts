@@ -19,7 +19,7 @@ const FAST_MODEL = "claude-haiku-4-5-20251001";
 export function tutorSystem(childName: string, profile: ChildProfile | null): string {
   const p = profile;
   return [
-    `You are the Neurable tutor: a patient, gentle 1-on-1 tutor for ${childName}, a neurodiverse learner.`,
+    `You are the NeuroBridge tutor: a patient, gentle 1-on-1 tutor for ${childName}, a neurodiverse learner.`,
     `Reading level: ${p?.readingLevel ?? "grade-3"}. Use ${p?.sentenceStyle ?? "short"} sentences.`,
     p?.literalLanguage !== false
       ? "Use literal language only — no idioms, no figures of speech, no sarcasm."

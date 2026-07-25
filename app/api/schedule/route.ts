@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { planInterestBlocks } from "@/lib/interestBlocks";
+import { guardOperate } from "@/lib/authz";
+import { addDaysStr } from "@/lib/time";
+import { buildDayTemplate, normalizeStart } from "@/lib/dayTemplate";
 
 // Teacher scheduling: place plans (and breaks/flexible/1:1) onto a child's day.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { op } = body as { op: string };
+
+  // Authorization: every op targets one child — directly via childId, or via a
+  // slot id we resolve back to its child. The caller must be able to operate it.
+  let targetChildId: string | undefined = body.childId;
+  if (!targetChildId && body.id) {
+    const slot = await prisma.scheduleSlot.findUnique({
+      where: { id: body.id },
+      select: { childId: true },
+    });
+    targetChildId = slot?.childId;
+  }
+  if (!targetChildId) return NextResponse.json({ error: "no learner specified" }, { status: 400 });
+  const denied = await guardOperate(targetChildId);
+  if (denied) return denied;
 
   if (op === "list") {
     const { childId, date } = body;
@@ -70,8 +88,150 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // Drop this child's special-interest blocks into a week. Afternoon-first so
+  // mornings stay academic; the guide can move or cancel any of them after.
+  if (op === "placeInterests") {
+    const { childId, weekStart } = body as { childId: string; weekStart: string };
+    const placed = await planInterestBlocks(childId, weekStart);
+    if (placed.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        added: 0,
+        note: "Nothing to place — either no interests are set, or the week is full.",
+      });
+    }
+    await prisma.scheduleSlot.createMany({
+      data: placed.map((p) => ({
+        childId,
+        date: p.date,
+        kind: "flexible",
+        activity: p.activity,
+        startMin: p.startMin,
+        endMin: p.endMin,
+      })),
+    });
+    return NextResponse.json({ ok: true, added: placed.length });
+  }
+
+  // Two 30-minute assessment (check-in) slots on Friday at 2pm. The child takes
+  // each on the provider (IXL/MAP deep link) or a native check-in.
+  if (op === "placeAssessments") {
+    const { childId, weekStart } = body as { childId: string; weekStart: string };
+    const friday = addDaysStr(weekStart, 4);
+    const wanted = [
+      { startMin: 14 * 60, endMin: 14 * 60 + 30 }, // 2:00–2:30
+      { startMin: 14 * 60 + 30, endMin: 15 * 60 }, // 2:30–3:00
+    ];
+    const existing = await prisma.scheduleSlot.findMany({
+      where: { childId, date: friday },
+      select: { startMin: true, endMin: true },
+    });
+    let added = 0;
+    for (const w of wanted) {
+      const clash = existing.some((e) => w.startMin < e.endMin && w.endMin > e.startMin);
+      if (clash) continue;
+      await prisma.scheduleSlot.create({
+        data: { childId, date: friday, kind: "testing", startMin: w.startMin, endMin: w.endMin },
+      });
+      existing.push(w);
+      added++;
+    }
+    return NextResponse.json({
+      ok: true,
+      added,
+      note: added === 0 ? "Friday 2–3pm already has slots there." : undefined,
+    });
+  }
+
+  // Set a child's configurable school-day start (9:00 / 9:30 / 10:00).
+  if (op === "setDayStart") {
+    const { childId, startMin } = body as { childId: string; startMin: number };
+    await prisma.child.update({
+      where: { id: childId },
+      data: { dayStartMin: normalizeStart(startMin) },
+    });
+    return NextResponse.json({ ok: true, startMin: normalizeStart(startMin) });
+  }
+
+  // Lay down a "typical day": mandatory Education blocks front-loaded, a morning
+  // break, catch-up flexible, lunch, one game-play slot, and extracurriculars to
+  // 3pm. Non-destructive — places each block only where the day is free, so any
+  // existing testing/service slots are preserved.
+  if (op === "generateDay") {
+    const { childId, date } = body as { childId: string; date: string };
+    const child = await prisma.child.findUnique({
+      where: { id: childId },
+      select: { dayStartMin: true },
+    });
+    const startMin = normalizeStart(body.startMin ?? child?.dayStartMin);
+    const blocks = buildDayTemplate(startMin);
+    const existing = await prisma.scheduleSlot.findMany({
+      where: { childId, date },
+      select: { startMin: true, endMin: true },
+    });
+    const busy = existing.map((e) => ({ startMin: e.startMin, endMin: e.endMin }));
+    let added = 0;
+    let skipped = 0;
+    for (const b of blocks) {
+      const clash = busy.some((e) => b.startMin < e.endMin && b.endMin > e.startMin);
+      if (clash) {
+        skipped++;
+        continue;
+      }
+      await prisma.scheduleSlot.create({
+        data: {
+          childId,
+          date,
+          kind: b.kind,
+          subject: b.subject ?? "",
+          activity: b.activity ?? "",
+          startMin: b.startMin,
+          endMin: b.endMin,
+        },
+      });
+      busy.push({ startMin: b.startMin, endMin: b.endMin });
+      added++;
+    }
+    return NextResponse.json({ ok: true, added, skipped, startMin });
+  }
+
+  // The same typical day across Mon–Fri. Non-destructive at the day level: a day
+  // that already has slots is left alone.
+  if (op === "generateWeek") {
+    const { childId, weekStart } = body as { childId: string; weekStart: string };
+    const child = await prisma.child.findUnique({
+      where: { id: childId },
+      select: { dayStartMin: true },
+    });
+    const startMin = normalizeStart(body.startMin ?? child?.dayStartMin);
+    const blocks = buildDayTemplate(startMin);
+    const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(weekStart, i));
+    let added = 0;
+    let skippedDays = 0;
+    for (const date of dates) {
+      const count = await prisma.scheduleSlot.count({ where: { childId, date } });
+      if (count > 0) {
+        skippedDays++;
+        continue;
+      }
+      await prisma.scheduleSlot.createMany({
+        data: blocks.map((b) => ({
+          childId,
+          date,
+          kind: b.kind,
+          subject: b.subject ?? "",
+          activity: b.activity ?? "",
+          startMin: b.startMin,
+          endMin: b.endMin,
+        })),
+      });
+      added += blocks.length;
+    }
+    return NextResponse.json({ ok: true, added, skippedDays, startMin });
+  }
+
   if (op === "add") {
-    const { childId, date, kind, lessonPlanId, startMin, endMin } = body;
+    const { childId, date, kind, lessonPlanId, startMin, endMin, activity, teacherId, subject } = body;
     if (endMin <= startMin) {
       return NextResponse.json({ error: "End time must be after start time." }, { status: 400 });
     }
@@ -91,6 +251,12 @@ export async function POST(req: NextRequest) {
         date,
         kind,
         lessonPlanId: kind === "lesson" ? lessonPlanId || null : null,
+        // A mandatory Education block carries its subject before content is attached.
+        subject: kind === "lesson" ? subject || "" : "",
+        // Only flexible periods (electives) and related services carry one.
+        activity: kind === "flexible" || kind === "service" ? activity || "" : "",
+        // A visiting specialist holding this block, if the guide named one.
+        teacherId: teacherId || null,
         startMin,
         endMin,
       },

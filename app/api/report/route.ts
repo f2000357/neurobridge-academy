@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
   if (!aiEnabled) return NextResponse.json({ narrative: fallback, ai: false });
 
   const narrative = await tutorJson<Narrative>(
-    "You write a warm, honest progress report for a parent or educator about a neurodiverse learner. Ground EVERYTHING strictly in the data provided — never invent scores or skills. Be specific, encouraging, and truthful; name real strengths and real growth areas. Plain language, no jargon.",
+    "You write a warm, honest progress report for a parent or educator about a neurodiverse learner. Ground EVERYTHING strictly in the data provided — never invent scores or skills. Be specific, encouraging, and truthful; name real strengths and real growth areas. Plain language, no jargon. " +
+      "The parent is homeschooling and worries about covering their state's grade-level standards, so USE the `coverage` data: in growthAreas and nextSteps, name the actual strands that are 'needs-work' or 'not-started' and say plainly what to teach next.",
     `Write a progress report covering ${rangeLabel(range)} from this data. JSON: {"overview": "3-4 sentence summary of how they're doing overall", ` +
       `"strengths": ["2-4 specific strengths grounded in the data"], ` +
       `"growthAreas": ["2-4 areas to keep working on"], ` +

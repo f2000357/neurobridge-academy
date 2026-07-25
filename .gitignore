@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the documented template carries no secrets and should be committed.
+!.env.example
 
 # vercel
 .vercel
@@ -43,3 +45,7 @@ next-env.d.ts
 # local sqlite database (superseded by Postgres)
 *.db
 *.db-journal
+.uploads/
+
+# Local scratch file holding secrets to paste into the host dashboard.
+vercel-env.txt

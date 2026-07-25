@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Neurable — A school for neurodiverse learners",
+  title: "NeuroBridge Academy — A learning path designed around your child",
   description:
-    "A calm, AI-powered school where lessons are planned by a teacher, driven by a calendar, and delivered through executive-functioning-first routines.",
+    "AI-powered, standards-aligned education for neurodiverse learners — with families, educators, and specialists connected in one place.",
 };
 
 export default function RootLayout({
