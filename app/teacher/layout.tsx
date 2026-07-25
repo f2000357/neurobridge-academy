@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { switchEnabled } from "@/lib/demo";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -40,7 +41,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
             </span>
             NeuroBridge
           </Link>
-          <AccountMenu label={`Guide · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
+          <AccountMenu label={`Guide · ${user.name}`} dev={switchEnabled} />
         </div>
       </header>
 

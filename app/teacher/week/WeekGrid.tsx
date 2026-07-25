@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { addDaysStr, fmtMin, weekdayShort } from "@/lib/time";
+import { addDaysStr, fmtMin, hhmmToMin, minToHhmm, weekdayShort } from "@/lib/time";
 import { subjectKey, subjectLabel } from "@/lib/subjects";
-import { activityLabel } from "@/lib/activities";
+import { activityLabel, optionsForKind } from "@/lib/activities";
 import { slotColor } from "@/lib/slotColor";
+import ScheduleTabs from "../schedule/ScheduleTabs";
 
 type Slot = {
   id: string;
@@ -13,16 +13,43 @@ type Slot = {
   date: string;
   startMin: number;
   endMin: number;
+  subject?: string;
   activity: string;
+  teacherId?: string | null;
+  lessonPlanId?: string | null;
   lessonPlan: { title: string; subject?: string | null } | null;
   sessions: { state: string }[];
 };
 type Child = { id: string; name: string };
+type Plan = { id: string; title: string; subject: string; durationMin: number; childId: string | null };
+type Specialist = { id: string; name: string; childIds: string[] };
+
+const ADD_KIND_LABEL: Record<string, string> = {
+  lesson: "Education (lesson)",
+  break: "Break / Lunch",
+  flexible: "Flexible / elective",
+  service: "Support (speech, OT…)",
+  testing: "Check-in",
+  one_on_one: "1:1 with you",
+  free_time: "Free time",
+};
+const SUBJECTS = ["math", "reading", "writing", "science"];
+
+type AddDraft = {
+  date: string;
+  startMin: number;
+  duration: number;
+  kind: string;
+  subject: string;
+  activity: string;
+  planId: string;
+  teacherId: string;
+};
 
 // The visible school-day window and grid scale.
 const DAY_START = 8 * 60; // 8:00 am
 const DAY_END = 17 * 60; // 5:00 pm
-const PX_PER_MIN = 64 / 60; // 64px per hour
+const PX_PER_MIN = 104 / 60; // ~52px per 30-min block — fits the full lesson name
 const SNAP = 15; // minutes
 const DAYS = 5; // Mon–Fri
 
@@ -45,11 +72,15 @@ export default function WeekGrid({
   initialChildId,
   initialMonday,
   initialSlots,
+  plans = [],
+  specialistList = [],
 }: {
   childrenList: Child[];
   initialChildId: string;
   initialMonday: string;
   initialSlots: Slot[];
+  plans?: Plan[];
+  specialistList?: Specialist[];
 }) {
   const [childId, setChildId] = useState(initialChildId);
   const [monday, setMonday] = useState(initialMonday);
@@ -57,6 +88,9 @@ export default function WeekGrid({
   const [note, setNote] = useState<string | null>(null);
   const [repeatWeeks, setRepeatWeeks] = useState(4);
   const [busy, setBusy] = useState(false);
+  const [add, setAdd] = useState<AddDraft | null>(null);
+  const specialists = specialistList.filter((t) => t.childIds.includes(childId));
+  const availablePlans = plans.filter((p) => !p.childId || p.childId === childId);
 
   const weekDates = Array.from({ length: DAYS }, (_, i) => addDaysStr(monday, i));
   const gridRef = useRef<HTMLDivElement>(null);
@@ -102,8 +136,9 @@ export default function WeekGrid({
   }, []);
 
   function onPointerDownBlock(e: React.PointerEvent, s: Slot) {
-    // Don't start a drag from the delete button.
-    if ((e.target as HTMLElement).dataset.role === "del") return;
+    // Don't start a drag from the delete or preview controls.
+    const role = (e.target as HTMLElement).dataset.role;
+    if (role === "del" || role === "preview") return;
     e.preventDefault();
     const blockTop = gridTop(s.startMin);
     const grabOffset = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
@@ -143,7 +178,13 @@ export default function WeekGrid({
     const startMin = t.start;
     const endMin = startMin + current.duration;
     const orig = slots.find((s) => s.id === current.id);
-    if (orig && orig.date === targetDate && orig.startMin === startMin) return; // no move
+    // No move = a click, not a drag → open the lesson's preview.
+    if (orig && orig.date === targetDate && orig.startMin === startMin) {
+      if (orig.kind === "lesson" && orig.lessonPlanId) {
+        window.open(`/preview/${orig.lessonPlanId}`, "_blank", "noopener");
+      }
+      return;
+    }
 
     // Optimistic update
     setSlots((prev) =>
@@ -159,6 +200,61 @@ export default function WeekGrid({
       setNote(data.error === "overlap" ? "That spot is taken — moved it back." : "Could not move that.");
       void refetch(childId, weekDates); // revert to server truth
     }
+  }
+
+  // ── delete + add (click an empty cell) ──────────────────────────────────
+  async function deleteSlot(s: Slot) {
+    if (s.sessions.length > 0 && !confirm("This block has lesson work recorded. Remove it anyway?")) return;
+    setBusy(true);
+    await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "remove", id: s.id }),
+    });
+    setBusy(false);
+    void refetch(childId, weekDates);
+  }
+
+  function onColClick(date: string, e: React.MouseEvent) {
+    if (drag) return;
+    if ((e.target as HTMLElement).closest(".wg-block")) return; // clicked a block
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    let start = DAY_START + Math.round(y / PX_PER_MIN / 30) * 30;
+    start = Math.max(DAY_START, Math.min(DAY_END - 30, start));
+    setNote(null);
+    setAdd({ date, startMin: start, duration: 30, kind: "lesson", subject: "math", activity: "", planId: "", teacherId: "" });
+  }
+
+  async function submitAdd() {
+    if (!add) return;
+    const chosenPlan = plans.find((p) => p.id === add.planId);
+    const duration = chosenPlan ? chosenPlan.durationMin : add.duration;
+    setBusy(true);
+    const res = await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "add",
+        childId,
+        date: add.date,
+        kind: add.kind,
+        subject: add.kind === "lesson" ? (chosenPlan ? chosenPlan.subject : add.subject) : "",
+        activity: add.kind === "flexible" || add.kind === "service" ? add.activity : "",
+        lessonPlanId: add.kind === "lesson" ? add.planId : "",
+        teacherId: add.teacherId || null,
+        startMin: add.startMin,
+        endMin: add.startMin + duration,
+      }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (data.error) {
+      setNote(data.error);
+      return;
+    }
+    setAdd(null);
+    void refetch(childId, weekDates);
   }
 
   async function repeatWeek() {
@@ -235,15 +331,13 @@ export default function WeekGrid({
 
   return (
     <main className="page wrap" style={{ maxWidth: 980 }}>
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <div>
-          <p className="eyebrow">Week calendar</p>
-          <h1>The week at a glance</h1>
-        </div>
-        <Link className="btn quiet" href="/teacher/schedule">
-          Add slots →
-        </Link>
-      </div>
+      <ScheduleTabs active="week" />
+      <p className="eyebrow">Schedule · whole week</p>
+      <h1>The week at a glance</h1>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Move blocks around, repeat a week, or drop in interests and Friday check-ins. To add or edit a
+        single day&apos;s blocks, switch to <strong>Day</strong>.
+      </p>
 
       <div className="card" style={{ marginTop: 12 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>
@@ -360,10 +454,15 @@ export default function WeekGrid({
             ))}
           </div>
           {weekDates.map((date, col) => (
-            <div key={date} className="wg-col">
+            <div key={date} className="wg-col" style={{ cursor: "copy" }} onClick={(e) => onColClick(date, e)}>
               {hours.map((m) => (
                 <div key={m} className="wg-hourline" style={{ top: gridTop(m) }} />
               ))}
+              {add?.date === date && (
+                <div className="wg-block ghost" style={{ top: gridTop(add.startMin), height: add.duration * PX_PER_MIN }}>
+                  <span className="wg-btitle">New block</span>
+                </div>
+              )}
               {slots
                 .filter((s) => s.date === date)
                 .map((s) => {
@@ -374,7 +473,8 @@ export default function WeekGrid({
                   if (isDragging && drag && drag.col !== col) return null;
                   const done = s.sessions.some((x) => x.state === "closed");
                   const isLesson = s.kind === "lesson";
-                  const subjClass = isLesson ? `subj-${subjectKey(s.lessonPlan?.subject)}` : "";
+                  const subj = s.subject || s.lessonPlan?.subject || "";
+                  const subjClass = isLesson ? `subj-${subjectKey(subj)}` : "";
                   return (
                     <div
                       key={s.id}
@@ -385,19 +485,45 @@ export default function WeekGrid({
                       onPointerDown={(e) => onPointerDownBlock(e, s)}
                       title={
                         isLesson
-                          ? `${subjectLabel(s.lessonPlan?.subject)} — ${s.lessonPlan?.title ?? ""}`
+                          ? `${subjectLabel(subj)} — ${s.lessonPlan?.title ?? "no lesson yet"}${
+                              s.lessonPlanId ? " · click to preview" : ""
+                            }`
                           : KIND_LABEL[s.kind]
                       }
                     >
-                      <span className="wg-btitle">
-                        {isLesson ? subjectLabel(s.lessonPlan?.subject) : activityLabel(s.activity) ?? KIND_LABEL[s.kind]}
-                      </span>
-                      {isLesson && s.lessonPlan?.title && (
-                        <span className="wg-btopic">{s.lessonPlan.title}</span>
+                      <button className="wg-del" data-role="del" aria-label="Delete block" onClick={() => deleteSlot(s)}>
+                        ✕
+                      </button>
+                      {isLesson && s.lessonPlanId && (
+                        <a
+                          className="wg-preview"
+                          data-role="preview"
+                          href={`/preview/${s.lessonPlanId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          title="Preview this lesson"
+                          aria-label="Preview lesson"
+                        >
+                          👁
+                        </a>
                       )}
-                      <span className="wg-btime">
-                        {fmtMin(s.startMin)}–{fmtMin(s.endMin)}
-                      </span>
+                      {isLesson ? (
+                        // Subject is shown by the block's colour; time by its
+                        // position — so use the whole block for the lesson name.
+                        <span className="wg-bname">
+                          {s.lessonPlan?.title || (subj ? subjectLabel(subj) : "Education")}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="wg-btitle">
+                            {activityLabel(s.activity) ?? KIND_LABEL[s.kind]}
+                          </span>
+                          <span className="wg-btime">
+                            {fmtMin(s.startMin)}–{fmtMin(s.endMin)}
+                          </span>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -407,9 +533,136 @@ export default function WeekGrid({
       </div>
 
       <p className="muted" style={{ marginTop: 14, fontSize: "0.85rem" }}>
-        Drag any block to a new day or time. It snaps to 15 minutes and won&apos;t drop onto a taken slot.
-        Use “Add slots” to create new ones.
+        Click any empty spot to add a block · drag a block to another day or time (snaps to 15 min) · ✕ to
+        delete.
       </p>
+
+      {/* Inline editor for a new block */}
+      {add && (
+        <div className="card lift" style={{ marginTop: 14, borderColor: "var(--accent)" }}>
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <strong>
+              New block · {weekdayShort(add.date)}
+            </strong>
+            <button className="chip" onClick={() => setAdd(null)}>
+              Cancel
+            </button>
+          </div>
+          <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
+            <label className="inline muted">
+              Type
+              <select
+                className="field short"
+                value={add.kind}
+                onChange={(e) => setAdd({ ...add, kind: e.target.value, activity: "", planId: "" })}
+              >
+                {Object.entries(ADD_KIND_LABEL).map(([k, label]) => (
+                  <option key={k} value={k}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {add.kind === "lesson" && (
+              <>
+                <label className="inline muted">
+                  Subject
+                  <select
+                    className="field short"
+                    value={add.subject}
+                    onChange={(e) => setAdd({ ...add, subject: e.target.value })}
+                    disabled={Boolean(add.planId)}
+                  >
+                    {SUBJECTS.map((s) => (
+                      <option key={s} value={s}>
+                        {subjectLabel(s)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="inline muted">
+                  Lesson (optional)
+                  <select
+                    className="field short"
+                    value={add.planId}
+                    onChange={(e) => setAdd({ ...add, planId: e.target.value })}
+                  >
+                    <option value="">Empty block — fill later</option>
+                    {availablePlans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            )}
+
+            {optionsForKind(add.kind).length > 0 && (
+              <label className="inline muted">
+                {add.kind === "service" ? "Service" : "Elective"}
+                <select
+                  className="field short"
+                  value={add.activity}
+                  onChange={(e) => setAdd({ ...add, activity: e.target.value })}
+                >
+                  <option value="">{add.kind === "service" ? "Choose…" : "Child's choice"}</option>
+                  {optionsForKind(add.kind).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.emoji} {a.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {specialists.length > 0 && add.kind !== "lesson" && (
+              <label className="inline muted">
+                Taught by
+                <select
+                  className="field short"
+                  value={add.teacherId}
+                  onChange={(e) => setAdd({ ...add, teacherId: e.target.value })}
+                >
+                  <option value="">You</option>
+                  {specialists.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label className="inline muted">
+              Start
+              <input
+                className="field short"
+                type="time"
+                value={minToHhmm(add.startMin)}
+                onChange={(e) => setAdd({ ...add, startMin: hhmmToMin(e.target.value) })}
+              />
+            </label>
+            <label className="inline muted">
+              Minutes
+              <input
+                className="field tiny"
+                type="number"
+                min={5}
+                max={120}
+                step={5}
+                value={add.duration}
+                onChange={(e) => setAdd({ ...add, duration: Number(e.target.value) })}
+                disabled={Boolean(add.planId)}
+              />
+            </label>
+            <button className="btn" onClick={submitAdd} disabled={busy}>
+              Add block
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

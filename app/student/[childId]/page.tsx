@@ -100,7 +100,9 @@ export default async function StudentToday({
     if (slot.kind === "service")
       return { main: activityLabel(slot.activity) ?? "🧩 Support session" };
     if (slot.kind === "free_time") return { main: "💬 Free time — ask me anything" };
-    const subject = slot.lessonPlan?.subject;
+    // Once content is attached its subject wins; before then, the Education
+    // block's own subject (set by the day template) labels it.
+    const subject = slot.lessonPlan?.subject || slot.subject;
     return {
       main: `${subjectIcon(subject)} ${subjectLabel(subject)}`,
       sub: slot.lessonPlan?.title,

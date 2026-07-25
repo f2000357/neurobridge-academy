@@ -937,11 +937,14 @@ select.field {
 }
 
 .wg-btopic {
-  font-size: 0.68rem;
-  line-height: 1.2;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--ink);
+  /* Show the scheduled lesson name — up to two lines, then clip. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
@@ -949,6 +952,22 @@ select.field {
   font-size: 0.68rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+}
+
+/* A lesson block shows only its lesson name (colour = subject, position = time),
+   so the name gets the whole block — up to three lines. */
+.wg-bname {
+  /* Fill the block so the name has a real width and wraps normally. */
+  position: absolute;
+  top: 4px;
+  left: 7px;
+  right: 7px;
+  bottom: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow: hidden;
 }
 
 /* Subject-colored lesson blocks so the week reads by subject at a glance.
@@ -1043,6 +1062,78 @@ select.field {
   .wg-btime {
     display: none;
   }
+}
+
+/* ---- Day calendar: single-column variant of the week grid ---- */
+.daygrid .wg-body {
+  grid-template-columns: 56px 1fr;
+}
+.daygrid .wg-col {
+  border-right: none;
+}
+/* A larger tap target and readable blocks on the day view. */
+.daygrid .wg-block {
+  padding: 6px 9px;
+}
+.daygrid .wg-block:hover {
+  box-shadow: var(--shadow);
+}
+/* Delete button on each block. */
+.wg-del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  border-radius: 6px;
+  border: none;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.wg-block:hover .wg-del,
+.wg-del:focus-visible {
+  opacity: 1;
+}
+.wg-del:hover {
+  background: var(--slot-break);
+  color: #fff;
+}
+/* Preview a lesson from its schedule block. */
+.wg-preview {
+  position: absolute;
+  top: 3px;
+  right: 26px;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  font-size: 0.72rem;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.wg-block:hover .wg-preview,
+.wg-preview:focus-visible {
+  opacity: 1;
+}
+.wg-preview:hover {
+  background: var(--accent);
+}
+/* The ghost of a block being added. */
+.wg-block.ghost {
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  opacity: 0.85;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* ---- Lesson library (IXL-style browse) ---- */

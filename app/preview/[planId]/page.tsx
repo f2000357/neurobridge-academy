@@ -17,7 +17,7 @@ export default async function PreviewPage({
       <main className="page wrap">
         <h1>Lesson not found</h1>
         <p className="muted">
-          <Link href="/teacher/library">Back to the library</Link>
+          <Link href="/teacher">Back to console</Link>
         </p>
       </main>
     );

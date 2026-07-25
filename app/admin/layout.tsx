@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { switchEnabled } from "@/lib/demo";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import AccountMenu from "@/app/components/AccountMenu";
@@ -23,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
             Visiting teachers
           </Link>
-          <AccountMenu label={`NeuroBridge Admin · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
+          <AccountMenu label={`NeuroBridge Admin · ${user.name}`} dev={switchEnabled} />
         </div>
       </header>
       <main className="page wrap" style={{ maxWidth: 1000 }}>

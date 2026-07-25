@@ -1,6 +1,6 @@
 // Seed the content index with a REAL, verified slice: NJ Grade-3 math, harvested
 // from IXL's own published standards-alignment page (ixl.com/standards/
-// new-jersey/math/grade-3) plus verified Khan Academy URLs. This is exactly the
+// new-jersey/math/grade-3) This is exactly the
 // shape the daily crawler produces — it just does every standard/grade/subject.
 //
 //   node prisma/seed-index.mjs
@@ -28,17 +28,6 @@ const IXL_G3_MATH = [
   ["3.NBT.A.3", "Multiply by a multiple of ten using place value", "/math/grade-3/multiply-by-a-multiple-of-ten-using-place-value", "3-U.1"],
 ];
 
-// Khan Academy (free) — verified deep links. Separate URLs per video and exercise.
-const KA = "https://www.khanacademy.org";
-const KHAN_G3_MATH = [
-  {
-    standardCode: "3.OA.A.1",
-    skillName: "Introduction to multiplication (equal groups)",
-    videoUrl: `${KA}/math/cc-third-grade-math/intro-to-multiplication/imp-multiplication-intro/v/introduction-to-multiplication`,
-    practiceUrl: `${KA}/math/cc-third-grade-math/intro-to-multiplication/imp-multiplication-intro/e/equal-groups`,
-  },
-];
-
 async function main() {
   let n = 0;
   for (const [standardCode, skillName, slug, code] of IXL_G3_MATH) {
@@ -48,17 +37,6 @@ async function main() {
       create: {
         provider: "ixl", framework: "NJ", standardCode, subject: "math", gradeLevel: "3",
         skillName, skillCode: code, videoUrl: ixlVideo(slug), practiceUrl: ixl(slug),
-      },
-    });
-    n++;
-  }
-  for (const k of KHAN_G3_MATH) {
-    await prisma.contentItem.upsert({
-      where: { provider_standardCode_practiceUrl: { provider: "khan", standardCode: k.standardCode, practiceUrl: k.practiceUrl } },
-      update: { skillName: k.skillName, videoUrl: k.videoUrl, active: true },
-      create: {
-        provider: "khan", framework: "NJ", standardCode: k.standardCode, subject: "math", gradeLevel: "3",
-        skillName: k.skillName, videoUrl: k.videoUrl, practiceUrl: k.practiceUrl,
       },
     });
     n++;

@@ -93,10 +93,17 @@ model Child {
   archived  Boolean        @default(false) // deactivated: hidden from rosters, no learner access
   // Which standards framework this learner is held to (see lib/standards.ts).
   standardsCode String     @default("NJ")
-  // Which content providers this learner has (CSV of ids). Khan is free, so it's
-  // always available; IXL etc. only if the family subscribed. Drives which
-  // deep-links the index hands back for this child.
-  providers  String        @default("khan")
+  // The grade the learner is enrolled in / expected to be at ("K", "1" … "12").
+  // They may be working below it — the weekly planner treats this as the TARGET
+  // and deliberately closes the gap as fast as the child can sustain.
+  gradeLevel String        @default("")
+  // Which content providers this learner has (CSV of ids). IXL is the only
+  // integrated platform today — it has a crawlable, standards-aligned catalog.
+  // Kept as a CSV so a second provider can be added later without a migration.
+  providers  String        @default("ixl")
+  // When this child's school day starts (minutes from midnight). The day always
+  // ends at 3:00pm; some families start later. 540 = 9:00, 570 = 9:30, 600 = 10:00.
+  dayStartMin Int          @default(540)
   points    Int            @default(0) // lifetime points collected (never goes down)
   pointsSpent Int          @default(0) // total redeemed on prizes; balance = points - pointsSpent
   pointEvents PointEvent[]
@@ -116,9 +123,11 @@ model Child {
   teacherNotes TeacherNote[]
   assessmentImports AssessmentImport[]
   providerCompletions ProviderCompletion[]
+  iepReviews IepReview[]
+  assessmentPlans AssessmentPlan[]
 }
 
-// A provider lesson (IXL/Khan) the child did off-platform and marked done. The
+// A provider lesson (IXL) the child did off-platform and marked done. The
 // work happens outside, so the guide validates it: they open the child's work on
 // the provider (practiceUrl), read the accuracy, and enter it — coins = floor(
 // accuracy / 10), 0-10. Points stay native: we never import the provider's score.
@@ -138,7 +147,7 @@ model ProviderCompletion {
   validatedAt  DateTime?
 }
 
-// A practice/assessment report (IXL, Khan, MAP) the guide exported and uploaded.
+// A practice/assessment report (IXL, MAP) the guide exported and uploaded.
 // The AI reads the file and pulls out where the child needs work; those focus
 // areas feed the next week's plan. Content stays on the provider — this is only
 // the results coming back.
@@ -146,12 +155,46 @@ model AssessmentImport {
   id        String   @id @default(cuid())
   childId   String
   child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
-  provider  String   @default("ixl") // ixl | khan | map
+  provider  String   @default("ixl") // ixl | map
   weekStart String   @default("")    // the Monday this import informs
   summary   String   @default("")    // one-line overall read
   focus     String   @default("[]")  // JSON [{lane, subject, skill, questionsMissed}]
   mastery   String   @default("{}")  // JSON per-lane mastery snapshot
   createdAt DateTime @default(now())
+}
+
+// An IEP review the parent generated: the AI reads the child's IEP, the school's
+// progress report, and the MAP scores, and drafts what's working, what isn't,
+// where to focus, and new "asks" to bring to the IEP team. A preparation aid —
+// never legal advice. Kept as history so parents can compare across IEP cycles.
+model IepReview {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  result    String   @default("{}") // JSON: {standing, goals[], goingWell[], concerns[], focus[], asks[]}
+  docCount  Int      @default(0)    // how many documents fed it
+  // Fingerprint of the documents used — regeneration is blocked unless this
+  // changes (a new IEP or MAP). Generating is compute-expensive.
+  signature String   @default("")
+  // A NeuroBridge admin can archive old reviews to free the per-child cap.
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// An external assessment (MAP, IXL diagnostic, an achievement test…) the family
+// plans, registers for, and takes OFF-platform. We hold the plan and the result;
+// the test itself always happens on the provider's own site.
+model AssessmentPlan {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  testId    String   // id from the catalog in lib/assessments.ts
+  status    String   @default("planned") // planned | registered | taken | skipped
+  testDate  String   @default("")        // when it's booked / was taken (YYYY-MM-DD)
+  score     String   @default("")        // as reported, e.g. "Math RIT 198 (42nd %ile)"
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // A special interest the family wants protected time for each week.
@@ -368,6 +411,10 @@ model ScheduleSlot {
   lessonPlanId String?
   lessonPlan   LessonPlan? @relation(fields: [lessonPlanId], references: [id])
   kind         String      @default("lesson") // lesson | one_on_one | flexible | break | free_time | testing | service
+  // For a mandatory Education (lesson) block: which subject it is (math | reading
+  // | writing | science …), set when the day template is laid down — BEFORE any
+  // lesson content is attached. Once a lessonPlan is linked, its subject wins.
+  subject      String      @default("")
   // For flexible periods (an elective) or related services (speech, OT…):
   // which activity this block actually is. See lib/activities.ts.
   activity     String      @default("")
@@ -540,11 +587,11 @@ model LessonAsset {
 
 // The content index: state standard → provider skill (with deep links). Built
 // from the providers' published standards-alignment pages and refreshed on a
-// schedule. This is what makes a "lesson" the right IXL/Khan skill for where the
+// schedule. This is what makes a "lesson" the right IXL skill for where the
 // child stands — deterministic deep links, no AI-invented URLs.
 model ContentItem {
   id           String   @id @default(cuid())
-  provider     String   // ixl | khan
+  provider     String   // ixl
   framework    String   @default("NJ") // standards framework (see lib/standards.ts)
   standardCode String   // e.g. 3.OA.C.7
   subject      String   // math | reading | writing | science

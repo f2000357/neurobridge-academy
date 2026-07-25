@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { switchEnabled } from "@/lib/demo";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -29,7 +30,7 @@ export default async function CenterLayout({ children }: { children: React.React
           <Link href="/center/specialists" className="who-pill" style={{ color: "var(--accent-ink)" }}>
             Visiting teachers
           </Link>
-          <AccountMenu label={`${center?.name ?? "Center"} · ${user.name}`} dev={process.env.NODE_ENV !== "production"} />
+          <AccountMenu label={`${center?.name ?? "Center"} · ${user.name}`} dev={switchEnabled} />
         </div>
       </header>
       <main className="page wrap" style={{ maxWidth: 1000 }}>

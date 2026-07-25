@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Chunk } from "./player";
 import { providerName } from "./player";
 
-// A provider practice step: the child does the work on IXL/Khan (deep link),
+// A provider practice step: the child does the work on IXL (deep link),
 // kept on task by a calm countdown that rings a gentle bell when time is up.
 // On "I did it" the completion goes to the guide to check and award coins.
 

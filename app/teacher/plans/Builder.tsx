@@ -22,7 +22,7 @@ export type Chunk = {
   /** A video the guide added, by URL — becomes an embed for the child. */
   videoUrl?: string;
   /** Practice step: which external provider, and the deep link to its practice. */
-  provider?: string; // ixl | khan
+  provider?: string; // ixl
   practiceUrl?: string;
 };
 
@@ -50,7 +50,7 @@ const CHUNK_LABEL: Record<Chunk["type"], string> = {
   read_text: "Read-aloud text",
   visual: "Visual",
   video: "Video",
-  practice: "Practice (IXL / Khan)",
+  practice: "Practice (IXL)",
   worksheet: "Worksheet",
   wrap_up: "Wrap up",
 };
@@ -71,6 +71,128 @@ function StepImagePicker({ onPick, disabled }: { onPick: (file: File) => void; d
         onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0])}
       />
     </>
+  );
+}
+
+type IndexSkill = {
+  provider: string;
+  standardCode: string;
+  gradeLevel: string;
+  skillName: string;
+  videoUrl: string;
+  practiceUrl: string;
+};
+
+// Swap a Practice step's deep link to a REAL skill from the content index —
+// alternatives for the lesson's standard, or anything in the subject + grade.
+// The guide never has to hand-paste a provider URL.
+function SkillPicker({
+  subject,
+  gradeLevel,
+  standardCode,
+  onPick,
+}: {
+  subject: string;
+  gradeLevel: string;
+  standardCode: string;
+  onPick: (s: IndexSkill) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [grade, setGrade] = useState(gradeLevel || "3");
+  const [q, setQ] = useState("");
+  const [onlyStd, setOnlyStd] = useState(Boolean(standardCode));
+  const [items, setItems] = useState<IndexSkill[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function search() {
+    setLoading(true);
+    const res = await fetch("/api/lessons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "indexSkills",
+        subject,
+        grade,
+        standardCode: onlyStd && standardCode ? standardCode : undefined,
+        q,
+      }),
+    });
+    const data = await res.json();
+    setItems(data.items ?? []);
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button
+        className="chip"
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          if (next && items.length === 0) void search();
+        }}
+      >
+        🔎 Find a real skill
+      </button>
+      {open && (
+        <div className="card" style={{ marginTop: 8, background: "var(--accent-soft)" }}>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <label className="inline muted">
+              Grade
+              <select className="field short" value={grade} onChange={(e) => setGrade(e.target.value)}>
+                {["K", "1", "2", "3", "4", "5", "6", "7", "8"].map((g) => (
+                  <option key={g} value={g}>
+                    {g === "K" ? "K" : `Grade ${g}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <input
+              className="field"
+              style={{ flex: 1, minWidth: 160 }}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void search()}
+              placeholder="Search skills (e.g. rounding)"
+            />
+            {standardCode && (
+              <label className="inline muted" style={{ fontSize: "0.82rem" }}>
+                <input type="checkbox" checked={onlyStd} onChange={(e) => setOnlyStd(e.target.checked)} /> only{" "}
+                {standardCode}
+              </label>
+            )}
+            <button className="chip" onClick={() => void search()} disabled={loading}>
+              {loading ? "…" : "Search"}
+            </button>
+          </div>
+          <div className="stack" style={{ marginTop: 10, maxHeight: 240, overflowY: "auto" }}>
+            {items.length === 0 && !loading && (
+              <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+                No skills found — try another grade or search term.
+              </p>
+            )}
+            {items.map((it, k) => (
+              <div
+                key={k}
+                className="row"
+                style={{ justifyContent: "space-between", gap: 8, alignItems: "center" }}
+              >
+                <span style={{ fontSize: "0.85rem" }}>
+                  <span className="badge next">{"IXL"}</span>{" "}
+                  {it.skillName}{" "}
+                  <span className="muted">
+                    · {it.standardCode} · g{it.gradeLevel}
+                  </span>
+                </span>
+                <button className="chip" onClick={() => onPick(it)}>
+                  Use
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -186,7 +308,7 @@ export default function Builder({
         : type === "wrap_up"
           ? { type, title: "Look what you did" }
           : type === "practice"
-            ? { type, title: "Practice this skill", provider: "khan", videoUrl: "", practiceUrl: "" }
+            ? { type, title: "Practice this skill", provider: "ixl", videoUrl: "", practiceUrl: "" }
             : { type, title: CHUNK_LABEL[type], content: "" };
     setPlan((p) => ({ ...p, chunks: [...p.chunks, base] }));
   }
@@ -242,7 +364,7 @@ export default function Builder({
       <div className="card lift" style={{ marginTop: 16 }}>
         <h2>Lesson details</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Set the subject, grade, and standard. Add the steps below — including a Practice step that deep-links to IXL or Khan.
+          Set the subject, grade, and standard. Add the steps below — including a Practice step that deep-links to an IXL skill.
         </p>
         <div className="stack">
           <div className="row">
@@ -467,19 +589,6 @@ export default function Builder({
             )}
             {c.type === "practice" && (
               <>
-                <div className="row">
-                  <label className="inline muted">
-                    Provider
-                    <select
-                      className="field short"
-                      value={c.provider ?? "khan"}
-                      onChange={(e) => setChunk(i, { provider: e.target.value })}
-                    >
-                      <option value="khan">Khan Academy</option>
-                      <option value="ixl">IXL</option>
-                    </select>
-                  </label>
-                </div>
                 <input
                   className="field"
                   value={c.videoUrl ?? ""}
@@ -492,8 +601,21 @@ export default function Builder({
                   onChange={(e) => setChunk(i, { practiceUrl: e.target.value })}
                   placeholder="Practice / skill deep link"
                 />
+                <SkillPicker
+                  subject={plan.subject}
+                  gradeLevel={plan.gradeLevel}
+                  standardCode={plan.standardCode}
+                  onPick={(s) =>
+                    setChunk(i, {
+                      provider: s.provider,
+                      videoUrl: s.videoUrl,
+                      practiceUrl: s.practiceUrl,
+                      title: c.title?.trim() ? c.title : s.skillName,
+                    })
+                  }
+                />
                 <p className="muted" style={{ fontSize: "0.8rem", margin: "4px 0 0" }}>
-                  The child opens these on {c.provider === "ixl" ? "IXL" : "Khan Academy"} and comes back — content isn&apos;t embedded (licensing).
+                  The child opens these on IXL and comes back — content isn&apos;t embedded (licensing).
                 </p>
               </>
             )}

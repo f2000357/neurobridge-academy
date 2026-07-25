@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { todayStr } from "@/lib/time";
+import { todayStr, planningHorizonEnd, weekdayShort, fmtMin } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
 import TodayCalendar from "./TodayCalendar";
 import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
 import ValidationList from "./ValidationList";
+import LogExtra from "./LogExtra";
 
 export const dynamic = "force-dynamic";
 
@@ -54,11 +55,24 @@ export default async function TeacherDashboard() {
   ]);
   const checkItems = pendingChecks.map((c) => ({
     id: c.id,
+    childId: c.childId,
     childName: c.child.name,
     title: c.title,
     provider: c.provider,
     practiceUrl: c.practiceUrl,
   }));
+
+  // Upcoming empty Flex blocks (within the 2-week horizon), per child — the guide
+  // can drop a repeat of an unmastered skill into one of these.
+  const flexSlots = await prisma.scheduleSlot.findMany({
+    where: { childId: { in: kidIds }, kind: "flexible", lessonPlanId: null, date: { gte: date, lte: planningHorizonEnd() } },
+    orderBy: [{ date: "asc" }, { startMin: "asc" }],
+    select: { id: true, childId: true, date: true, startMin: true },
+  });
+  const flexByChild: Record<string, { id: string; label: string }[]> = {};
+  for (const s of flexSlots) {
+    (flexByChild[s.childId] ??= []).push({ id: s.id, label: `${weekdayShort(s.date)} · ${fmtMin(s.startMin)}` });
+  }
   // One capped list — weekly plans first, then proposed lessons.
   const approvalItems: ApprovalItem[] = [
     ...pendingWeeks.map((w) => ({
@@ -129,11 +143,24 @@ export default async function TeacherDashboard() {
           <section style={{ marginTop: 28 }}>
             <h2 style={{ margin: "0 0 4px" }}>Waiting for your check ({checkItems.length})</h2>
             <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
-              Open the child&apos;s work on the provider, read the accuracy, and enter it — coins follow (accuracy ÷ 10, up to 10).
+              Open the child&apos;s work, enter the score (or mark it abandoned). Coins = accuracy ÷ 10.
+              Below 90% isn&apos;t mastered — drop a repeat into a Flex block.
             </p>
-            <ValidationList items={checkItems} />
+            <ValidationList items={checkItems} flexByChild={flexByChild} />
           </section>
         )}
+
+        <section style={{ marginTop: 28 }}>
+          <h2 style={{ margin: "0 0 4px" }}>Log extra work</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
+            Did a child race ahead to the next skill on their own? Log it here — pick the skill, enter the
+            score, and coins follow. A mastered skill won&apos;t be re-assigned next week.
+          </p>
+          <LogExtra
+            childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+            flexByChild={flexByChild}
+          />
+        </section>
 
         <section style={{ marginTop: 28 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
@@ -143,7 +170,7 @@ export default async function TeacherDashboard() {
                 Week view →
               </Link>
               <Link href="/teacher/schedule" className="btn quiet">
-                Plan a day →
+                Schedule →
               </Link>
             </span>
           </div>
@@ -176,11 +203,14 @@ export default async function TeacherDashboard() {
                   </p>
                 </div>
                 <div className="row" style={{ gap: 8 }}>
+                  <Link href={`/teacher/week?childId=${child.id}`} className="btn">
+                    📅 Schedule
+                  </Link>
                   <Link
                     href={`/api/child-access?childId=${child.id}&code=${child.accessCode}&redirect=/student/${child.username ?? child.id}`}
-                    className="btn"
+                    className="btn quiet"
                   >
-                    ▶ Start {child.name}&apos;s day
+                    ▶ Start day
                   </Link>
                   <Link href={`/report/${child.username ?? child.id}`} className="btn quiet">
                     📊 Report

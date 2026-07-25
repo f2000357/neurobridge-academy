@@ -24,7 +24,7 @@ export type Chunk = {
   /** A video the guide added, by URL. */
   videoUrl?: string;
   /** For a "practice" step: which external provider hosts the content. */
-  provider?: string; // ixl | khan
+  provider?: string; // ixl
   /** Deep link to the provider's practice/skill (opens the provider, no embed). */
   practiceUrl?: string;
 };
@@ -51,8 +51,7 @@ function stepLabel(c: Chunk): string {
 
 // Friendly name for an external content provider.
 export function providerName(p?: string): string {
-  if (p === "khan") return "Khan Academy";
-  if (p === "ixl") return "IXL";
+    if (p === "ixl") return "IXL";
   return "the practice site";
 }
 
@@ -895,7 +894,7 @@ export default function Player({
             <p className="muted" style={{ marginTop: 20 }}>
               {preview ? "That's the whole lesson." : `Next: ${after}`}
             </p>
-            <Link className="btn big" href={preview ? previewBackHref ?? "/teacher/library" : dayHref ?? `/student/${childId}`}>
+            <Link className="btn big" href={preview ? previewBackHref ?? "/teacher" : dayHref ?? `/student/${childId}`}>
               {preview ? "← Back to editing" : "Back to my day"}
             </Link>
           </section>

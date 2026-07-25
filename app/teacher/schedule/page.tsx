@@ -51,7 +51,7 @@ export default async function SchedulePage() {
           name: t.name,
           childIds: t.assignments.map((a) => a.childId),
         }))}
-        childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+        childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name, dayStartMin: c.dayStartMin }))}
         plans={teacher.lessonPlans.map((p) => ({
           id: p.id,
           title: p.title,
@@ -64,11 +64,13 @@ export default async function SchedulePage() {
         initialSlots={slots.map((s) => ({
           id: s.id,
           kind: s.kind,
+          subject: s.subject,
           activity: s.activity,
           teacherId: s.teacherId,
+          lessonPlanId: s.lessonPlanId,
           startMin: s.startMin,
           endMin: s.endMin,
-          lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title } : null,
+          lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,
           sessions: s.sessions.map((x) => ({ state: x.state })),
         }))}
       />

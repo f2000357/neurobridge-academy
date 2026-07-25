@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { tutorText } from "@/lib/ai";
 import { saveUpload, MAX_IMAGE_BYTES } from "@/lib/uploads";
+import { subjectKey } from "@/lib/subjects";
+import type { Prisma } from "@prisma/client";
 
 // Lesson marketplace: share, submit-for-global, promote, and copy-on-add.
 export async function POST(req: NextRequest) {
@@ -40,6 +42,37 @@ export async function POST(req: NextRequest) {
       data: { chunks: JSON.stringify(chunks) },
     });
     return NextResponse.json({ ok: true });
+  }
+
+  // Alternative-skill picker: real IXL skills from the content index, for a
+  // subject + grade (optionally narrowed to one standard, or a name search). The
+  // guide swaps a Practice step's deep link to any of these — always a real link.
+  if (op === "indexSkills") {
+    const { subject, grade, standardCode, q } = body as {
+      subject?: string;
+      grade?: string;
+      standardCode?: string;
+      q?: string;
+    };
+    const where: Prisma.ContentItemWhereInput = { active: true };
+    if (subject) where.subject = subjectKey(subject);
+    if (grade) where.gradeLevel = grade;
+    if (standardCode) where.standardCode = standardCode;
+    if (q && q.trim()) where.skillName = { contains: q.trim(), mode: "insensitive" };
+    const items = await prisma.contentItem.findMany({
+      where,
+      orderBy: [{ provider: "asc" }, { standardCode: "asc" }, { skillName: "asc" }],
+      take: 40,
+      select: {
+        provider: true,
+        standardCode: true,
+        gradeLevel: true,
+        skillName: true,
+        videoUrl: true,
+        practiceUrl: true,
+      },
+    });
+    return NextResponse.json({ ok: true, items });
   }
 
   // "Make this shorter" — the guide keeps the result or edits it further.

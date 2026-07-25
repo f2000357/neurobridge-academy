@@ -27,32 +27,15 @@ const items: Item[] = [
     icon: icon("M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M17 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M3 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1|M16 15h1a4 4 0 0 1 4 4v1"),
   },
   {
-    href: "/teacher/library",
-    label: "Lessons",
-    match: (p) => p.startsWith("/teacher/library") || p.startsWith("/teacher/plans"),
-    icon: icon("M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z|M9 3v18"),
-  },
-  {
-    href: "/teacher/browse",
-    label: "Browse",
-    match: (p) => p.startsWith("/teacher/browse"),
-    icon: icon("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z|M21 21l-4.3-4.3"),
-  },
-  {
     href: "/teacher/schedule",
-    label: "Plan a day",
-    match: (p) => p.startsWith("/teacher/schedule"),
+    label: "Schedule",
+    // The timetable: the day builder and the week grid are two views of it.
+    match: (p) => p.startsWith("/teacher/schedule") || p === "/teacher/week",
     icon: icon("M4 5h16v16H4z|M4 9h16|M8 3v4|M16 3v4"),
   },
   {
-    href: "/teacher/week",
-    label: "Week",
-    match: (p) => p === "/teacher/week",
-    icon: icon("M4 4h16v16H4z|M10 4v16|M16 4v16|M4 10h16"),
-  },
-  {
     href: "/teacher/week-plan",
-    label: "Plan week",
+    label: "Weekly lessons",
     match: (p) => p.startsWith("/teacher/week-plan"),
     icon: icon("M12 3v18|M5 8l7-5 7 5|M5 8v8l7 4 7-4V8"),
   },
@@ -107,9 +90,6 @@ export default function SideNav({ approvals = 0 }: { approvals?: number }) {
           </li>
         ))}
       </ul>
-      <Link href="/teacher/plans/new" className="btn console-newbtn">
-        ✦ New lesson
-      </Link>
     </nav>
   );
 }

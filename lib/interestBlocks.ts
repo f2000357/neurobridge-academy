@@ -9,7 +9,6 @@ import { addDaysStr } from "./time";
 // not a lock.
 
 const BLOCK = 30; // the day runs in 30-minute blocks
-const DAY_START = 9 * 60;
 const DAY_END = 15 * 60;
 const AFTERNOON = 12 * 60 + 30; // prefer interests from here on
 const WEEKDAYS = 5;
@@ -39,6 +38,10 @@ export async function planInterestBlocks(
 ): Promise<PlacedBlock[]> {
   const interests = await prisma.childInterest.findMany({ where: { childId } });
   if (interests.length === 0) return [];
+
+  // Respect the child's configurable school-day start — never place before it.
+  const child = await prisma.child.findUnique({ where: { id: childId }, select: { dayStartMin: true } });
+  const DAY_START = child?.dayStartMin ?? 9 * 60;
 
   const dates = Array.from({ length: WEEKDAYS }, (_, i) => addDaysStr(weekStart, i));
   const existing = await prisma.scheduleSlot.findMany({

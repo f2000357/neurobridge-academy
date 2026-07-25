@@ -1,5 +1,5 @@
 // Retire legacy AI-authored lessons. The new model builds index-driven provider
-// lessons (a "practice" chunk that deep-links to IXL/Khan). Any LessonPlan with
+// lessons (a "practice" chunk that deep-links to IXL). Any LessonPlan with
 // no practice chunk is old generated content and gets cleaned out — references
 // are detached first so deletes don't hit foreign keys.
 //
