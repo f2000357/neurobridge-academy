@@ -9,9 +9,13 @@ import TeachConsole, { type BlockRow, type NoteRow } from "./TeachConsole";
 
 export const dynamic = "force-dynamic";
 
-// A visiting specialist's view of one learner. Deliberately narrow: their
-// blocks, the lesson attached to them, and the notes the child's specialists
-// have written. No documents, no evaluations, no points, no other subjects.
+// A visiting specialist's view of one learner: the child's WHOLE DAY, so the
+// therapist has real context — what maths they did, when they had a break, how
+// the day ran around their own session — plus the notes the child's specialists
+// have written. We deliberately do NOT scope them to "their" blocks: a therapist
+// seeing the whole picture is more useful than a tidy boundary, and it means two
+// providers covering different parts of the day need no scheduling setup at all.
+// Still withheld: documents, evaluations, points.
 
 export default async function TeachChild({ params }: { params: Promise<{ childId: string }> }) {
   const { childId } = await params;
@@ -31,14 +35,11 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
   const today = todayStr();
   const from = addDaysStr(today, -21);
 
-  // Blocks this specialist holds, plus any that match what they teach — three
-  // weeks back, never the future. You write a note after the class, not before.
+  // The child's whole day, three weeks back up to today — never the future, since
+  // a note is written after a session, not before. Not filtered to "their" blocks:
+  // the therapist should see how the whole day ran.
   const slots = await prisma.scheduleSlot.findMany({
-    where: {
-      childId,
-      date: { gte: from, lte: today },
-      OR: [{ teacherId: teacher.id }, { activity: grant?.subject ?? "" }],
-    },
+    where: { childId, date: { gte: from, lte: today } },
     include: { lessonPlan: { select: { title: true, subject: true, goal: true, topic: true } } },
     orderBy: [{ date: "desc" }, { startMin: "asc" }],
   });

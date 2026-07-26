@@ -1,6 +1,7 @@
 # Multiple people managing one child — design
 
-**Status:** design only, not built. Decided 2026-07-25.
+**Status:** design, decided 2026-07-25. Mostly not built — the one exception is the
+therapist whole-day view (§1), which is live.
 
 The scenario: a parent *and* a hired guide both manage a child; two ABA providers
 cover a morning and an evening block; a substitute covers when one is away.
@@ -29,41 +30,45 @@ can point at a `SpecialistTeacher`, but **0 of 212 slots have it set**: the "Tau
 by" picker only appears for non-lesson blocks, and the day/week template never
 sets it. So in practice **no therapist holds any block.**
 
-**There is no therapist schedule.** `/teach/[childId]` lists blocks from the past
-three weeks *up to today, never the future* — deliberately, since a note is written
-after a session. It is a note-writing surface, not a schedule. A therapist cannot
-see "here is my upcoming week".
+**No forward schedule for a therapist — by design.** `/teach/[childId]` lists the
+past three weeks up to today, never the future: a note is written after a session,
+not before. See the decision below — this is deliberate, not a gap.
 
 ### What is actually missing
 
 | Need | Today |
 |---|---|
 | Session notes, never visible to the child | ✅ works |
-| A block *recording* which specialist held it | ⚠️ field exists, nothing sets it |
-| **Two ABA providers on different blocks, told apart** | ❌ `/teach` also matches by `activity`, so both providers match the same blocks |
-| **A therapist seeing their upcoming schedule** | ❌ past-only by design |
-| **Recurring assignment** ("evening ABA holds 4pm daily") | ❌ would be per-slot by hand |
-| **Substitute covering a date range** | ❌ no mechanism |
+| A block recording which specialist held it | optional label only — not an access rule |
+| Two providers covering different parts of the day | ✅ both see the whole day — no setup needed |
 | **Parent *and* hired guide both fully managing** | ❌ one `teacherId` only |
 | **A guide offboarding themselves** | ❌ no self-service |
 | **Audit trail on edits** | ❌ `AuditLog` covers admin actions only |
 
-### Therapist scheduling is a feature, not a configuration
+### Decided: no therapist scheduling — show the whole day instead (built)
 
-Three pieces, in dependency order:
+Therapist scheduling was considered and **rejected**. Rather than model which
+blocks belong to which therapist, a therapist sees **the child's whole day**: what
+maths they did, when they had a break, how the day ran around their own session.
 
-1. **Recurring assignment.** A rule on `TeacherAssignment` — weekdays + time
-   window (e.g. Mon–Fri 16:00) — that the day/week generator applies when it lays
-   blocks down, with a per-block manual override. Assigning slot-by-slot will not
-   survive a real schedule.
-2. **A forward schedule at `/teach`.** "My upcoming week": which children, which
-   blocks, when. Keep the past-only view for note writing; add a future view for
-   knowing where to be. This is also what lets a substitute see what they cover.
-3. **Cover for a date range.** Reassign one person's blocks to another between two
-   dates, then revert — without disturbing the underlying assignment.
+This is better, not just cheaper:
 
-Until (1) exists, `teacherId` stays empty and the two-ABA-provider case cannot be
-represented at all.
+- Two providers covering different parts of the day need **no setup at all** —
+  neither owns blocks, both see the same context, both can write notes.
+- A substitute needs nothing configured; they see the day like anyone else.
+- It fixed a live bug. `/teach` filtered blocks to
+  `teacherId = them OR activity = their subject`. With `teacherId` never set,
+  the seeded specialist would have seen **0 of 54 blocks** for his assigned
+  learner — an empty page. Removing the filter is the whole fix.
+
+**Built 2026-07-25** (`app/teach/[childId]/page.tsx`): the block query is no longer
+filtered by teacher or activity. Verified — the specialist signs in with their code
+and sees all five days of the child's schedule; documents, IEP and points stay
+withheld. `ScheduleSlot.teacherId` survives as an **optional label** ("Chess with
+Ravi", and a "yours" badge in the whole-day list), never as an access rule.
+
+Consequently dropped: recurring assignment rules, a forward-looking therapist
+schedule, and date-range cover.
 
 ---
 
@@ -123,15 +128,28 @@ for every hired hand — more surface, no gain.
 
 ### Capability matrix
 
-Two guide roles only. No privacy tiers, no observer.
+Two guide roles only. No privacy tiers between *guides*, no observer.
+
+**Open question — does a T-code specialist see the IEP?** The decision was "an
+evening provider managing a child has the same access to the IEP", which is clear
+for someone holding a **guide account**. But the `/teach` specialist portal
+(T-code, no user account) withholds documents, IEP and points today. Two ways to
+settle it:
+
+- **(a)** A provider who needs the IEP is given a **guide account** — the T-code
+  portal stays narrow. Nothing to build.
+- **(b)** Expose the IEP in `/teach` too — one query and one panel, but it puts a
+  child's IEP behind a shared 8-character code rather than a password.
+
+Leaning (a): the code-based portal is convenient precisely because it is low-stakes.
 
 | | primary guide | guide | provider (specialist) |
 |---|---|---|---|
-| View & edit schedule | ✅ | ✅ | own blocks |
+| View schedule | ✅ edit | ✅ edit | ✅ whole day, read-only |
 | Generate / approve / override lessons | ✅ | ✅ | — |
 | **Award or edit points** | ✅ | ✅ | — |
 | Session notes | ✅ | ✅ | ✅ |
-| IEP docs, IEP review, MAP | ✅ | ✅ | ✅ (same access) |
+| IEP docs, IEP review, MAP | ✅ | ✅ | ❌ today — see open question |
 | Child profile, grade, subscriptions | ✅ | ✅ | — |
 | Invite / remove **other** people | ✅ | — | — |
 | Offboard **themselves** | — (must transfer first) | ✅ | ✅ |
