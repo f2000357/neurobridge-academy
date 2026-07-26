@@ -66,6 +66,13 @@ export default function People({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [found, setFound] = useState<{
+    userId: string;
+    name: string;
+    accountRole: string;
+    center: string | null;
+    already: string | null;
+  } | null>(null);
 
   const post = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -85,12 +92,33 @@ export default function People({
     return data;
   };
 
-  async function invite() {
-    const data = await post({ op: "invite", email: email.trim(), expiresAt: until || null });
+  // Two steps on purpose: a mistyped address that matches a different real
+  // account would otherwise hand a stranger this child's IEP. You confirm a
+  // NAME, not an email you typed.
+  async function lookup() {
+    setBusy(true);
+    setNote(null);
+    setFound(null);
+    const r = await fetch("/api/access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "lookup", childId, email: email.trim() }),
+    });
+    const data = await r.json();
+    setBusy(false);
+    if (data.error) return setNote(data.error);
+    if (!data.found) return setNote(data.message);
+    setFound(data);
+  }
+
+  async function confirmInvite() {
+    if (!found) return;
+    const data = await post({ op: "invite", userId: found.userId, expiresAt: until || null });
     if (data) {
       setNote(`${data.name} can now manage ${childName}.`);
       setEmail("");
       setUntil("");
+      setFound(null);
     }
   }
 
@@ -191,21 +219,53 @@ export default function People({
               type="email"
               placeholder="their email address"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void invite()}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setFound(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && void lookup()}
             />
             <label className="inline muted">
               Until (optional)
               <input className="field short" type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
             </label>
-            <button className="btn" onClick={invite} disabled={busy || !email.trim()}>
-              {busy ? "…" : "Add guide"}
+            <button className="btn quiet" onClick={lookup} disabled={busy || !email.trim()}>
+              {busy ? "…" : "Look up"}
             </button>
           </div>
+
+          {found && (
+            <div className="card" style={{ marginTop: 10, background: "var(--accent-soft)" }}>
+              {found.already ? (
+                <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                  <strong>{found.name}</strong> already manages {childName} as{" "}
+                  {found.already === "primary_guide" ? "the primary guide" : "a guide"}
+                  {until ? " — adding again will update when their access lapses." : "."}
+                </p>
+              ) : (
+                <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                  Give <strong>{found.name}</strong>
+                  {found.center ? ` (${found.center})` : ""} full access to {childName} — schedule,
+                  lessons, points, and their IEP?
+                </p>
+              )}
+              <div className="row" style={{ gap: 8, marginTop: 10 }}>
+                <button className="btn" onClick={confirmInvite} disabled={busy}>
+                  {busy ? "…" : found.already ? "Update access" : `Yes, add ${found.name}`}
+                </button>
+                <button className="btn quiet" onClick={() => setFound(null)} disabled={busy}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           <p className="muted" style={{ fontSize: "0.78rem", marginTop: 8, marginBottom: 0 }}>
-            They need a NeuroBridge account already. Set an &ldquo;until&rdquo; date for a substitute —
-            their access lapses on its own. Therapists and other specialists are added under{" "}
-            <strong>Teachers</strong> instead; they never get guide access.
+            You confirm a name, not an address — a mistyped email can&apos;t quietly give the wrong
+            person access. Inviting never creates an account: they need one already (a centre or
+            NeuroBridge admin can set one up). Set an &ldquo;until&rdquo; date for a substitute and their
+            access lapses on its own. Therapists are added under <strong>Teachers</strong> instead;
+            they never get guide access.
           </p>
         </div>
       )}

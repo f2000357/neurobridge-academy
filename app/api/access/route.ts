@@ -42,16 +42,59 @@ export async function POST(req: NextRequest) {
   });
   if (!child) return NextResponse.json({ error: "learner not found" }, { status: 404 });
 
+  // ── look someone up before granting anything ──────────────────────────────
+  // Inviting is confirmed against a NAME, not a typed email: a mistyped address
+  // that happens to match a different real account would otherwise hand a
+  // stranger the child's IEP. This op only reads.
+  if (op === "lookup") {
+    const denied = await guardCan(childId, "manage_access");
+    if (denied) return denied;
+    const email = String(body.email ?? "").trim().toLowerCase();
+    if (!email) return NextResponse.json({ error: "Enter their email address." }, { status: 400 });
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, role: true, center: { select: { name: true } } },
+    });
+    if (!user) {
+      return NextResponse.json({
+        found: false,
+        message:
+          "No NeuroBridge account uses that email. Check the spelling — inviting can't create an account, so they need one first (a centre or NeuroBridge admin can set one up).",
+      });
+    }
+    const existing = await prisma.childAccess.findUnique({
+      where: { childId_userId: { childId, userId: user.id } },
+      select: { role: true },
+    });
+    return NextResponse.json({
+      found: true,
+      userId: user.id,
+      name: user.name,
+      accountRole: user.role,
+      center: user.center?.name ?? null,
+      already: existing ? existing.role : null,
+    });
+  }
+
   // ── invite someone ────────────────────────────────────────────────────────
   if (op === "invite") {
     const denied = await guardCan(childId, "manage_access");
     if (denied) return denied;
 
+    // Granting is keyed on the userId the guide CONFIRMED from `lookup`, so what
+    // they saw ("Add Sam Cole?") is what they get. Email is accepted as a
+    // fallback for scripted callers.
+    const userId = String(body.userId ?? "").trim();
     const email = String(body.email ?? "").trim().toLowerCase();
     const expiresAt = body.expiresAt ? new Date(String(body.expiresAt)) : null;
-    if (!email) return NextResponse.json({ error: "Enter their email address." }, { status: 400 });
+    if (!userId && !email) {
+      return NextResponse.json({ error: "Look the person up first." }, { status: 400 });
+    }
 
-    const user = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true } });
+    const user = userId
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } })
+      : await prisma.user.findUnique({ where: { email }, select: { id: true, name: true } });
     if (!user) {
       return NextResponse.json(
         {
