@@ -59,6 +59,27 @@ export async function POST(req: NextRequest) {
     const grant = await prisma.teacherAssignment.findUnique({
       where: { teacherId_childId: { teacherId: teacher.id, childId } },
     });
+
+    // A specialist's authority stops at the activity they govern. They can see the
+    // child's whole day for context, but may only write up their OWN sessions —
+    // a block assigned to them, or one whose activity is theirs. (A note with no
+    // slot is a general observation and always allowed.)
+    if (slotId) {
+      const slot = await prisma.scheduleSlot.findUnique({
+        where: { id: slotId },
+        select: { childId: true, activity: true, teacherId: true },
+      });
+      const governs = grant?.subject || teacher.specialty;
+      const isTheirs =
+        slot?.childId === childId &&
+        (slot.teacherId === teacher.id || (Boolean(slot.activity) && slot.activity === governs));
+      if (!isTheirs) {
+        return NextResponse.json(
+          { error: "That session isn't yours to write up." },
+          { status: 403 }
+        );
+      }
+    }
     const data = {
       whatWeDid: String(body.whatWeDid ?? "").trim(),
       wentWell: String(body.wentWell ?? "").trim(),

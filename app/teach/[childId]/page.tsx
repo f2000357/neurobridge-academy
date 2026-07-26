@@ -57,6 +57,10 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
   const noteBySlot = new Map<string, string>();
   for (const n of notes) if (n.slotId && n.teacherId === teacher.id) noteBySlot.set(n.slotId, n.id);
 
+  // A specialist's authority stops at the activity they govern: they may write a
+  // note against their own sessions, and only read the rest of the day.
+  const governs = grant?.subject || teacher.specialty;
+
   const blocks: BlockRow[] = slots.map((s) => ({
     id: s.id,
     date: s.date,
@@ -69,6 +73,8 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     lessonGoal: s.lessonPlan?.goal ?? "",
     lessonTopic: s.lessonPlan?.topic ?? "",
     mine: s.teacherId === teacher.id,
+    // Theirs to write up: explicitly assigned to them, or their own activity.
+    canNote: s.teacherId === teacher.id || (Boolean(s.activity) && s.activity === governs),
     noteId: noteBySlot.get(s.id) ?? null,
   }));
 

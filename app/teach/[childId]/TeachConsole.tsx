@@ -18,6 +18,8 @@ export type BlockRow = {
   lessonGoal: string;
   lessonTopic: string;
   mine: boolean;
+  /** May this specialist write the note for this block? Their activity only. */
+  canNote: boolean;
   noteId: string | null;
 };
 
@@ -86,7 +88,10 @@ export default function TeachConsole({
 
   // Blocks the guide gave them, plus any block in the subject they teach —
   // a chess coach should find the chess blocks without being wired to each one.
-  const unwritten = blocks.filter((b) => !b.noteId);
+  // Only their own sessions are theirs to write up. The rest of the day is shown
+  // below as read-only context.
+  const unwritten = blocks.filter((b) => !b.noteId && b.canNote);
+  const context = blocks.filter((b) => !b.canNote);
 
   function startFor(block: BlockRow | null) {
     setNote(null);
@@ -199,6 +204,26 @@ export default function TeachConsole({
           Note for a session that isn&apos;t listed
         </button>
       </div>
+
+      {/* The rest of the child's day — context only, not yours to write up. */}
+      {context.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <h2>The rest of {childName}&apos;s day</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+            For context — how the day ran around your session. These aren&apos;t yours to write up.
+          </p>
+          <div className="stack" style={{ gap: 4, maxHeight: 300, overflowY: "auto" }}>
+            {context.map((b) => (
+              <div key={b.id} className="row" style={{ gap: 10, fontSize: "0.85rem", opacity: 0.85 }}>
+                <span className="muted" style={{ minWidth: 108, fontVariantNumeric: "tabular-nums" }}>
+                  {weekdayShort(b.date)} · {fmtMin(b.startMin)}
+                </span>
+                <span>{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* The form */}
       {draft && (
