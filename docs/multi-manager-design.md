@@ -24,20 +24,46 @@ program, profile, IEP.
 session notes and attach photos/video. Deleting the assignment ends access; notes
 remain, because they are the child's record.
 
-**Blocks can already be held by a specialist.** `ScheduleSlot.teacherId` points at
-a `SpecialistTeacher` — so *morning ABA on the 9am block, evening ABA on the 4pm
-block* works today with **no schema change**.
+**A field for block ownership exists, but nothing uses it.** `ScheduleSlot.teacherId`
+can point at a `SpecialistTeacher`, but **0 of 212 slots have it set**: the "Taught
+by" picker only appears for non-lesson blocks, and the day/week template never
+sets it. So in practice **no therapist holds any block.**
+
+**There is no therapist schedule.** `/teach/[childId]` lists blocks from the past
+three weeks *up to today, never the future* — deliberately, since a note is written
+after a session. It is a note-writing surface, not a schedule. A therapist cannot
+see "here is my upcoming week".
 
 ### What is actually missing
 
 | Need | Today |
 |---|---|
-| Morning + evening ABA on their own blocks | ✅ works |
 | Session notes, never visible to the child | ✅ works |
+| A block *recording* which specialist held it | ⚠️ field exists, nothing sets it |
+| **Two ABA providers on different blocks, told apart** | ❌ `/teach` also matches by `activity`, so both providers match the same blocks |
+| **A therapist seeing their upcoming schedule** | ❌ past-only by design |
+| **Recurring assignment** ("evening ABA holds 4pm daily") | ❌ would be per-slot by hand |
+| **Substitute covering a date range** | ❌ no mechanism |
 | **Parent *and* hired guide both fully managing** | ❌ one `teacherId` only |
-| **Substitute with time-limited access** | ❌ add, then remember to remove |
 | **A guide offboarding themselves** | ❌ no self-service |
 | **Audit trail on edits** | ❌ `AuditLog` covers admin actions only |
+
+### Therapist scheduling is a feature, not a configuration
+
+Three pieces, in dependency order:
+
+1. **Recurring assignment.** A rule on `TeacherAssignment` — weekdays + time
+   window (e.g. Mon–Fri 16:00) — that the day/week generator applies when it lays
+   blocks down, with a per-block manual override. Assigning slot-by-slot will not
+   survive a real schedule.
+2. **A forward schedule at `/teach`.** "My upcoming week": which children, which
+   blocks, when. Keep the past-only view for note writing; add a future view for
+   knowing where to be. This is also what lets a substitute see what they cover.
+3. **Cover for a date range.** Reassign one person's blocks to another between two
+   dates, then revert — without disturbing the underlying assignment.
+
+Until (1) exists, `teacherId` stays empty and the two-ABA-provider case cannot be
+represented at all.
 
 ---
 
@@ -187,9 +213,11 @@ page a reason to exist.)
    person's. (`TeacherAssignment` already behaves this way.)
 3. **Past sessions keep their attribution** — needed as IEP evidence.
 4. **Upcoming blocks they held become unassigned** — `ScheduleSlot.teacherId → null`,
-   so the block survives and reads as "the guide runs it".
+   so the block survives and reads as "the guide runs it". *(Only meaningful once
+   therapist scheduling exists — today no block is assigned to anyone.)*
 5. **The primary guide is told what now needs cover:** *"4 blocks next week were
    held by Ravi Kumar — they need cover."* Without this the week silently degrades.
+   Same dependency: this is only possible once blocks record who holds them.
 6. **An audit entry is written** (see below).
 
 ---
@@ -241,8 +269,10 @@ system explainable rather than mysterious.
 
 - **Observer / read-only role.**
 - **Privacy tiers** — everyone managing a child sees the same, IEP included.
-- **Per-slot or time-window scoping of *guides*.** `ScheduleSlot.teacherId`
-  already covers the provider case.
+- **Per-slot or time-window scoping of *guides*' permissions.** Guides see and do
+  everything for their children. (Note this is different from *therapist
+  scheduling* in section 1, which is a real gap worth building — that is about
+  which blocks a therapist is expected to run, not about restricting access.)
 - **Teacher-owned libraries.**
 - **Approval workflows between guides.** Overriding the plan is normal, not a
   conflict to mediate.
