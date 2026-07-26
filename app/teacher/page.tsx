@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { todayStr, planningHorizonEnd, weekdayShort, fmtMin } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 import TodayCalendar from "./TodayCalendar";
 import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
 import ValidationList from "./ValidationList";
@@ -27,7 +28,8 @@ export default async function TeacherDashboard() {
     );
   }
 
-  const kidIds = teacher.children.map((c) => c.id);
+  const kids = await rosterChildren(teacher);
+  const kidIds = kids.map((c) => c.id);
   const date = todayStr();
 
   // Everything waiting on the guide's yes/no: proposed lessons (from documents
@@ -157,7 +159,7 @@ export default async function TeacherDashboard() {
             score, and coins follow. A mastered skill won&apos;t be re-assigned next week.
           </p>
           <LogExtra
-            childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+            childrenList={kids.map((c) => ({ id: c.id, name: c.name }))}
             flexByChild={flexByChild}
           />
         </section>
@@ -175,7 +177,7 @@ export default async function TeacherDashboard() {
             </span>
           </div>
           <TodayCalendar
-            kids={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+            kids={kids.map((c) => ({ id: c.id, name: c.name }))}
             slots={slots.map((s) => ({
               id: s.id,
               childId: s.childId,
@@ -192,7 +194,7 @@ export default async function TeacherDashboard() {
         <section style={{ marginTop: 36 }}>
           <h2>My children</h2>
           <div className="grid2">
-            {teacher.children.map((child) => (
+            {kids.map((child) => (
               <div key={child.id} className="card child-card">
                 <div>
                   <h2 style={{ marginBottom: 4 }}>{child.name}</h2>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { addDaysStr, mondayOfStr, todayStr } from "@/lib/time";
 import WeekGrid from "./WeekGrid";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export default async function WeekPage({
       lessonPlans: { where: { published: true }, orderBy: { updatedAt: "desc" } },
     },
   });
-  if (!teacher || teacher.children.length === 0) {
+  const kids = teacher ? await rosterChildren(teacher) : [];
+  if (!teacher || kids.length === 0) {
     return (
       <main className="page wrap">
         <h1>No students yet</h1>
@@ -30,7 +32,7 @@ export default async function WeekPage({
 
   // Deep-linkable: arrive on a specific child + week (e.g. from "Generate the week").
   const sp = await searchParams;
-  const childId = teacher.children.some((c) => c.id === sp.childId) ? sp.childId! : teacher.children[0].id;
+  const childId = kids.some((c) => c.id === sp.childId) ? sp.childId! : kids[0].id;
   const monday = sp.monday || mondayOfStr(todayStr());
   const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(monday, i));
 
@@ -44,7 +46,7 @@ export default async function WeekPage({
   });
 
   // Visiting teachers who can hold a block for one of this guide's learners.
-  const childIds = teacher.children.map((c) => c.id);
+  const childIds = kids.map((c) => c.id);
   const specialists = await prisma.specialistTeacher.findMany({
     where: { archived: false, assignments: { some: { childId: { in: childIds } } } },
     include: { assignments: { where: { childId: { in: childIds } }, select: { childId: true } } },
@@ -53,7 +55,7 @@ export default async function WeekPage({
 
   return (
       <WeekGrid
-        childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+        childrenList={kids.map((c) => ({ id: c.id, name: c.name }))}
         initialChildId={childId}
         initialMonday={monday}
         plans={teacher.lessonPlans.map((p) => ({

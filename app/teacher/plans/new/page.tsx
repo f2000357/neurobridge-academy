@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import Builder, { type PlanState } from "../Builder";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function NewPlanPage({
   searchParams: Promise<{ childId?: string; subject?: string; grade?: string; topic?: string }>;
 }) {
   const teacher = await getCurrentUser({ include: { children: true } });
+  const kids = teacher ? await rosterChildren(teacher) : [];
   if (!teacher) {
     return (
       <main className="page wrap">
@@ -20,7 +22,7 @@ export default async function NewPlanPage({
 
   // Prefill when arriving from a child's recommended program.
   const sp = await searchParams;
-  const validChild = teacher.children.some((c) => c.id === sp.childId) ? sp.childId! : null;
+  const validChild = kids.some((c) => c.id === sp.childId) ? sp.childId! : null;
 
   const initial: PlanState = {
     title: "",
@@ -42,7 +44,7 @@ export default async function NewPlanPage({
   return (
     <Builder
       initial={initial}
-      children={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+      children={kids.map((c) => ({ id: c.id, name: c.name }))}
     />
   );
 }

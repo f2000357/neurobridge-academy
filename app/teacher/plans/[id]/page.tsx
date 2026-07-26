@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import Builder, { type PlanState, type Chunk } from "../Builder";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function EditPlanPage({
     getCurrentUser({ include: { children: true } }),
     prisma.lessonPlan.findUnique({ where: { id } }),
   ]);
+  const kids = teacher ? await rosterChildren(teacher) : [];
 
   if (!teacher || !plan) {
     return (
@@ -56,7 +58,7 @@ export default async function EditPlanPage({
     <Builder
       initial={initial}
       canGlobal={teacher.role === "neurable_admin"}
-      children={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+      children={kids.map((c) => ({ id: c.id, name: c.name }))}
     />
   );
 }

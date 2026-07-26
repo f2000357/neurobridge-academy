@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import AdminChild, { type ChildForm, type DocMeta, type Proposal, type LessonRow, type IepReviewData } from "./AdminChild";
+import { type PersonRow, type HistoryRow } from "./People";
+import { peopleForChild } from "@/lib/access";
+import { historyForChild } from "@/lib/audit";
+import { can } from "@/lib/authz";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +105,11 @@ export default async function ChildAdminPage({
     select: { id: true, testId: true, status: true, testDate: true, score: true, notes: true },
   });
 
+  // Everyone who may manage this learner, plus the child.s own history.
+  const people: PersonRow[] = await peopleForChild(childId);
+  const history: HistoryRow[] = await historyForChild(childId, 50);
+  const canManageAccess = await can(childId, "manage_access");
+
   // The most recent (non-archived) IEP review + how many count against the cap.
   const me = await getCurrentUser();
   const isAdmin = me?.role === "neurable_admin";
@@ -146,6 +155,10 @@ export default async function ChildAdminPage({
       iepReview={iepReview}
       reviewsUsed={reviewsUsed}
       isAdmin={isAdmin}
+      people={people}
+      history={history}
+      canManageAccess={canManageAccess}
+      meUserId={me?.id ?? ""}
       tests={testRows}
       interestBlocks={interestBlocks}
     />

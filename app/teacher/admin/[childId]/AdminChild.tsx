@@ -9,6 +9,7 @@ import { subjectLabel } from "@/lib/subjects";
 import { activeProviders, providerName, DEFAULT_PROVIDER } from "@/lib/providers";
 import InterestBlocks, { type InterestRow } from "./InterestBlocks";
 import Tests, { type TestRow } from "./Tests";
+import People, { type PersonRow, type HistoryRow } from "./People";
 
 export type ChildForm = {
   childId: string;
@@ -98,6 +99,10 @@ export default function AdminChild({
   reviewsUsed = 0,
   isAdmin = false,
   tests = [],
+  people = [],
+  history = [],
+  canManageAccess = false,
+  meUserId = "",
 }: {
   initial: ChildForm;
   documents: DocMeta[];
@@ -110,6 +115,10 @@ export default function AdminChild({
   reviewsUsed?: number;
   isAdmin?: boolean;
   tests?: TestRow[];
+  people?: PersonRow[];
+  history?: HistoryRow[];
+  canManageAccess?: boolean;
+  meUserId?: string;
 }) {
   const REVIEW_CAP = 3;
   const router = useRouter();
@@ -506,6 +515,15 @@ export default function AdminChild({
           </button>
         </div>
       </div>
+
+      <People
+        childId={form.childId}
+        childName={form.name}
+        people={people}
+        history={history}
+        canManageAccess={canManageAccess}
+        meUserId={meUserId}
+      />
 
       {/* Documents — uploaded here in Setup; the IEP tab picks which to use */}
       <div className="card" style={{ marginTop: 16 }}>

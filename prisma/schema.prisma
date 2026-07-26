@@ -35,7 +35,8 @@ model User {
   passwordHash String      @default("")
   pin         String       @default("2468") // parental gate to exit a child's locked session
   ixlUrl      String       @default("") // guide's own IXL account link (a reference, not credentials)
-  children    Child[]      // learners this user guides (role=guide)
+  children    Child[]      // learners this user is the PRIMARY guide for
+  childAccess ChildAccess[] // every learner they may manage, primary or not
   lessonPlans LessonPlan[] // lessons this user authored
   rewards     Reward[]
 }
@@ -45,9 +46,45 @@ model AuditLog {
   id        String   @id @default(cuid())
   actorId   String
   actorName String
-  action    String   // transfer_learner | promote_lesson | create_user | create_center
+  action    String   // see lib/audit.ts for the vocabulary
   detail    String   @default("")
+  // When the action concerns one learner, record it so the child's own History
+  // can be shown. With several adults editing, this is what makes the system
+  // explainable rather than mysterious.
+  childId   String?
+  before    String   @default("") // short "was" summary, for edits
+  after     String   @default("") // short "now" summary
   createdAt DateTime @default(now())
+
+  @@index([childId, createdAt])
+}
+
+// Who may act on a child, and in what capacity. This — not Child.teacherId — is
+// the authorization source. `Child.teacherId` remains as a pointer to the primary
+// guide so existing queries keep working and "who is ultimately responsible" has
+// a cheap answer.
+//
+// Specialists (ABA, OT, chess…) are NOT here: they sign in with a code, their
+// authority stops at the activity they govern, and they never get guide access.
+// See SpecialistTeacher / TeacherAssignment.
+model ChildAccess {
+  id          String    @id @default(cuid())
+  childId     String
+  child       Child     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // primary_guide — exactly one per child: the parent or whoever is ultimately
+  //   responsible. Manages who else has access; cannot walk away without handing
+  //   the role to someone else.
+  // guide — full day-to-day management, may offboard themselves at any time.
+  role        String    @default("guide")
+  // Temporary cover (a substitute): access lapses on its own. Null = open-ended.
+  expiresAt   DateTime?
+  invitedById String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([childId, userId])
+  @@index([userId])
 }
 
 // A prize the guide offers in exchange for points (school or home reward).
@@ -125,6 +162,7 @@ model Child {
   providerCompletions ProviderCompletion[]
   iepReviews IepReview[]
   assessmentPlans AssessmentPlan[]
+  access     ChildAccess[]
 }
 
 // A provider lesson (IXL) the child did off-platform and marked done. The
@@ -145,6 +183,11 @@ model ProviderCompletion {
   pointEventId String?   // the award, so an undo can reverse it
   createdAt    DateTime  @default(now())
   validatedAt  DateTime?
+
+  // A block yields points exactly once: one row per scheduled slot, which is then
+  // EDITED rather than duplicated. Extra work carries no slot, and Postgres treats
+  // NULLs as distinct, so those stay unlimited.
+  @@unique([childId, slotId])
 }
 
 // A practice/assessment report (IXL, MAP) the guide exported and uploaded.

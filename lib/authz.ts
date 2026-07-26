@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 import { getCurrentUser } from "./auth";
+import { roleOnChild, capsForRole, type Capability } from "./access";
 
 // The authorization boundary.
 //
@@ -22,22 +23,39 @@ export async function currentOperator(): Promise<Operator | null> {
 }
 
 /**
- * May the current operator manage this child? True for the child's own guide,
- * their center's admin, or NeuroBridge admin. This gates anything that edits the
- * child, their schedule, lessons, points, or program.
+ * May the current operator do `capability` to this child?
+ *
+ * Several guides can manage one learner (see lib/access.ts) and they are equals
+ * for day-to-day work; only the primary guide may change who has access or delete
+ * the learner. Centre admins cover any child in their centre, and NeuroBridge
+ * admins cover everyone — neither needs a ChildAccess row.
  */
-export async function canOperateChild(childId: string): Promise<boolean> {
+export async function can(childId: string, capability: Capability = "manage"): Promise<boolean> {
   if (!childId) return false;
   const user = await currentOperator();
   if (!user) return false;
   const child = await prisma.child.findUnique({
     where: { id: childId },
-    select: { teacherId: true, centerId: true },
+    select: { centerId: true },
   });
   if (!child) return false;
+
   if (user.role === "neurable_admin") return true;
-  if (user.role === "center_admin") return Boolean(child.centerId) && child.centerId === user.centerId;
-  return child.teacherId === user.id; // guide
+  if (user.role === "center_admin") {
+    return Boolean(child.centerId) && child.centerId === user.centerId;
+  }
+
+  const role = await roleOnChild(user.id, childId);
+  if (!role) return false;
+  return capsForRole(role).includes(capability);
+}
+
+/**
+ * May the current operator manage this child? Kept as the everyday check — it is
+ * `can(childId, "manage")`, which is what nearly every route wants.
+ */
+export async function canOperateChild(childId: string): Promise<boolean> {
+  return can(childId, "manage");
 }
 
 /** The child themselves, signed in with their access code on their own device. */
@@ -63,6 +81,11 @@ const DENY = "You don't have access to that learner.";
 /** For a route: 403 unless the operator may manage the child. Returns null when allowed. */
 export async function guardOperate(childId: string): Promise<NextResponse | null> {
   return (await canOperateChild(childId)) ? null : NextResponse.json({ error: DENY }, { status: 403 });
+}
+
+/** For a route: 403 unless the operator holds a specific capability. */
+export async function guardCan(childId: string, capability: Capability): Promise<NextResponse | null> {
+  return (await can(childId, capability)) ? null : NextResponse.json({ error: DENY }, { status: 403 });
 }
 
 /** For a route: 403 unless the caller may act in the child's session (operator or the child). */

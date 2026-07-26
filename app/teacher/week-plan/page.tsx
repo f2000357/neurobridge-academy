@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { mondayOfStr, todayStr } from "@/lib/time";
 import WeekPlanReview, { type PlanData } from "./WeekPlanReview";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,8 @@ export default async function WeekPlanPage({
   searchParams: Promise<{ childId?: string; weekStart?: string }>;
 }) {
   const teacher = await getCurrentUser({ include: { children: { orderBy: { name: "asc" } } } });
-  if (!teacher || teacher.children.length === 0) {
+  const kids = teacher ? await rosterChildren(teacher) : [];
+  if (!teacher || kids.length === 0) {
     return (
       <main className="page">
         <h1>No students yet</h1>
@@ -20,9 +22,9 @@ export default async function WeekPlanPage({
   }
 
   const sp = await searchParams;
-  const childId = teacher.children.some((c) => c.id === sp.childId)
+  const childId = kids.some((c) => c.id === sp.childId)
     ? sp.childId!
-    : teacher.children[0].id;
+    : kids[0].id;
   const weekStart = sp.weekStart || mondayOfStr(todayStr());
 
   const plan = await prisma.weeklyPlan.findUnique({
@@ -53,7 +55,7 @@ export default async function WeekPlanPage({
 
   return (
     <WeekPlanReview
-      childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name }))}
+      childrenList={kids.map((c) => ({ id: c.id, name: c.name }))}
       initialChildId={childId}
       initialWeekStart={weekStart}
       initialPlan={initialPlan}

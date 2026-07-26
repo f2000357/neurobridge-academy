@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import LibraryView, { type LibPlan } from "./LibraryView";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
   const teacher = await getCurrentUser({ include: { children: true } });
+  const kids = teacher ? await rosterChildren(teacher) : [];
   if (!teacher) {
     return (
       <main className="page wrap">
@@ -30,7 +32,7 @@ export default async function LibraryPage() {
     published: p.published,
     visibility: p.visibility,
     submittedForGlobal: p.submittedForGlobal,
-    forChild: teacher.children.find((c) => c.id === p.childId)?.name ?? null,
+    forChild: kids.find((c) => c.id === p.childId)?.name ?? null,
   }));
 
   return <LibraryView plans={libPlans} />;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import AddChild from "./AddChild";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildIds } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,15 @@ export default async function AdminPage() {
     );
   }
 
+  // The roster is every learner this user may manage, not only those they are
+  // primary guide for (see lib/access).
+  const rosterIds = await rosterChildIds(teacher);
+  const kids = await prisma.child.findMany({
+    where: { id: { in: rosterIds }, archived: false },
+    include: { documents: true, proposals: { include: { lessons: true } } },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <main className="page">
       <p className="eyebrow">Setup</p>
@@ -36,7 +46,7 @@ export default async function AdminPage() {
       </div>
 
       <div className="grid2" style={{ marginTop: 20 }}>
-        {teacher.children.map((c) => {
+        {kids.map((c) => {
           const docCount = c.documents.length;
           const approved = c.proposals.flatMap((p) => p.lessons).filter((l) => l.status === "approved").length;
           const hasProposal = c.proposals.some((p) => p.lessons.length > 0);

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { todayStr } from "@/lib/time";
 import ScheduleEditor from "./ScheduleEditor";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export default async function SchedulePage() {
     },
   });
 
-  if (!teacher || teacher.children.length === 0) {
+  const kids = teacher ? await rosterChildren(teacher) : [];
+  if (!teacher || kids.length === 0) {
     return (
       <main className="page wrap">
         <h1>No students yet</h1>
@@ -28,7 +30,7 @@ export default async function SchedulePage() {
     );
   }
 
-  const childId = teacher.children[0].id;
+  const childId = kids[0].id;
   const date = todayStr();
   const slots = await prisma.scheduleSlot.findMany({
     where: { childId, date },
@@ -37,7 +39,7 @@ export default async function SchedulePage() {
   });
 
   // Visiting teachers who can hold a block for one of this guide's learners.
-  const childIds = teacher.children.map((c) => c.id);
+  const childIds = kids.map((c) => c.id);
   const specialists = await prisma.specialistTeacher.findMany({
     where: { archived: false, assignments: { some: { childId: { in: childIds } } } },
     include: { assignments: { where: { childId: { in: childIds } }, select: { childId: true } } },
@@ -51,7 +53,7 @@ export default async function SchedulePage() {
           name: t.name,
           childIds: t.assignments.map((a) => a.childId),
         }))}
-        childrenList={teacher.children.map((c) => ({ id: c.id, name: c.name, dayStartMin: c.dayStartMin }))}
+        childrenList={kids.map((c) => ({ id: c.id, name: c.name, dayStartMin: c.dayStartMin }))}
         plans={teacher.lessonPlans.map((p) => ({
           id: p.id,
           title: p.title,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { todayStr } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,8 @@ export default async function PerformancePage() {
     );
   }
 
-  const childIds = teacher.children.map((c) => c.id);
+  const kids = await rosterChildren(teacher);
+  const childIds = kids.map((c) => c.id);
   const today = todayStr();
 
   // Everything recorded, in one pull each.
@@ -45,7 +47,7 @@ export default async function PerformancePage() {
   // Per child → per topic mastery.
   const topicsByChild = new Map<string, Map<string, TopicStat>>();
   const stuckByChild = new Map<string, string[]>();
-  for (const c of teacher.children) {
+  for (const c of kids) {
     topicsByChild.set(c.id, new Map());
     stuckByChild.set(c.id, []);
   }
@@ -83,7 +85,7 @@ export default async function PerformancePage() {
 
   // Struggle list across the class.
   const struggles: { child: string; childId: string; topic: string; avg: number }[] = [];
-  for (const c of teacher.children) {
+  for (const c of kids) {
     for (const t of topicsByChild.get(c.id)?.values() ?? []) {
       if (t.scores.length === 0) continue;
       const avg = Math.round(t.scores.reduce((a, b) => a + b, 0) / t.scores.length);
@@ -140,7 +142,7 @@ export default async function PerformancePage() {
         <section style={{ marginTop: 36 }}>
           <h2>Each learner</h2>
           <div className="stack" style={{ gap: 22 }}>
-            {teacher.children.map((c) => {
+            {kids.map((c) => {
               const s = stat(c.id);
               const topics = Array.from(topicsByChild.get(c.id)?.values() ?? [])
                 .filter((t) => t.scores.length > 0)
