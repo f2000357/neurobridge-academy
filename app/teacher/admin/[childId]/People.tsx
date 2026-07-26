@@ -66,6 +66,8 @@ export default function People({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [canInvite, setCanInvite] = useState(false);
   const [found, setFound] = useState<{
     userId: string;
     name: string;
@@ -107,15 +109,38 @@ export default function People({
     const data = await r.json();
     setBusy(false);
     if (data.error) return setNote(data.error);
-    if (!data.found) return setNote(data.message);
+    if (!data.found) {
+      setNote(data.message);
+      setCanInvite(Boolean(data.canInvite));
+      return;
+    }
+    setCanInvite(false);
     setFound(data);
+  }
+
+  /** No account with that address — send them an invitation to make one. */
+  async function sendInvitation() {
+    const data = await post({ op: "invite", email: email.trim() });
+    if (data?.invited) {
+      setInviteLink(window.location.origin + data.link);
+      setNote(`Invitation ready for ${data.email} — send them the link below.`);
+      setCanInvite(false);
+      setEmail("");
+    }
   }
 
   async function confirmInvite() {
     if (!found) return;
     const data = await post({ op: "invite", userId: found.userId, expiresAt: until || null });
     if (data) {
-      setNote(`${data.name} can now manage ${childName}.`);
+      // No account yet -> an invitation was created. Email delivery is not built,
+      // so surface the link for the parent to pass on.
+      if (data.invited) {
+        setInviteLink(window.location.origin + data.link);
+        setNote(`Invitation ready for ${data.email} — send them the link below.`);
+      } else {
+        setNote(`${data.name} can now manage ${childName}.`);
+      }
       setEmail("");
       setUntil("");
       setFound(null);
@@ -222,6 +247,7 @@ export default function People({
               onChange={(e) => {
                 setEmail(e.target.value);
                 setFound(null);
+                setCanInvite(false);
               }}
               onKeyDown={(e) => e.key === "Enter" && void lookup()}
             />
@@ -257,6 +283,28 @@ export default function People({
                   Cancel
                 </button>
               </div>
+            </div>
+          )}
+
+          {canInvite && (
+            <div className="row" style={{ marginTop: 10, gap: 8 }}>
+              <button className="btn" onClick={sendInvitation} disabled={busy}>
+                {busy ? "…" : "Send them an invitation"}
+              </button>
+              <button className="btn quiet" onClick={() => setCanInvite(false)} disabled={busy}>
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {inviteLink && (
+            <div className="card" style={{ marginTop: 10, background: "var(--warm-soft)" }}>
+              <p className="lbl" style={{ marginBottom: 4 }}>Invitation link</p>
+              <input className="field" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
+              <p className="muted" style={{ fontSize: "0.78rem", marginTop: 6, marginBottom: 0 }}>
+                Send this to them however you like — email isn&apos;t wired up yet. It works once and
+                expires in 14 days.
+              </p>
             </div>
           )}
 

@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { grantAccess, revokeAccess, transferPrimary, roleOnChild, liveGuideCount } from "@/lib/access";
 import { audit, AUDIT } from "@/lib/audit";
 import { todayStr } from "@/lib/time";
+import { randomUUID } from "node:crypto";
 
 // Managing who may act on a learner.
 //
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         found: false,
         message:
-          "No NeuroBridge account uses that email. Check the spelling — inviting can't create an account, so they need one first (a centre or NeuroBridge admin can set one up).",
+          "No NeuroBridge account uses that email. We can send them an invitation to set one up.",
+        canInvite: true,
       });
     }
     const existing = await prisma.childAccess.findUnique({
@@ -95,14 +97,43 @@ export async function POST(req: NextRequest) {
     const user = userId
       ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } })
       : await prisma.user.findUnique({ where: { email }, select: { id: true, name: true } });
+
+    // Nobody with that email yet: create an INVITATION rather than refusing. The
+    // parent shares the link, the guide sets their own password and lands on this
+    // child. No admin, no centre — which is the point.
     if (!user) {
-      return NextResponse.json(
-        {
-          error:
-            "No account with that email yet. They need an account first — a centre admin or NeuroBridge admin can create one.",
+      if (!email) return NextResponse.json({ error: "Enter their email address." }, { status: 400 });
+      const token = randomUUID().replace(/-/g, "");
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+      await prisma.guideInvitation.deleteMany({ where: { childId, email, acceptedAt: null } });
+      await prisma.guideInvitation.create({
+        data: {
+          childId,
+          email,
+          name: String(body.name ?? "").trim(),
+          token,
+          invitedById: me.id,
+          invitedByName: me.name,
+          expiresAt,
         },
-        { status: 404 }
-      );
+      });
+      await audit({
+        actorId: me.id,
+        actorName: me.name,
+        action: AUDIT.accessGranted,
+        childId,
+        detail: `invited ${email} to help with ${child.name}`,
+        after: "invitation sent",
+      });
+      return NextResponse.json({
+        ok: true,
+        invited: true,
+        email,
+        // Email delivery isn't built yet, so hand the link back for the parent to
+        // pass on however they like.
+        link: `/join/${token}`,
+        expiresAt: expiresAt.toISOString(),
+      });
     }
     if (user.id === me.id) {
       return NextResponse.json({ error: "You already have access." }, { status: 400 });

@@ -37,6 +37,7 @@ model User {
   ixlUrl      String       @default("") // guide's own IXL account link (a reference, not credentials)
   children    Child[]      // learners this user is the PRIMARY guide for
   childAccess ChildAccess[] // every learner they may manage, primary or not
+  subscription Subscription?
   lessonPlans LessonPlan[] // lessons this user authored
   rewards     Reward[]
 }
@@ -85,6 +86,41 @@ model ChildAccess {
 
   @@unique([childId, userId])
   @@index([userId])
+}
+
+// What the parent bought. Free today (amountCents 0), but the record and the
+// signup step exist from day one so introducing a price later is a pricing
+// change, not a re-architecture. It belongs to the PARENT and travels with them:
+// joining or leaving a centre never re-buys anything.
+model Subscription {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        String   @default("free")
+  amountCents Int      @default(0)
+  status      String   @default("active") // active | past_due | cancelled
+  startedAt   DateTime @default(now())
+}
+
+// An invitation for someone to co-manage a child. The parent enters an email; if
+// there is no account yet this is created and the link emailed, so the guide sets
+// their own password and lands straight on the child. Resolves the dead end where
+// a homeschooling parent had no way to give their partner access.
+model GuideInvitation {
+  id          String    @id @default(cuid())
+  childId     String
+  child       Child     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  email       String
+  name        String    @default("")
+  token       String    @unique
+  invitedById String
+  invitedByName String  @default("")
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([childId])
 }
 
 // A prize the guide offers in exchange for points (school or home reward).
@@ -163,6 +199,7 @@ model Child {
   iepReviews IepReview[]
   assessmentPlans AssessmentPlan[]
   access     ChildAccess[]
+  guideInvites GuideInvitation[]
 }
 
 // A provider lesson (IXL) the child did off-platform and marked done. The

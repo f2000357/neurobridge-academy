@@ -62,7 +62,9 @@ export default function LoginForm() {
         </button>
       </form>
       <p className="muted" style={{ marginTop: 14, fontSize: "0.85rem" }}>
-        No password yet? Ask your centre or NeuroBridge admin to set one up for you.
+        New here? <a href="/signup">Start with your child</a> — it&apos;s free.
+        <br />
+        Invited by a parent? Use the link they sent you.
       </p>
     </main>
   );
