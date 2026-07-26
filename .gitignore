@@ -49,3 +49,4 @@ next-env.d.ts
 
 # Local scratch file holding secrets to paste into the host dashboard.
 vercel-env.txt
+backups/
