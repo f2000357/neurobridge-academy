@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { newTeacherCode } from "@/lib/specialists";
 import { guardOperate } from "@/lib/authz";
+import { randomUUID } from "node:crypto";
+import { send, teacherAdded, appUrl } from "@/lib/email";
 
 // Managing visiting specialists. Anyone may add one — a center admin, or a
 // homeschool parent who hired a piano teacher. The code itself is never
@@ -72,12 +74,38 @@ export async function POST(req: NextRequest) {
     if (denied) return denied;
     const teacher = await prisma.specialistTeacher.findUnique({ where: { id: teacherId } });
     if (!teacher) return NextResponse.json({ error: "teacher not found" }, { status: 404 });
+    const already = await prisma.teacherAssignment.findUnique({
+      where: { teacherId_childId: { teacherId, childId } },
+      select: { id: true },
+    });
     await prisma.teacherAssignment.upsert({
       where: { teacherId_childId: { teacherId, childId } },
       create: { teacherId, childId, subject: subject || teacher.specialty },
       update: { subject: subject || teacher.specialty },
     });
-    return NextResponse.json({ ok: true });
+
+    // First time this family has added them: tell them, with a way straight in.
+    // No code to pass along — the link is the whole handover.
+    let emailed = false;
+    let link: string | undefined;
+    if (!already && !teacher.archived) {
+      const child = await prisma.child.findUnique({ where: { id: childId }, select: { name: true } });
+      const token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
+      await prisma.specialistLoginToken.create({
+        data: { teacherId, token, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+      });
+      const url = appUrl(`/teach/link/${token}`);
+      const mail = teacherAdded({
+        teacherName: teacher.name,
+        childName: child?.name ?? "a learner",
+        fromName: user.name,
+        url,
+      });
+      const res = await send({ to: teacher.email, ...mail });
+      emailed = res.sent;
+      if (!res.sent) link = `/teach/link/${token}`;
+    }
+    return NextResponse.json({ ok: true, emailed, link });
   }
 
   // Removing the grant. Notes they wrote stay — those are the learner's record.

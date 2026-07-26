@@ -122,8 +122,12 @@ export default function People({
   async function sendInvitation() {
     const data = await post({ op: "invite", email: email.trim() });
     if (data?.invited) {
-      setInviteLink(window.location.origin + data.link);
-      setNote(`Invitation ready for ${data.email} — send them the link below.`);
+      if (data.emailed) {
+        setNote(`Invitation emailed to .`);
+      } else {
+        setInviteLink(window.location.origin + data.link);
+        setNote(`Invitation ready for  — send them the link below.`);
+      }
       setCanInvite(false);
       setEmail("");
     }
@@ -136,8 +140,12 @@ export default function People({
       // No account yet -> an invitation was created. Email delivery is not built,
       // so surface the link for the parent to pass on.
       if (data.invited) {
-        setInviteLink(window.location.origin + data.link);
-        setNote(`Invitation ready for ${data.email} — send them the link below.`);
+        if (data.emailed) {
+          setNote(`Invitation emailed to .`);
+        } else {
+          setInviteLink(window.location.origin + data.link);
+          setNote(`Invitation ready for  — send them the link below.`);
+        }
       } else {
         setNote(`${data.name} can now manage ${childName}.`);
       }

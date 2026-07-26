@@ -6,6 +6,7 @@ import { grantAccess, revokeAccess, transferPrimary, roleOnChild, liveGuideCount
 import { audit, AUDIT } from "@/lib/audit";
 import { todayStr } from "@/lib/time";
 import { randomUUID } from "node:crypto";
+import { send, guideInvite, appUrl } from "@/lib/email";
 
 // Managing who may act on a learner.
 //
@@ -125,13 +126,19 @@ export async function POST(req: NextRequest) {
         detail: `invited ${email} to help with ${child.name}`,
         after: "invitation sent",
       });
+      const url = appUrl(`/join/${token}`);
+      const mail = guideInvite({ childName: child.name, fromName: me.name, url });
+      const sent = await send({ to: email, ...mail });
+
       return NextResponse.json({
         ok: true,
         invited: true,
         email,
-        // Email delivery isn't built yet, so hand the link back for the parent to
-        // pass on however they like.
-        link: `/join/${token}`,
+        emailed: sent.sent,
+        // If sending isn't configured (or failed), hand the link back so the
+        // parent can pass it on rather than waiting for mail that never comes.
+        link: sent.sent ? undefined : `/join/${token}`,
+        reason: sent.sent ? undefined : sent.reason,
         expiresAt: expiresAt.toISOString(),
       });
     }

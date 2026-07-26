@@ -123,6 +123,22 @@ model GuideInvitation {
   @@index([childId])
 }
 
+// A one-time sign-in link for a visiting specialist. Replaces keeping a code on
+// a phone forever: the link is emailed, works once, and expires in minutes — so
+// there is no long-lived secret to leak, and revoking access needs nothing more
+// than deleting their assignment. The T-code stays as a fallback.
+model SpecialistLoginToken {
+  id        String    @id @default(cuid())
+  teacherId String
+  teacher   SpecialistTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([teacherId])
+}
+
 // A prize the guide offers in exchange for points (school or home reward).
 model Reward {
   id        String   @id @default(cuid())
@@ -594,6 +610,7 @@ model SpecialistTeacher {
   createdAt   DateTime            @default(now())
   assignments TeacherAssignment[]
   notes       TeacherNote[]
+  loginTokens SpecialistLoginToken[]
 }
 
 // The grant. Delete it and the learner disappears from the teacher's roster —

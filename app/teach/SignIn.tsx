@@ -9,6 +9,28 @@ import { useRouter } from "next/navigation";
 export default function SignIn() {
   const router = useRouter();
   const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkNote, setLinkNote] = useState<string | null>(null);
+  const [devLink, setDevLink] = useState<string | null>(null);
+
+  // Ask for a one-time link instead of remembering a code. The reply is the same
+  // whether or not we know the address, so this never reveals who teaches whom.
+  async function requestLink() {
+    setLinkBusy(true);
+    setLinkNote(null);
+    setDevLink(null);
+    const r = await fetch("/api/teach-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const d = await r.json();
+    setLinkBusy(false);
+    if (d.error) return setLinkNote(d.error);
+    setLinkNote(d.message ?? "Check your email for the link.");
+    if (d.link) setDevLink(d.link);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,9 +83,40 @@ export default function SignIn() {
           {busy ? "Checking…" : "Open my learners"}
         </button>
       </form>
+      <div className="card" style={{ marginTop: 16 }}>
+        <p className="lbl" style={{ marginBottom: 6 }}>Or get a link by email</p>
+        <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+          No code to keep track of — we&apos;ll email you a link that signs you in. Use the address the
+          family added you with.
+        </p>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <input
+            className="field"
+            style={{ flex: 1, minWidth: 200 }}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            onKeyDown={(e) => e.key === "Enter" && void requestLink()}
+          />
+          <button className="btn quiet" onClick={requestLink} disabled={linkBusy || !email.trim()}>
+            {linkBusy ? "…" : "Email me a link"}
+          </button>
+        </div>
+        {linkNote && (
+          <p className="muted" role="status" style={{ fontSize: "0.85rem", marginBottom: 0 }}>
+            {linkNote}
+          </p>
+        )}
+        {devLink && (
+          <p style={{ fontSize: "0.85rem", marginBottom: 0 }}>
+            <a href={devLink}>Open the sign-in link →</a>
+          </p>
+        )}
+      </div>
+
       <p className="muted" style={{ marginTop: 14, fontSize: "0.85rem" }}>
-        Don&apos;t have a code? Ask the family or centre that hired you — they can have NeuroBridge send
-        it to you.
+        Neither working? Ask the family that hired you to check the address they used.
       </p>
     </main>
   );
