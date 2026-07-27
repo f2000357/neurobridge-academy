@@ -30,6 +30,29 @@ export function mondayOfStr(dateStr: string): string {
   return addDaysStr(dateStr, -dow);
 }
 
+/**
+ * The week a guide is actually planning.
+ *
+ * Weeks run Monday–Sunday, so `mondayOfStr` maps Sunday back to a Monday six
+ * days ago — the week that has just finished. But nobody opening the schedule on
+ * a Sunday wants to look at the week that ended this morning; they are planning
+ * the week ahead. So Sunday rolls forward to tomorrow.
+ *
+ * This is the DEFAULT view only — explicit navigation still reaches any week.
+ */
+export function planningWeekStart(fromStr = todayStr()): string {
+  const d = parseLocal(fromStr);
+  return d.getDay() === 0 ? addDaysStr(fromStr, 1) : mondayOfStr(fromStr);
+}
+
+/** Today, or the next weekday if today falls on a weekend. */
+export function nextSchoolDay(fromStr = todayStr()): string {
+  const dow = parseLocal(fromStr).getDay(); // 0 Sun … 6 Sat
+  if (dow === 0) return addDaysStr(fromStr, 1); // Sunday -> Monday
+  if (dow === 6) return addDaysStr(fromStr, 2); // Saturday -> Monday
+  return fromStr;
+}
+
 // The upcoming Monday (strictly after today; if today is Monday, next week's).
 export function nextMonday(fromStr = todayStr()): string {
   const d = parseLocal(fromStr);
@@ -41,7 +64,7 @@ export function nextMonday(fromStr = todayStr()): string {
 // Planning is capped at the current week + next week (2 weeks). Things change,
 // so we don't let a guide build a schedule further out than that.
 export function planningHorizonEnd(fromStr = todayStr()): string {
-  return addDaysStr(mondayOfStr(fromStr), 13); // Sunday of next week
+  return addDaysStr(planningWeekStart(fromStr), 13); // Sunday of the week after
 }
 export function withinPlanningHorizon(dateStr: string, fromStr = todayStr()): boolean {
   return dateStr <= planningHorizonEnd(fromStr);

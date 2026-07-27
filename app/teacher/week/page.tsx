@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { addDaysStr, mondayOfStr, todayStr } from "@/lib/time";
+import { addDaysStr, planningWeekStart, todayStr } from "@/lib/time";
 import WeekGrid from "./WeekGrid";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
@@ -33,7 +33,7 @@ export default async function WeekPage({
   // Deep-linkable: arrive on a specific child + week (e.g. from "Generate the week").
   const sp = await searchParams;
   const childId = kids.some((c) => c.id === sp.childId) ? sp.childId! : kids[0].id;
-  const monday = sp.monday || mondayOfStr(todayStr());
+  const monday = sp.monday || planningWeekStart(todayStr());
   const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(monday, i));
 
   const slots = await prisma.scheduleSlot.findMany({

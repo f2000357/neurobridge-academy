@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { mondayOfStr, todayStr } from "@/lib/time";
+import { planningWeekStart, todayStr } from "@/lib/time";
 import WeekPlanReview, { type PlanData } from "./WeekPlanReview";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
@@ -25,7 +25,7 @@ export default async function WeekPlanPage({
   const childId = kids.some((c) => c.id === sp.childId)
     ? sp.childId!
     : kids[0].id;
-  const weekStart = sp.weekStart || mondayOfStr(todayStr());
+  const weekStart = sp.weekStart || planningWeekStart(todayStr());
 
   const plan = await prisma.weeklyPlan.findUnique({
     where: { childId_weekStart: { childId, weekStart } },

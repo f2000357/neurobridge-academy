@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { todayStr } from "@/lib/time";
+import { todayStr, nextSchoolDay } from "@/lib/time";
 import ScheduleEditor from "./ScheduleEditor";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
@@ -31,7 +31,9 @@ export default async function SchedulePage() {
   }
 
   const childId = kids[0].id;
-  const date = todayStr();
+  // On a weekend there is no school day to show, so open on the next one — the
+  // same reason the week view rolls forward on a Sunday.
+  const date = nextSchoolDay(todayStr());
   const slots = await prisma.scheduleSlot.findMany({
     where: { childId, date },
     include: { lessonPlan: true, sessions: { select: { state: true } } },
