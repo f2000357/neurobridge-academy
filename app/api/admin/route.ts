@@ -65,6 +65,48 @@ export async function POST(req: NextRequest) {
   // All three cases are the same change: set the center (or null) and hand them
   // to a guide who belongs in that scope. Their work follows automatically,
   // because everything is keyed to the learner, not the center.
+  // A centre with no admin is a centre nobody can open. Creating one doesn't
+  // create a person, so this promotes an existing account into the seat — a
+  // NeuroBridge job, per the rule that centres don't staff themselves.
+  if (op === "setCenterAdmin") {
+    const { userId, centerId } = body as { userId: string; centerId: string | null };
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true },
+    });
+    if (!target) return NextResponse.json({ error: "Person not found." }, { status: 404 });
+
+    if (centerId) {
+      const center = await prisma.center.findUnique({ where: { id: centerId }, select: { name: true } });
+      if (!center) return NextResponse.json({ error: "Centre not found." }, { status: 404 });
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: "center_admin", centerId },
+      });
+      await prisma.auditLog.create({
+        data: {
+          actorId: me.id,
+          actorName: me.name,
+          action: "set_center_admin",
+          detail: `${target.name} now runs ${center.name}`,
+        },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Stepping them back down: a guide again, with no centre.
+    await prisma.user.update({ where: { id: userId }, data: { role: "guide", centerId: null } });
+    await prisma.auditLog.create({
+      data: {
+        actorId: me.id,
+        actorName: me.name,
+        action: "set_center_admin",
+        detail: `${target.name} no longer runs a centre`,
+      },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   if (op === "moveLearner") {
     const { childId, toCenterId, toGuideId } = body as {
       childId: string;

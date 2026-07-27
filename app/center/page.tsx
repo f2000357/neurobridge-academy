@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import CenterConsole from "./CenterConsole";
+import JoinQueue, { type JoinRow } from "./JoinQueue";
 
 export const dynamic = "force-dynamic";
 
@@ -79,5 +80,27 @@ export default async function CenterHome() {
     guideName: c.teacher.name,
   }));
 
-  return <CenterConsole rows={rows} guides={guides} archived={archived} />;
+  // Families waiting on an answer — shown above the roster, because a queue
+  // nobody sees is a queue nobody clears.
+  const waiting = await prisma.centerJoinRequest.findMany({
+    where: { centerId, status: "pending" },
+    include: { child: { select: { name: true, age: true, gradeLevel: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const joinRows: JoinRow[] = waiting.map((w) => ({
+    id: w.id,
+    childName: w.child.name,
+    childAge: w.child.age,
+    gradeLevel: w.child.gradeLevel,
+    parentName: w.requestedByName,
+    message: w.message,
+    createdAt: w.createdAt.toLocaleDateString(undefined, { dateStyle: "medium" }),
+  }));
+
+  return (
+    <>
+      <JoinQueue rows={joinRows} />
+      <CenterConsole rows={rows} guides={guides} archived={archived} />
+    </>
+  );
 }

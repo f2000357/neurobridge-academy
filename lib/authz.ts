@@ -69,11 +69,30 @@ export async function canOperateChild(childId: string): Promise<boolean> {
  * guide, a therapist, a centre, and NeuroBridge itself can all read it and none
  * of them can rewrite it.
  */
-export async function canEditIntro(childId: string): Promise<boolean> {
+export async function isPrimaryGuide(childId: string): Promise<boolean> {
   if (!childId) return false;
   const user = await currentOperator();
   if (!user) return false;
   return (await roleOnChild(user.id, childId)) === "primary_guide";
+}
+
+export async function canEditIntro(childId: string): Promise<boolean> {
+  return isPrimaryGuide(childId);
+}
+
+/**
+ * For a route: 403 unless the caller is the child's primary guardian.
+ *
+ * Used for the decisions that belong to the family alone — the introduction,
+ * and asking to join or leave a centre. Deliberately excludes centre admins and
+ * NeuroBridge admins: a centre must never be able to enrol a child into itself.
+ */
+export async function guardPrimaryGuide(childId: string, what: string): Promise<NextResponse | null> {
+  if (await isPrimaryGuide(childId)) return null;
+  return NextResponse.json(
+    { error: `Only this child's main parent or guardian can ${what}.` },
+    { status: 403 }
+  );
 }
 
 /** For a route: 403 unless the caller is the child's primary guardian. */

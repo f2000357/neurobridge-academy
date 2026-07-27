@@ -7,6 +7,7 @@ import { historyForChild } from "@/lib/audit";
 import { can, canEditIntro } from "@/lib/authz";
 import { type IntroData, type ContactData, EMPTY_CONTACT } from "./Profile";
 import { type ProfileData } from "./LearningProfile";
+import { type CentreState } from "./CentreCard";
 import { buildLearningProfile } from "@/lib/learningProfile";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -182,6 +183,45 @@ export default async function ChildAdminPage({
     goalsFrom: built.goalsFrom ? built.goalsFrom.toISOString() : null,
   };
 
+  // The family's relationship with a centre. Membership lives on Child.centerId;
+  // the request rows are only the asking.
+  const [centreRow, pendingReq, lastDecided, centreOptions] = await Promise.all([
+    child.centerId
+      ? prisma.center.findUnique({ where: { id: child.centerId }, select: { id: true, name: true, region: true } })
+      : Promise.resolve(null),
+    prisma.centerJoinRequest.findFirst({
+      where: { childId, status: "pending" },
+      include: { center: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.centerJoinRequest.findFirst({
+      where: { childId, status: { in: ["approved", "declined"] } },
+      include: { center: { select: { name: true } } },
+      orderBy: { decidedAt: "desc" },
+    }),
+    prisma.center.findMany({ select: { id: true, name: true, region: true }, orderBy: { name: "asc" } }),
+  ]);
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { dateStyle: "medium" });
+  const centre: CentreState = {
+    childId: child.id,
+    childName: child.name,
+    member: centreRow,
+    pending: pendingReq
+      ? { id: pendingReq.id, centerName: pendingReq.center.name, createdAt: fmt(pendingReq.createdAt) }
+      : null,
+    lastDecision: lastDecided
+      ? {
+          status: lastDecided.status,
+          centerName: lastDecided.center.name,
+          note: lastDecided.decidedNote,
+          decidedAt: lastDecided.decidedAt ? fmt(lastDecided.decidedAt) : "",
+        }
+      : null,
+    options: centreOptions,
+    canAct: canEditProfile, // the primary guardian, same gate as the profile
+    primaryGuideName: primary?.name ?? null,
+  };
+
   const interestBlocks = child.interestBlocks.map((i) => ({
     activity: i.activity,
     sessionsPerWeek: i.sessionsPerWeek,
@@ -211,6 +251,7 @@ export default async function ChildAdminPage({
       primaryGuideName={primary?.name ?? null}
       learningProfile={learningProfile}
       contact={contact}
+      centre={centre}
     />
   );
 }

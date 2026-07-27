@@ -10,13 +10,14 @@ datasource db {
 // A learning center (tenant). Guides and learners belong to a center; the
 // NeuroBridge company sits above all centers.
 model Center {
-  id          String       @id @default(cuid())
-  name        String
-  region      String       @default("")
-  createdAt   DateTime     @default(now())
-  users       User[]
-  children    Child[]
-  lessonPlans LessonPlan[]
+  id           String              @id @default(cuid())
+  name         String
+  region       String              @default("")
+  createdAt    DateTime            @default(now())
+  users        User[]
+  children     Child[]
+  lessonPlans  LessonPlan[]
+  joinRequests CenterJoinRequest[]
 }
 
 // An operator account. role decides scope:
@@ -221,6 +222,7 @@ model Child {
   guideInvites        GuideInvitation[]
   photo               ChildPhoto?
   contact             ChildContact?
+  centerRequests      CenterJoinRequest[]
 }
 
 // A provider lesson (IXL) the child did off-platform and marked done. The
@@ -768,4 +770,54 @@ model ChildContact {
   urgentNotes String @default("")
 
   updatedAt DateTime @updatedAt
+}
+
+// A family asking for a NeuroBridge centre near them.
+//
+// Stored as well as emailed, for two reasons: an email that fails to send would
+// otherwise lose someone who raised their hand, and the accumulated rows are the
+// only honest answer to "which town do we open first?".
+model CentreInterest {
+  id        String   @id @default(cuid())
+  name      String   @default("")
+  email     String   @default("")
+  town      String   @default("")
+  childAge  String   @default("")
+  note      String   @default("")
+  emailed   Boolean  @default(false) // did the notification actually go out?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// A parent asking to join a centre.
+//
+// Membership itself stays on Child.centerId — a dozen queries already read it,
+// and a second source of truth would rot. This table is only the ASKING: who
+// requested, what the centre decided, and when. Kept after a decision so a
+// family can see their own history and a centre can see it declined one.
+//
+// Parent-driven by design: only the primary guardian may raise or withdraw one,
+// and only the centre may approve it. Nobody is placed in a centre by us.
+model CenterJoinRequest {
+  id       String @id @default(cuid())
+  childId  String
+  child    Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+  centerId String
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  status  String @default("pending") // pending | approved | declined | withdrawn
+  message String @default("") // the parent's note to the centre
+
+  requestedById   String
+  requestedByName String @default("")
+
+  decidedAt     DateTime?
+  decidedByName String    @default("")
+  decidedNote   String    @default("") // why it was declined, in the centre's words
+
+  createdAt DateTime @default(now())
+
+  @@index([centerId, status])
+  @@index([childId])
 }

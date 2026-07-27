@@ -3491,3 +3491,166 @@ textarea.field {
 }
 
 .intro-emergency a { font-weight: 650; }
+
+/* ---- centres: an idea, clearly labelled as one ---- */
+.lp-soon-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.lp-soon {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--warm);
+  background: var(--warm-soft);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+/* A plan of the place, not a list of features — the layout does the explaining. */
+.lp-plan { margin: 30px auto 0; max-width: 780px; }
+.lp-plan svg { width: 100%; height: auto; display: block; }
+
+.pl-wall { fill: none; stroke: var(--ink-soft); stroke-width: 2.5; opacity: 0.3; }
+.pl-room { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+.pl-name { font-size: 16px; font-weight: 700; fill: var(--ink); }
+.pl-sub { font-size: 13px; fill: var(--ink-soft); }
+.pl-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  fill: var(--warm);
+}
+.pl-door { stroke: var(--coral); stroke-width: 4; stroke-linecap: round; }
+
+/* The commons is the largest room and the only coloured one. */
+.pl-commons { fill: url(#planCommons); }
+.pl-commons-name { font-size: 26px; font-weight: 700; fill: var(--accent-ink); }
+.pl-commons-sub {
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  fill: color-mix(in srgb, var(--accent-ink) 85%, transparent);
+}
+.pl-commons-sub.dim { fill: color-mix(in srgb, var(--accent-ink) 62%, transparent); }
+.pl-people circle { fill: var(--accent-ink); opacity: 0.9; }
+
+.lp-soon-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 24px 26px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.lp-soon-cta h3 { margin: 0 0 5px; font-size: 1.1rem; }
+.lp-soon-cta p { margin: 0; color: var(--ink-soft); font-size: 0.93rem; max-width: 52ch; }
+
+/* ---- the centre interest form ---- */
+.lp-form {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 30px;
+  align-items: start;
+  text-align: left;
+}
+
+.lp-form-intro h3 { margin: 0 0 7px; font-size: 1.15rem; }
+.lp-form-intro p { margin: 0; color: var(--ink-soft); font-size: 0.93rem; line-height: 1.6; }
+
+.lp-form-fields { display: grid; gap: 12px; }
+.lp-field-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.lp-field { display: grid; gap: 5px; flex: 1 1 180px; min-width: 0; }
+.lp-field.narrow { flex: 0 1 110px; }
+
+.lp-field > span {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+.lp-field > span b { color: var(--accent); font-weight: 700; }
+
+.lp-field input,
+.lp-field textarea {
+  font: inherit;
+  font-size: 0.94rem;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  resize: vertical;
+}
+
+.lp-field input:focus-visible,
+.lp-field textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* Present for bots, gone for everyone else — not display:none, which some
+   scripts check for. */
+.lp-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.lp-form-error { margin: 0; color: var(--crit); font-size: 0.88rem; }
+
+.lp-form-fine {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.lp-soon-done {
+  border-style: solid;
+  border-color: var(--good);
+  background: color-mix(in srgb, var(--good) 8%, transparent);
+}
+.lp-soon-done h3 { margin: 0 0 6px; }
+.lp-soon-done p { margin: 0; color: var(--ink-soft); font-size: 0.93rem; }
+
+@media (max-width: 720px) {
+  .lp-form { grid-template-columns: 1fr; gap: 20px; }
+}
+
+/* ---- families waiting on a centre ---- */
+.join-queue { display: grid; gap: 12px; margin-top: 14px; }
+
+.join-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+.join-who { flex: 1 1 260px; min-width: 0; }
+.join-name { margin: 0; font-weight: 650; font-size: 1rem; }
+.join-meta { margin: 2px 0 0; font-size: 0.83rem; color: var(--ink-soft); }
+
+.join-msg {
+  margin: 9px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  border-left: 3px solid var(--border);
+  padding-left: 11px;
+  white-space: pre-line;
+}
+
+.join-actions { display: flex; gap: 8px; flex: none; }
+.join-decline { flex: 1 1 280px; }

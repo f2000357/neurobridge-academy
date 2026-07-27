@@ -33,6 +33,8 @@ export async function send(opts: {
   subject: string;
   html: string;
   text: string;
+  /** Where a reply should go — e.g. the parent who filled in a form. */
+  replyTo?: string;
 }): Promise<SendResult> {
   if (!KEY) return { sent: false, reason: "no RESEND_API_KEY — email is not configured yet" };
 
@@ -46,6 +48,7 @@ export async function send(opts: {
         subject: opts.subject,
         html: opts.html,
         text: opts.text,
+        ...(opts.replyTo ? { reply_to: [opts.replyTo] } : {}),
       }),
     });
     if (!res.ok) {
@@ -127,5 +130,37 @@ export function teacherAdded(opts: {
       { label: "Open NeuroBridge", url: opts.url }
     ),
     text: `${opts.fromName} has added you to ${opts.childName}'s team on NeuroBridge.\n\nSign in: ${opts.url}`,
+  };
+}
+
+/** A family asking for a centre in their town. Goes to us, not to them. */
+export function centreInterest(opts: {
+  name: string;
+  email: string;
+  town: string;
+  childAge: string;
+  note: string;
+}): { subject: string; html: string; text: string } {
+  const row = (k: string, v: string) =>
+    v ? `<p style="margin:0 0 6px"><b>${k}:</b> ${v}</p>` : "";
+  return {
+    subject: `Centre interest — ${opts.town || "somewhere"}`,
+    html: shell(
+      "Someone wants a centre in their town",
+      `${row("Name", opts.name)}${row("Email", opts.email)}${row("Town", opts.town)}${row(
+        "Child's age",
+        opts.childAge
+      )}${opts.note ? `<p style="margin:14px 0 0;white-space:pre-line">${opts.note}</p>` : ""}
+       <p style="font-size:12px;color:#667;margin-top:18px">Reply to this email to reach them directly.</p>`
+    ),
+    text: [
+      "Someone wants a NeuroBridge centre in their town.",
+      "",
+      `Name: ${opts.name}`,
+      `Email: ${opts.email}`,
+      `Town: ${opts.town}`,
+      `Child's age: ${opts.childAge}`,
+      opts.note ? `\n${opts.note}` : "",
+    ].join("\n"),
   };
 }

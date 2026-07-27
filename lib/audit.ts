@@ -26,6 +26,11 @@ export const AUDIT = {
   lessonUnapproved: "lesson_unapproved",
   // profile — the parent's own description of their child
   profileUpdated: "profile_updated",
+  // centres — asked for by the family, answered by the centre
+  centerRequested: "center_requested",
+  centerJoined: "center_joined",
+  centerDeclined: "center_declined",
+  centerLeft: "center_left",
   // sensitive
   iepReviewGenerated: "iep_review_generated",
   iepReviewsArchived: "iep_reviews_archived",
@@ -50,6 +55,10 @@ export const AUDIT_LABEL: Record<string, string> = {
   week_approved: "Approved the week",
   lesson_unapproved: "Took a lesson off the schedule",
   profile_updated: "Updated the child's profile",
+  center_requested: "Asked to join a centre",
+  center_joined: "Joined a centre",
+  center_declined: "Centre declined the request",
+  center_left: "Left the centre",
   iep_review_generated: "Generated an IEP review",
   iep_reviews_archived: "Archived IEP reviews",
   // legacy admin actions

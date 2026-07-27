@@ -12,6 +12,7 @@ import Tests, { type TestRow } from "./Tests";
 import People, { type PersonRow, type HistoryRow } from "./People";
 import Profile, { type IntroData, type ContactData, EMPTY_CONTACT } from "./Profile";
 import LearningProfile, { type ProfileData } from "./LearningProfile";
+import CentreCard, { type CentreState } from "./CentreCard";
 import { US_STATES, stateName } from "@/lib/usStates";
 import { implementedStates } from "@/lib/standards";
 
@@ -115,6 +116,7 @@ export default function AdminChild({
   primaryGuideName = null,
   learningProfile = null,
   contact = EMPTY_CONTACT,
+  centre,
 }: {
   initial: ChildForm;
   documents: DocMeta[];
@@ -136,6 +138,7 @@ export default function AdminChild({
   primaryGuideName?: string | null;
   learningProfile?: ProfileData | null;
   contact?: ContactData;
+  centre: CentreState;
 }) {
   const REVIEW_CAP = 3;
   const router = useRouter();
@@ -600,6 +603,8 @@ export default function AdminChild({
         canManageAccess={canManageAccess}
         meUserId={meUserId}
       />
+
+      <CentreCard state={centre} />
 
       {/* Documents — uploaded here in Setup; the IEP tab picks which to use */}
       <div className="card" style={{ marginTop: 16 }}>

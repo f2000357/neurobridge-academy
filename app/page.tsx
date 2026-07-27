@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import LoginMenu from "./LoginMenu";
 import HubDiagram from "./HubDiagram";
+import CentreInterest from "./CentreInterest";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function Home() {
             <a href="#how">How the AI works</a>
             <a href="#profile">Learning profile</a>
             <a href="#team">Your team</a>
+            <a href="#centres">Centres</a>
             <a href="#contact">Contact</a>
           </div>
 
@@ -324,6 +326,94 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* ---- centres: the idea, not a promise ----
+            Flagged "coming soon" and written as an intention rather than a
+            product, because none of it exists yet. The interest link is a plain
+            mailto — no form, no list, nothing collected that we can't honour. */}
+        <section className="lp-section" id="centres">
+          <div className="wrap">
+            <div className="lp-soon-row">
+              <p className="lp-eyebrow" style={{ margin: 0 }}>NeuroBridge Centres</p>
+              <span className="lp-soon">Coming soon</span>
+            </div>
+            <h2>Homeschooling, without the isolation.</h2>
+            <p className="lp-lead">
+              The software handles the curriculum. It can&apos;t give your child friends, or give you
+              someone who understands. A NeuroBridge centre is a room that does — where families
+              bring their own plans and run their day together.
+            </p>
+
+            {/* A plan of the place, not a list of its features. The commons is
+                the largest room and the only coloured one — everything else is a
+                facility, that is the reason to come. */}
+            <figure className="lp-plan">
+              <svg
+                viewBox="0 0 900 540"
+                role="img"
+                aria-label="Floor plan of a NeuroBridge centre: a large central commons, with a movement and XR bay, a BCBA room, a programme room, a quiet room and a parent table around it."
+              >
+                <defs>
+                  <linearGradient id="planCommons" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" />
+                    <stop offset="100%" stopColor="var(--coral)" />
+                  </linearGradient>
+                </defs>
+
+                <rect className="pl-wall" x="26" y="26" width="848" height="466" rx="18" />
+
+                {/* left */}
+                <rect className="pl-room" x="48" y="48" width="242" height="196" rx="13" />
+                <text className="pl-name" x="68" y="82">Movement &amp; XR</text>
+                <text className="pl-sub" x="68" y="106">Whole-body activity, no team</text>
+                <text className="pl-sub" x="68" y="126">picking, low sensory load</text>
+
+                <rect className="pl-room" x="48" y="272" width="242" height="196" rx="13" />
+                <text className="pl-name" x="68" y="306">BCBA on site</text>
+                <text className="pl-sub" x="68" y="330">Helps shape your plan — and</text>
+                <text className="pl-sub" x="68" y="350">a path to your own RBT</text>
+                <text className="pl-tag" x="68" y="446">Get ready for your future</text>
+
+                {/* the heart */}
+                <rect className="pl-commons" x="312" y="48" width="276" height="420" rx="15" />
+                <text className="pl-commons-name" x="450" y="128" textAnchor="middle">The commons</text>
+                <text className="pl-commons-sub" x="450" y="154" textAnchor="middle">WHERE THEY MEET</text>
+                <g className="pl-people">
+                  <circle cx="384" cy="228" r="11" /><circle cx="424" cy="216" r="11" />
+                  <circle cx="466" cy="230" r="11" /><circle cx="508" cy="218" r="11" />
+                  <circle cx="398" cy="280" r="11" /><circle cx="448" cy="288" r="11" />
+                  <circle cx="498" cy="278" r="11" /><circle cx="372" cy="336" r="11" />
+                  <circle cx="420" cy="346" r="11" /><circle cx="476" cy="338" r="11" />
+                  <circle cx="520" cy="330" r="11" />
+                </g>
+                <text className="pl-commons-sub" x="450" y="404" textAnchor="middle">
+                  LUNCH · FREE PLAY · CLUBS
+                </text>
+                <text className="pl-commons-sub dim" x="450" y="430" textAnchor="middle">
+                  PARENTS STAY
+                </text>
+
+                {/* right */}
+                <rect className="pl-room" x="610" y="48" width="242" height="196" rx="13" />
+                <text className="pl-name" x="630" y="82">Programme room</text>
+                <text className="pl-sub" x="630" y="106">Each child works their own</text>
+                <text className="pl-sub" x="630" y="126">NeuroBridge plan, side by side</text>
+
+                <rect className="pl-room" x="610" y="272" width="242" height="88" rx="13" />
+                <text className="pl-name" x="630" y="306">Quiet room</text>
+                <text className="pl-sub" x="630" y="330">Always open, no permission needed</text>
+
+                <rect className="pl-room" x="610" y="380" width="242" height="88" rx="13" />
+                <text className="pl-name" x="630" y="414">Parent table</text>
+                <text className="pl-sub" x="630" y="438">Coffee, and someone who gets it</text>
+
+                <line className="pl-door" x1="418" y1="492" x2="482" y2="492" />
+              </svg>
+            </figure>
+
+            <CentreInterest />
+          </div>
+        </section>
+
         {/* ---- contact ---- */}
         <section className="lp-section" id="contact">
           <div className="wrap">
@@ -380,6 +470,7 @@ export default async function Home() {
             <a href="#how">How the AI works</a>
             <a href="#profile">Learning profile</a>
             <a href="#team">Your team</a>
+            <a href="#centres">Centres</a>
             <a href="#contact">Contact</a>
             <Link href="/login">Parent sign in</Link>
             <Link href="/teach">Therapist sign in</Link>
