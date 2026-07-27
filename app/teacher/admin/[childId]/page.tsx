@@ -24,7 +24,6 @@ export default async function ChildAdminPage({
     include: {
       profile: true,
       documents: { orderBy: { createdAt: "desc" } },
-      proposals: { include: { lessons: true }, orderBy: { createdAt: "desc" }, take: 1 },
       interestBlocks: { orderBy: { createdAt: "asc" } },
     },
   });
@@ -59,24 +58,6 @@ export default async function ChildAdminPage({
     mimeType: d.mimeType,
     createdAt: d.createdAt.toISOString(),
   }));
-  const latest = child.proposals[0];
-  const proposal: Proposal | null = latest
-    ? {
-        id: latest.id,
-        summary: latest.summary,
-        lessons: latest.lessons.map((l) => ({
-          id: l.id,
-          subject: l.subject,
-          grade: l.grade,
-          topic: l.topic,
-          title: l.title,
-          rationale: l.rationale,
-          status: l.status,
-          source: l.source,
-          lessonPlanId: l.lessonPlanId,
-        })),
-      }
-    : null;
 
   const homework = await prisma.homework.findMany({
     where: { childId },
@@ -84,24 +65,6 @@ export default async function ChildAdminPage({
     select: { id: true, title: true, dueDate: true, status: true, score: true },
   });
 
-  // This child's own lessons, newest-first — only the first page; the rest load
-  // on request so a big library doesn't dump all at once.
-  const LESSONS_PAGE = 10;
-  const lessonsTotal = await prisma.lessonPlan.count({ where: { childId } });
-  const lessonsRaw = await prisma.lessonPlan.findMany({
-    where: { childId },
-    orderBy: { updatedAt: "desc" },
-    take: LESSONS_PAGE,
-    select: { id: true, title: true, subject: true, gradeLevel: true, standardCode: true, published: true },
-  });
-  const lessons: LessonRow[] = lessonsRaw.map((l) => ({
-    id: l.id,
-    title: l.title,
-    subject: l.subject,
-    gradeLevel: l.gradeLevel,
-    standardCode: l.standardCode,
-    published: l.published,
-  }));
 
   // External tests this family is tracking (newest first).
   const testRows = await prisma.assessmentPlan.findMany({
@@ -233,10 +196,7 @@ export default async function ChildAdminPage({
     <AdminChild
       initial={form}
       documents={documents}
-      proposal={proposal}
       homework={homework}
-      lessons={lessons}
-      lessonsTotal={lessonsTotal}
       iepReview={iepReview}
       reviewsUsed={reviewsUsed}
       isAdmin={isAdmin}

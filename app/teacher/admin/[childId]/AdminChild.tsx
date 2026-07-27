@@ -98,10 +98,7 @@ const bullets = (items: string[]) => (
 export default function AdminChild({
   initial,
   documents,
-  proposal,
   homework = [],
-  lessons = [],
-  lessonsTotal = 0,
   interestBlocks = [],
   iepReview = null,
   reviewsUsed = 0,
@@ -120,10 +117,7 @@ export default function AdminChild({
 }: {
   initial: ChildForm;
   documents: DocMeta[];
-  proposal: Proposal | null;
   homework?: HwRow[];
-  lessons?: LessonRow[];
-  lessonsTotal?: number;
   interestBlocks?: InterestRow[];
   iepReview?: IepReviewData;
   reviewsUsed?: number;
@@ -145,8 +139,7 @@ export default function AdminChild({
   const [form, setForm] = useState<ChildForm>(initial);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [genBusy, setGenBusy] = useState(false);
-  const [tab, setTab] = useState<"profile" | "standing" | "setup" | "iep" | "tests" | "lessons">("profile");
+  const [tab, setTab] = useState<"profile" | "standing" | "setup" | "iep" | "tests">("profile");
   const [uploadKind, setUploadKind] = useState("iep");
   const [review, setReview] = useState<IepReviewData>(iepReview);
   const [iepBusy, setIepBusy] = useState(false);
@@ -155,12 +148,8 @@ export default function AdminChild({
   const toggleDoc = (id: string) =>
     setSelectedDocs((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   // Lessons load a page at a time (newest-first) so a big library isn't dumped at once.
-  const [lessonList, setLessonList] = useState<LessonRow[]>(lessons);
-  const [lessonsMore, setLessonsMore] = useState(lessons.length < lessonsTotal);
-  const [lessonsBusy, setLessonsBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   // Track per-lesson pending action so buttons disable while working.
-  const [acting, setActing] = useState<string | null>(null);
 
   function set<K extends keyof ChildForm>(key: K, value: ChildForm[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -255,54 +244,8 @@ export default function AdminChild({
     router.refresh();
   }
 
-  async function generateProgram() {
-    setGenBusy(true);
-    setNote(null);
-    // Save notes/interests first so the AI uses the latest context.
-    await fetch("/api/child", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "save", ...form }),
-    });
-    const res = await fetch("/api/child", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "generateProgram", childId: form.childId }),
-    });
-    const data = await res.json();
-    setGenBusy(false);
-    if (data.error) {
-      setNote(data.error);
-      return;
-    }
-    router.refresh();
-  }
 
-  async function decide(proposedLessonId: string, approve: boolean) {
-    setActing(proposedLessonId);
-    await fetch("/api/child", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: approve ? "approveLesson" : "rejectLesson", proposedLessonId }),
-    });
-    setActing(null);
-    router.refresh();
-  }
 
-  async function loadMoreLessons() {
-    setLessonsBusy(true);
-    const res = await fetch("/api/child", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "lessonsPage", childId: form.childId, skip: lessonList.length }),
-    });
-    const data = await res.json();
-    setLessonsBusy(false);
-    if (data.lessons) {
-      setLessonList((prev) => [...prev, ...data.lessons]);
-      setLessonsMore(Boolean(data.hasMore));
-    }
-  }
 
   async function runIepReview() {
     setIepBusy(true);
@@ -372,8 +315,6 @@ export default function AdminChild({
     URL.revokeObjectURL(url);
   }
 
-  const pending = proposal?.lessons.filter((l) => l.status === "pending") ?? [];
-  const decided = proposal?.lessons.filter((l) => l.status !== "pending") ?? [];
 
   return (
     <main className="page" style={{ maxWidth: 820 }}>
@@ -389,7 +330,6 @@ export default function AdminChild({
           ["setup", "Setup"],
           ["iep", "IEP support"],
           ["tests", "Tests"],
-          ["lessons", "Lessons"],
         ] as const).map(([k, label]) => (
           <button
             key={k}
@@ -806,203 +746,6 @@ export default function AdminChild({
         />
       )}
 
-      {tab === "lessons" && (
-        <>
-      {/* Lesson plans — drafted from the child's documents (first Lessons subsection) */}
-      <h2 style={{ marginTop: 28, marginBottom: 4 }}>Lesson plans</h2>
-      <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
-        Let the AI draft a starter program from {form.name}&apos;s documents, then approve the ones you want.
-      </p>
-      {/* Generate program */}
-      <div className="row" style={{ marginTop: 16, gap: 10, alignItems: "center" }}>
-        <button className="btn quiet" onClick={generateProgram} disabled={genBusy || documents.length === 0}>
-          {genBusy ? "Reading the documents…" : "✦ Draft lessons from the documents"}
-        </button>
-        {documents.length === 0 && (
-          <span className="muted" style={{ fontSize: "0.85rem" }}>
-            Upload a document first.
-          </span>
-        )}
-      </div>
-
-      {/* Proposal review */}
-      {proposal && (
-        <section style={{ marginTop: 28 }}>
-          <h2>Proposed program for {form.name}</h2>
-          {proposal.summary && (
-            <p className="muted" style={{ marginTop: 0 }}>
-              {proposal.summary}
-            </p>
-          )}
-
-          {pending.length > 0 && (
-            <div className="stack">
-              {pending.map((l) => (
-                <div key={l.id} className={`card ${l.source === "advancement" ? "advance-card" : ""}`}>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <strong>
-                      {l.source === "advancement" && <span className="pill good" style={{ marginRight: 8 }}>⬆ Next level</span>}
-                      {l.title}
-                    </strong>
-                    <span className="pill warn">
-                      {l.subject}
-                      {l.grade ? ` · ${gradeLabelShort(l.grade)}` : ""}
-                    </span>
-                  </div>
-                  {l.topic && (
-                    <p className="muted" style={{ fontSize: "0.82rem", margin: "4px 0 0" }}>
-                      {getStandards().label} strand: {l.topic}
-                    </p>
-                  )}
-                  <p style={{ fontSize: "0.9rem", margin: "8px 0 12px" }}>{l.rationale}</p>
-                  <div className="row" style={{ gap: 8 }}>
-                    <button className="btn" onClick={() => decide(l.id, true)} disabled={acting === l.id}>
-                      {acting === l.id ? "Approving…" : "Approve"}
-                    </button>
-                    <button className="btn quiet" onClick={() => decide(l.id, false)} disabled={acting === l.id}>
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {decided.length > 0 && (
-            <div style={{ marginTop: pending.length ? 20 : 0 }}>
-              <h2 style={{ fontSize: "1rem" }}>Decided</h2>
-              <div className="stack" style={{ gap: 8 }}>
-                {decided.map((l) => (
-                  <div key={l.id} className="row doc-row" style={{ justifyContent: "space-between" }}>
-                    <span>
-                      {l.status === "approved" ? "✓ " : "✕ "}
-                      {l.title}{" "}
-                      <span className="muted" style={{ fontSize: "0.85rem" }}>
-                        — {l.subject}
-                        {l.grade ? ` · ${gradeLabelShort(l.grade)}` : ""}
-                      </span>
-                    </span>
-                    {l.status === "approved" && l.lessonPlanId ? (
-                      <Link className="chip" href={`/teacher/plans/${l.lessonPlanId}`}>
-                        Open lesson →
-                      </Link>
-                    ) : (
-                      <span className="pill crit">rejected</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {pending.length === 0 && decided.length === proposal.lessons.length && (
-            <p className="muted" style={{ marginTop: 14, fontSize: "0.9rem" }}>
-              You&apos;ve reviewed the whole program. Approved lessons are in your library below —
-              open them to publish and schedule.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* This child's lessons — the scrolling library, newest first */}
-      <section style={{ marginTop: 28 }}>
-        <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
-          <h2 style={{ margin: 0 }}>📚 Lesson library</h2>
-          <Link className="btn quiet" href={`/teacher/plans/new?childId=${form.childId}`}>
-            ✦ New lesson
-          </Link>
-        </div>
-        <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
-          {form.name}&apos;s lessons, newest first — built by hand or generated by{" "}
-          <strong>Weekly lessons</strong>. Each deep-links to an IXL skill.
-        </p>
-        {lessonsTotal === 0 ? (
-          <p className="muted" style={{ fontSize: "0.9rem" }}>
-            No lessons yet. Generate a week in <strong>Weekly lessons</strong>, or build one with ✦ New
-            lesson.
-          </p>
-        ) : (
-          <>
-          <div
-            className="stack"
-            style={{ gap: 8, maxHeight: 360, overflowY: "auto", paddingRight: 4, border: "1px solid var(--border)", borderRadius: 10, padding: 10 }}
-          >
-            {lessonList.map((l) => (
-              <div key={l.id} className="row doc-row" style={{ justifyContent: "space-between" }}>
-                <span>
-                  <span className="pill good" style={{ marginRight: 8 }}>
-                    {subjectLabel(l.subject)}
-                    {l.gradeLevel ? ` · ${gradeLabelShort(l.gradeLevel)}` : ""}
-                  </span>
-                  {l.title}
-                  {l.standardCode && (
-                    <span className="muted" style={{ fontSize: "0.8rem" }}>
-                      {" "}
-                      · {l.standardCode}
-                    </span>
-                  )}
-                  {!l.published && (
-                    <span className="pill warn" style={{ marginLeft: 8 }}>
-                      draft
-                    </span>
-                  )}
-                </span>
-                <span className="row" style={{ gap: 6 }}>
-                  <Link className="chip" href={`/preview/${l.id}`} target="_blank">
-                    Preview
-                  </Link>
-                  <Link className="chip" href={`/teacher/plans/${l.id}`}>
-                    Edit
-                  </Link>
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-              <span className="muted" style={{ fontSize: "0.82rem" }}>
-                Showing {lessonList.length} of {lessonsTotal}
-              </span>
-              {lessonsMore && (
-                <button className="btn quiet" onClick={loadMoreLessons} disabled={lessonsBusy}>
-                  {lessonsBusy ? "Loading…" : "Show more"}
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* Homework folder */}
-      <section style={{ marginTop: 28 }}>
-        <h2>📁 Homework</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          A 10-question worksheet is created automatically when {form.name} masters a skill, due the next Monday.
-        </p>
-        {homework.length === 0 ? (
-          <p className="muted" style={{ fontSize: "0.9rem" }}>No homework yet.</p>
-        ) : (
-          <div className="stack" style={{ gap: 8 }}>
-            {homework.map((h) => (
-              <div key={h.id} className="row doc-row" style={{ justifyContent: "space-between" }}>
-                <span>
-                  {h.title}
-                  <span className="muted" style={{ fontSize: "0.85rem" }}>
-                    {" "}
-                    · due {h.dueDate}
-                  </span>
-                </span>
-                {h.status === "completed" ? (
-                  <span className="pill good">done · {h.score}%</span>
-                ) : (
-                  <span className="pill warn">assigned</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-        </>
-      )}
     </main>
   );
 }
