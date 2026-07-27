@@ -42,9 +42,25 @@ export default async function Home() {
               </p>
             </>
           ) : (
-            <Link href="/login" className="btn big" style={{ marginTop: 20 }}>
-              Staff sign in →
-            </Link>
+            <>
+              {/* Parents arrive here first now, so signing up leads and signing
+                  in follows. Both stay visible — a returning parent shouldn't
+                  have to hunt for the door they already have a key to. */}
+              <div
+                style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 22 }}
+              >
+                <Link href="/signup" className="btn big">
+                  Start with your child
+                </Link>
+                <Link href="/login" className="btn big quiet">
+                  Sign in
+                </Link>
+              </div>
+              <p className="muted" style={{ fontSize: "0.85rem", marginTop: 14 }}>
+                Free while we&apos;re building — no card, no commitment. Setting up takes a couple
+                of minutes.
+              </p>
+            </>
           )}
         </div>
       </main>
