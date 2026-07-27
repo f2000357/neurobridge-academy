@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { providerName } from "@/lib/providers";
 import { prisma } from "@/lib/prisma";
-import { guardSession, guardOperate } from "@/lib/authz";
+import { guardSession, guardOperate, canOperateChild } from "@/lib/authz";
+import { getCurrentTeacher } from "@/lib/teacherAuth";
 import { todayStr } from "@/lib/time";
 
 // Guide validation of provider (IXL) work done off-platform.
@@ -118,6 +119,75 @@ export async function POST(req: NextRequest) {
   // next IXL skill) — a validated completion + coins in one step, no scheduled
   // slot needed. A mastered (>=90%) skill also un-schedules any upcoming copy of
   // itself so the plan doesn't re-assign it.
+  // Points for a session someone supervised in person — piano, XR, art, a
+  // therapy block. There is no provider score here: the adult who was in the
+  // room says how it went.
+  //
+  // Awardable by an operator, OR by the specialist the parent put on that block.
+  // That is the same rule as writing the note, for the same reason: they are the
+  // only person who saw it happen. One award per session either way — the
+  // unique [childId, slotId] makes double-paying impossible, and a second call
+  // edits the first rather than stacking.
+  if (op === "awardSession") {
+    const { childId, slotId, coins, title } = body as {
+      childId: string;
+      slotId: string;
+      coins: number;
+      title?: string;
+    };
+    if (!slotId) return NextResponse.json({ error: "Which session?" }, { status: 400 });
+
+    const slot = await prisma.scheduleSlot.findUnique({
+      where: { id: slotId },
+      select: { childId: true, teacherId: true, activity: true },
+    });
+    if (!slot || slot.childId !== childId) {
+      return NextResponse.json({ error: "Session not found." }, { status: 404 });
+    }
+
+    const asOperator = await canOperateChild(childId);
+    if (!asOperator) {
+      const teacher = await getCurrentTeacher();
+      if (!teacher || slot.teacherId !== teacher.id) {
+        return NextResponse.json(
+          { error: "That session isn't yours to award points for." },
+          { status: 403 }
+        );
+      }
+    }
+
+    const give = Math.max(0, Math.min(10, Math.round(Number(coins))));
+    const existing = await prisma.providerCompletion.findUnique({
+      where: { childId_slotId: { childId, slotId } },
+    });
+    if (existing) await reverseAward(existing); // editing, not stacking
+
+    const pointEventId = await award(childId, give);
+    const c = await prisma.providerCompletion.upsert({
+      where: { childId_slotId: { childId, slotId } },
+      create: {
+        childId,
+        slotId,
+        title: (title || slot.activity || "Session").slice(0, 120),
+        provider: "",
+        practiceUrl: "",
+        accuracy: null,
+        coins: give,
+        status: "validated",
+        pointEventId,
+        validatedAt: new Date(),
+      },
+      update: {
+        title: (title || slot.activity || "Session").slice(0, 120),
+        coins: give,
+        status: "validated",
+        pointEventId,
+        validatedAt: new Date(),
+      },
+    });
+    return NextResponse.json({ ok: true, id: c.id, coins: give });
+  }
+
   if (op === "logExtra") {
     const { childId, title, provider, practiceUrl, accuracy, abandoned } = body as {
       childId: string;

@@ -77,6 +77,14 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     take: 60,
   });
 
+  // Points already awarded for these sessions — so the control reads "10 given"
+  // rather than offering to award twice.
+  const awards = await prisma.providerCompletion.findMany({
+    where: { childId, slotId: { in: slots.map((s) => s.id) } },
+    select: { slotId: true, coins: true },
+  });
+  const coinsBySlot = new Map(awards.map((a) => [a.slotId ?? "", a.coins]));
+
   const noteBySlot = new Map<string, string>();
   for (const n of notes) if (n.slotId && n.teacherId === teacher.id) noteBySlot.set(n.slotId, n.id);
 
@@ -105,6 +113,7 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     // actually arranges the week.
     canNote: s.teacherId === teacher.id,
     noteId: noteBySlot.get(s.id) ?? null,
+    coins: coinsBySlot.has(s.id) ? (coinsBySlot.get(s.id) as number) : null,
   }));
 
   const noteRows: NoteRow[] = notes.map((n) => ({

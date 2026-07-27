@@ -3701,3 +3701,28 @@ textarea.field {
   opacity: 0.85;
   font-weight: 600;
 }
+
+/* Points for a session a specialist ran. */
+.award-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 14px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+.award-row .block-what { flex: 1 1 140px; min-width: 0; font-weight: 600; }
+.award-row .btn { margin-left: auto; }
+
+.award-pick {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+/* Not yet awarded reads as the open action. */
+.award-cta { border-color: var(--accent); color: var(--accent); }

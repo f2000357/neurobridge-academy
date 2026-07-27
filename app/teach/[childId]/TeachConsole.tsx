@@ -21,6 +21,8 @@ export type BlockRow = {
   /** May this specialist write the note for this block? Their activity only. */
   canNote: boolean;
   noteId: string | null;
+  /** Points already given for this session, or null if none yet. */
+  coins: number | null;
 };
 
 export type MediaRow = { id: string; kind: string; caption: string; filename: string };
@@ -91,7 +93,39 @@ export default function TeachConsole({
   // Only their own sessions are theirs to write up. The rest of the day is shown
   // below as read-only context.
   const unwritten = blocks.filter((b) => !b.noteId && b.canNote);
+  // Every session that is theirs — the note list is a to-do, this is the record.
+  const mine = blocks.filter((b) => b.canNote);
   const context = blocks.filter((b) => !b.canNote);
+
+  // Points for a session they supervised. No provider score here — the adult who
+  // was in the room says how it went. One award per session; awarding again
+  // edits the first rather than stacking.
+  const [awarding, setAwarding] = useState<{ block: BlockRow; coins: number } | null>(null);
+  const [awardBusy, setAwardBusy] = useState(false);
+
+  async function giveCoins() {
+    if (!awarding) return;
+    setAwardBusy(true);
+    const res = await fetch("/api/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "awardSession",
+        childId,
+        slotId: awarding.block.id,
+        coins: awarding.coins,
+        title: awarding.block.label,
+      }),
+    });
+    const d = await res.json();
+    setAwardBusy(false);
+    if (d.error) {
+      setNote(d.error);
+      return;
+    }
+    setAwarding(null);
+    router.refresh();
+  }
 
   function startFor(block: BlockRow | null) {
     setNote(null);
@@ -204,6 +238,57 @@ export default function TeachConsole({
           Note for a session that isn&apos;t listed
         </button>
       </div>
+
+      {/* Points for the sessions they ran. */}
+      {mine.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <h2>Points for your sessions</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+            You were in the room, so you decide how it went. {childName} can spend these on the
+            prizes their family sets. One award per session — awarding again changes it.
+          </p>
+
+          <div className="stack" style={{ gap: 8 }}>
+            {mine.map((b) => (
+              <div key={b.id} className="award-row">
+                <span className="block-when">
+                  {weekdayShort(b.date)} · {fmtMin(b.startMin)}
+                </span>
+                <span className="block-what">{b.label}</span>
+
+                {awarding?.block.id === b.id ? (
+                  <span className="award-pick">
+                    <select
+                      className="field short"
+                      value={awarding.coins}
+                      onChange={(e) => setAwarding({ block: b, coins: Number(e.target.value) })}
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <option key={n} value={n}>
+                          {n} {n === 1 ? "point" : "points"}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn" disabled={awardBusy} onClick={giveCoins}>
+                      {awardBusy ? "…" : "Give"}
+                    </button>
+                    <button className="btn quiet" onClick={() => setAwarding(null)}>
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className={`btn quiet ${b.coins != null ? "" : "award-cta"}`}
+                    onClick={() => setAwarding({ block: b, coins: b.coins ?? 8 })}
+                  >
+                    {b.coins != null ? `★ ${b.coins} given · change` : "Award points"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* The rest of the child's day — context only, not yours to write up. */}
       {context.length > 0 && (
