@@ -40,14 +40,26 @@ export async function POST(req: NextRequest) {
   const { op } = body as { op: string };
 
   if (op === "addReward") {
-    const { name, cost, emoji } = body as { name: string; cost: number; emoji?: string };
+    const { name, cost, emoji, childId } = body as {
+      name: string;
+      cost: number;
+      emoji?: string;
+      childId?: string;
+    };
     if (!name?.trim() || !Number.isFinite(cost) || cost <= 0) {
       return NextResponse.json({ error: "Give the prize a name and a point cost above 0." }, { status: 400 });
     }
     const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 404 });
     const reward = await prisma.reward.create({
-      data: { teacherId: teacher.id, name: name.trim(), cost: Math.round(cost), emoji: emoji?.trim() || "🎁" },
+      data: {
+        teacherId: teacher.id,
+        // Which child it is for. The manage page always sends the selected one.
+        childId: childId || null,
+        name: name.trim(),
+        cost: Math.round(cost),
+        emoji: emoji?.trim() || "🎁",
+      },
     });
     return NextResponse.json({ ok: true, reward });
   }

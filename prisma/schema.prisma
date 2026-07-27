@@ -144,8 +144,14 @@ model SpecialistLoginToken {
 // A prize the guide offers in exchange for points (school or home reward).
 model Reward {
   id          String       @id @default(cuid())
+  // Who added it — a record, not a permission. Any guide on the child can edit.
   teacherId   String
   teacher     User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  // Who it is FOR. A prize list is one of the most personal things here: what a
+  // six-year-old will work for is not what a fourteen-year-old will. Null means
+  // an older row from before the shelf was per-child.
+  childId     String?
+  child       Child?       @relation(fields: [childId], references: [id], onDelete: Cascade)
   name        String
   cost        Int // points needed to redeem
   emoji       String       @default("🎁")
@@ -224,6 +230,7 @@ model Child {
   photo               ChildPhoto?
   contact             ChildContact?
   centerRequests      CenterJoinRequest[]
+  rewards             Reward[]
 }
 
 // A provider lesson (IXL) the child did off-platform and marked done. The

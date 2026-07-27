@@ -31,7 +31,14 @@ export default async function KidPrizes({
   // child, and shouldn't change depending on which adult set it up.
   const guideIds = await guideIdsForChild(child.id);
   const rewards = await prisma.reward.findMany({
-    where: { teacherId: { in: guideIds }, active: true },
+    where: {
+      active: true,
+      OR: [
+        { childId: child.id },
+        // Rows from before the shelf was per-child, still shared by guide.
+        { childId: null, teacherId: { in: guideIds } },
+      ],
+    },
     orderBy: { cost: "asc" },
   });
 

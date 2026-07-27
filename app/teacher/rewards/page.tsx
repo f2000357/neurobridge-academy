@@ -30,7 +30,12 @@ export default async function RewardsPage() {
   // Recent redemptions across all children, for the activity feed.
   // The shared shelf: prizes added by anyone who guides these children.
   const rewards = await prisma.reward.findMany({
-    where: { teacherId: { in: await guideIdsForChildren(kids.map((c) => c.id)) } },
+    where: {
+      OR: [
+        { childId: { in: kids.map((c) => c.id) } },
+        { childId: null, teacherId: { in: await guideIdsForChildren(kids.map((c) => c.id)) } },
+      ],
+    },
     orderBy: { createdAt: "asc" },
   });
 
@@ -51,6 +56,7 @@ export default async function RewardsPage() {
         balance: c.points - c.pointsSpent,
       }))}
       rewards={rewards.map((r) => ({
+        childId: r.childId,
         id: r.id,
         name: r.name,
         cost: r.cost,

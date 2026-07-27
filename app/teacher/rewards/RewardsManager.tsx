@@ -16,7 +16,9 @@ const ICON_CHOICES = [
   "⌚", "🔮", "🌟", "🌈", "🏅", "💫",
 ];
 
-type Reward = { id: string; name: string; cost: number; emoji: string; active: boolean };
+type Reward = { id: string; name: string; cost: number; emoji: string; active: boolean
+  childId: string | null;
+};
 type Kid = { id: string; name: string; balance: number };
 type Recent = {
   id: string;
@@ -98,13 +100,13 @@ export default function RewardsManager({
     if (!name.trim() || cost <= 0 || busy) return;
     setBusy(true);
     setNote(null);
-    const res = await api({ op: "addReward", name, cost, emoji });
+    const res = await api({ op: "addReward", childId: selId, name, cost, emoji });
     setBusy(false);
     if (res.error) {
       setNote(res.error);
       return;
     }
-    setRewards((prev) => [...prev, { id: res.reward.id, name: res.reward.name, cost: res.reward.cost, emoji: res.reward.emoji, active: true }]);
+    setRewards((prev) => [...prev, { id: res.reward.id, name: res.reward.name, cost: res.reward.cost, emoji: res.reward.emoji, active: true, childId: selId }]);
     setName("");
     setCost(50);
     setEmoji("🎁");
@@ -238,7 +240,11 @@ export default function RewardsManager({
 
         {rewards.length > 0 && (
           <ul className="shelf-list">
-            {rewards.map((r) => (
+            {rewards
+              // A prize belongs to one child. Legacy rows with no child yet are
+              // shown to everyone until someone assigns them.
+              .filter((r) => r.childId === null || r.childId === selId)
+              .map((r) => (
               <li key={r.id} className={`shelf-item ${r.active ? "" : "off"}`}>
                 <span className="prize-emoji sm" aria-hidden="true">
                   {r.emoji}
