@@ -54,6 +54,7 @@ export default function DayCalendar({
   onMove,
   onDelete,
   onAssign,
+  onNote,
   onAdd,
 }: {
   childId: string;
@@ -65,6 +66,7 @@ export default function DayCalendar({
   onMove: (id: string, startMin: number, endMin: number) => void;
   onDelete: (slot: CalSlot) => void;
   onAssign: (slot: CalSlot, teacherId: string) => void;
+  onNote: (slot: CalSlot) => void;
   onAdd: (payload: {
     kind: string;
     subject: string;
@@ -115,7 +117,7 @@ export default function DayCalendar({
 
   function onBlockPointerDown(e: React.PointerEvent, s: CalSlot) {
     const role = (e.target as HTMLElement).dataset.role;
-    if (role === "del" || role === "preview" || role === "who") return;
+    if (role === "del" || role === "preview" || role === "who" || role === "note") return;
     e.preventDefault();
     const grabOffset = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
     setAdd(null);
@@ -234,6 +236,18 @@ export default function DayCalendar({
                     >
                       👁
                     </a>
+                  )}
+                  {!isLesson && Boolean(s.activity) && (
+                    <button
+                      className="wg-note"
+                      data-role="note"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={() => onNote(s)}
+                      title="Write up this session"
+                      aria-label="Write up this session"
+                    >
+                      ✎
+                    </button>
                   )}
                   {!isLesson && Boolean(s.activity) && (
                     <button

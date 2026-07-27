@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { coverageFromNotes, mode, type CoverageNote, type SubjectCoverage } from "./coverage";
 import { getStandards } from "./standards";
+import { withAuthor, noteAuthor } from "./noteAuthor";
 
 export type SubjectReport = {
   subject: string;
@@ -109,7 +110,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
   const specialistNotes = await prisma.teacherNote.findMany({
     where: { childId, ...(sinceStr ? { date: { gte: sinceStr } } : {}) },
     include: {
-      teacher: { select: { name: true, specialty: true } },
+      ...withAuthor,
       _count: { select: { media: true } },
     },
     orderBy: { date: "desc" },
@@ -117,8 +118,8 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
   });
   const teacherNotes: TeacherNoteSummary[] = specialistNotes.map((n) => ({
     date: n.date,
-    teacher: n.teacher.name,
-    subject: n.subject || n.teacher.specialty,
+    teacher: noteAuthor(n).name,
+    subject: n.subject || noteAuthor(n).specialty,
     whatWeDid: n.whatWeDid,
     wentWell: n.wentWell,
     struggledWith: n.struggledWith,

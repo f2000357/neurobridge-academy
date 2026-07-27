@@ -6,6 +6,8 @@ import { mondayOfStr } from "@/lib/time";
 import { START_OPTIONS } from "@/lib/dayTemplate";
 import ScheduleTabs from "./ScheduleTabs";
 import DayCalendar, { type CalSlot } from "./DayCalendar";
+import SessionNote, { type NoteTarget } from "./SessionNote";
+import { activityLabel } from "@/lib/activities";
 
 type Plan = { id: string; title: string; subject: string; durationMin: number; childId: string | null };
 type Child = { id: string; name: string; dayStartMin: number };
@@ -123,6 +125,20 @@ export default function ScheduleEditor({
 
   // Who is running one session. Per block: three piano teachers across three
   // slots is a normal week, and only the person on a block may write it up.
+  // A guide writing up a session they ran themselves.
+  const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null);
+
+  function openNote(slot: Slot) {
+    setNoteTarget({
+      slotId: slot.id,
+      label: activityLabel(slot.activity) ?? "Session",
+      date,
+      childId,
+      noteId: null,
+      existing: null,
+    });
+  }
+
   async function assignSlot(slot: Slot, teacherId: string) {
     setNote(null);
     setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, teacherId: teacherId || null } : s)));
@@ -325,9 +341,12 @@ export default function ScheduleEditor({
         busy={busy}
         onMove={moveSlot}
         onAssign={assignSlot}
+        onNote={openNote}
         onDelete={deleteSlot}
         onAdd={addBlock}
       />
+
+      {noteTarget && <SessionNote target={noteTarget} onClose={() => setNoteTarget(null)} />}
 
       {note && (
         <p className="muted" style={{ marginTop: 12 }} role="status">

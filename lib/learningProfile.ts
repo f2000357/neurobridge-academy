@@ -147,7 +147,7 @@ export async function buildLearningProfile(childId: string): Promise<LearningPro
   const [noteRows, lessonCount, firstSlot, tests] = await Promise.all([
     prisma.teacherNote.findMany({
       where: { childId },
-      select: { date: true, teacher: { select: { name: true } } },
+      select: { date: true, teacher: { select: { name: true } }, authorUser: { select: { name: true } } },
     }),
     prisma.lessonPlan.count({ where: { childId } }),
     prisma.scheduleSlot.findFirst({
@@ -165,7 +165,9 @@ export async function buildLearningProfile(childId: string): Promise<LearningPro
   // Distinct ISO-ish weeks, so "6 weeks of notes" means six different weeks
   // rather than six notes written in one afternoon.
   const weeks = new Set(noteRows.map((n) => isoWeek(n.date)).filter(Boolean));
-  const specialists = [...new Set(noteRows.map((n) => n.teacher?.name).filter(Boolean))] as string[];
+  const specialists = [
+    ...new Set(noteRows.map((n) => n.teacher?.name ?? n.authorUser?.name).filter(Boolean)),
+  ] as string[];
 
   return {
     childName: child.name,

@@ -3726,3 +3726,18 @@ textarea.field {
 
 /* Not yet awarded reads as the open action. */
 .award-cta { border-color: var(--accent); color: var(--accent); }
+
+/* Write up a session, from the guide's own day view. */
+.wg-note {
+  position: absolute;
+  top: 3px;
+  right: 40px;
+  font-size: 0.72rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  opacity: 0.65;
+}
+.wg-note:hover { opacity: 1; }

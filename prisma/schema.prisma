@@ -41,6 +41,7 @@ model User {
   subscription Subscription?
   lessonPlans  LessonPlan[] // lessons this user authored
   rewards      Reward[]
+  teacherNotes TeacherNote[]
 }
 
 // Audit trail for admin-level actions (learner transfers, lesson promotions).
@@ -669,24 +670,33 @@ model TeacherAssignment {
 // visible to the guide, the center, NeuroBridge admin, and the child's other
 // specialists. Feeds the progress report.
 model TeacherNote {
-  id            String            @id @default(cuid())
+  id            String             @id @default(cuid())
   childId       String
-  child         Child             @relation(fields: [childId], references: [id], onDelete: Cascade)
-  teacherId     String
-  teacher       SpecialistTeacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  child         Child              @relation(fields: [childId], references: [id], onDelete: Cascade)
+  // Who wrote it — exactly one of these.
+  //
+  // A note used to require a SpecialistTeacher, which meant a guide could not
+  // write one at all: not for a session they ran themselves, and not to cover
+  // for a therapist who never got round to it. The parent running most of their
+  // child's day had no way to record any of it. Both authors are first class
+  // now; the route enforces that precisely one is set.
+  teacherId     String?
+  teacher       SpecialistTeacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  authorUserId  String?
+  authorUser    User?              @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
   // The block it is about, when there is one. A specialist who met the learner
   // off-schedule still gets to write the note.
   slotId        String?
-  slot          ScheduleSlot?     @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  slot          ScheduleSlot?      @relation(fields: [slotId], references: [id], onDelete: SetNull)
   date          String // "YYYY-MM-DD" — the day being written about
-  subject       String            @default("")
-  whatWeDid     String            @default("")
-  wentWell      String            @default("")
-  struggledWith String            @default("")
-  nextTime      String            @default("")
+  subject       String             @default("")
+  whatWeDid     String             @default("")
+  wentWell      String             @default("")
+  struggledWith String             @default("")
+  nextTime      String             @default("")
   focus         Int? // 1-5, optional: how settled the learner was
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   media         TeacherMedia[]
 }
 

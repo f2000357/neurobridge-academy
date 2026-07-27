@@ -7,6 +7,7 @@ import { activityLabel } from "@/lib/activities";
 import { todayStr, addDaysStr } from "@/lib/time";
 import TeachConsole, { type BlockRow, type NoteRow } from "./TeachConsole";
 import IntroCard from "./IntroCard";
+import { withAuthor, noteAuthor } from "@/lib/noteAuthor";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
   const notes = await prisma.teacherNote.findMany({
     where: { childId },
     include: {
-      teacher: { select: { id: true, name: true, specialty: true } },
+      ...withAuthor,
       media: { select: { id: true, kind: true, caption: true, filename: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -120,9 +121,9 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     id: n.id,
     date: n.date,
     slotId: n.slotId,
-    authorId: n.teacher.id,
-    authorName: n.teacher.name,
-    authorSpecialty: n.teacher.specialty,
+    authorId: noteAuthor(n).id,
+    authorName: noteAuthor(n).name,
+    authorSpecialty: noteAuthor(n).specialty,
     subject: n.subject,
     whatWeDid: n.whatWeDid,
     wentWell: n.wentWell,
