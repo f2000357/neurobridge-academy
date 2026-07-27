@@ -11,7 +11,12 @@ export default async function SwitchPage() {
   // Quick-login, local development only. On any production build this
   // redirects to /login — see lib/demo.ts.
   if (!switchEnabled) redirect("/login");
-  const [users, currentId] = await Promise.all([
+  const [specialists, users, currentId] = await Promise.all([
+    prisma.specialistTeacher.findMany({
+      where: { archived: false },
+      include: { assignments: { include: { child: { select: { name: true } } } } },
+      orderBy: { name: "asc" },
+    }),
     prisma.user.findMany({ include: { center: true }, orderBy: { name: "asc" } }),
     getCurrentUserId(),
   ]);
@@ -25,6 +30,28 @@ export default async function SwitchPage() {
         A stand-in for real sign-in while we build, available on local development only. Pick an
         account to see the app from their seat.
       </p>
+
+      {specialists.length > 0 && (
+        <>
+          <p className="lbl" style={{ marginTop: 22 }}>Visiting specialists</p>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+            What a therapist or teacher sees — their learners, and the notes they can write.
+          </p>
+          <div className="switch-list">
+            {specialists.map((t) => (
+              <a key={t.id} className="switch-row" href={`/api/switch?teacherId=${t.id}&to=/teach`}>
+                <span className="switch-name">{t.name}</span>
+                <span className="switch-role">
+                  {t.assignments.length
+                    ? t.assignments.map((a) => a.child.name).join(", ")
+                    : "no learners assigned"}
+                </span>
+              </a>
+            ))}
+          </div>
+          <p className="lbl" style={{ marginTop: 22 }}>Guides &amp; admins</p>
+        </>
+      )}
 
       <div className="switch-list">
         {users.map((u) => {

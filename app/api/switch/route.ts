@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
+import { TEACHER_COOKIE } from "@/lib/teacherAuth";
 import { switchEnabled } from "@/lib/demo";
 
 // Quick-login: become any operator without a password. On for local dev, and on
@@ -12,8 +13,21 @@ export async function GET(req: NextRequest) {
   }
   const url = new URL(req.url);
   const userId = url.searchParams.get("userId") ?? "";
+  // A visiting specialist is not a User and signs in with a different cookie
+  // entirely, so seeing their side of the app used to mean a one-time link.
+  // Locally, it should be one click like every other seat.
+  const teacherId = url.searchParams.get("teacherId") ?? "";
   const to = url.searchParams.get("to") ?? "/";
   const res = NextResponse.redirect(new URL(to, url.origin));
   if (userId) res.cookies.set(SESSION_COOKIE, makeToken(userId, Date.now()), sessionCookieOptions());
+  if (teacherId) {
+    res.cookies.set(TEACHER_COOKIE, teacherId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false, // dev only — this route is inert on a production build
+      path: "/",
+      maxAge: 60 * 60 * 12,
+    });
+  }
   return res;
 }
