@@ -2352,3 +2352,1142 @@ textarea.field {
   line-height: 1.55;
   resize: vertical;
 }
+
+/* ============================================================
+   Marketing landing page (/)
+   The only page a stranger sees; everything else is the signed-in
+   product. All namespaced `lp-` / `hub-` so nothing leaks into the
+   console styles above.
+   ============================================================ */
+
+.lp {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ---- top navigation ---- */
+.lp-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+}
+
+.lp-nav .brand { font-size: 1.05rem; }
+
+.lp-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-left: auto;
+}
+
+.lp-links a {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.lp-links a:hover { color: var(--accent); }
+
+.lp-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-auth .btn { padding: 9px 18px; font-size: 0.9rem; }
+
+@media (max-width: 860px) {
+  .lp-links { display: none; }
+  .lp-auth { margin-left: auto; }
+}
+
+/* ---- the log-in menu ----
+   Three kinds of person sign in here through different doors; the menu names
+   each one rather than making a visitor guess which link is theirs. */
+.lp-menu { position: relative; }
+
+.lp-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lp-caret {
+  font-size: 0.7rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.lp-caret.up { transform: rotate(180deg); }
+
+.lp-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 288px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 50;
+  animation: lp-drop 0.14s ease;
+}
+
+@keyframes lp-drop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.lp-menu-item {
+  display: block;
+  padding: 11px 13px;
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.lp-menu-item:hover,
+.lp-menu-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+.lp-menu-title {
+  display: block;
+  font-weight: 650;
+  font-size: 0.94rem;
+}
+
+.lp-menu-sub {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* Learners get named but not linked — their door is a private address. */
+.lp-menu-note {
+  margin: 6px 4px 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-menu-panel { animation: none; }
+  .lp-caret { transition: none; }
+}
+
+/* ---- hero ---- */
+.lp-hero {
+  padding: 62px 0 58px;
+  text-align: center;
+  background:
+    radial-gradient(1100px 460px at 12% -8%, var(--accent-soft), transparent 62%),
+    radial-gradient(760px 380px at 92% 6%, var(--coral-soft), transparent 60%);
+}
+
+.lp-hero h1 {
+  font-size: clamp(1.95rem, 5vw, 3.15rem);
+  line-height: 1.07;
+  letter-spacing: -0.024em;
+  max-width: 17ch;
+  margin: 10px auto 0;
+}
+
+.lp-hero .lp-sub {
+  font-size: clamp(1rem, 1.9vw, 1.16rem);
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin: 18px auto 0;
+}
+
+.lp-eyebrow {
+  font-size: 0.79rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+}
+
+.lp-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+  justify-content: center;
+}
+
+.lp-hero .btn.big,
+.lp-final .btn.big { padding: 15px 30px; font-size: 1rem; }
+
+.lp-note {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  margin-top: 15px;
+}
+
+/* ---- the picture ---- */
+.hub { margin: 40px auto 6px; max-width: 660px; }
+.hub svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+.hub-band { fill: none; stroke: var(--accent); stroke-width: 34; opacity: 0.09; }
+
+/* The spans ARE NeuroBridge: the mark (pier, arc, pier) repeated six times. */
+.hub-span {
+  fill: none;
+  stroke: url(#hubSpan);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.hub-spoke {
+  stroke: var(--border);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+.hub-spoke.on { stroke: var(--accent); stroke-width: 3.5; }
+
+.hub-core { fill: url(#hubCore); }
+.hub-core-label { fill: #fff; font-weight: 700; }
+.hub-core-sub {
+  fill: rgba(255, 255, 255, 0.82);
+  font-size: 12.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hub-node { cursor: default; outline: none; }
+.hub-node circle {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: stroke 0.2s ease, fill 0.2s ease, stroke-width 0.2s ease;
+}
+.hub-node text {
+  fill: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.hub-node:hover circle,
+.hub-node:focus circle,
+.hub-node.on circle {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  fill: var(--accent-soft);
+}
+.hub-node:focus circle { stroke-width: 3; }
+
+/* The parent ring: warm, so it reads as the human in the picture, and dashed
+   because the parent is a gate rather than a wall — they let things through. */
+.hub-parent { cursor: default; outline: none; }
+.hub-parent-ring {
+  fill: none;
+  stroke: var(--warm);
+  stroke-width: 2.5;
+  stroke-dasharray: 9 7;
+  opacity: 0.85;
+  transition: stroke-width 0.2s ease, opacity 0.2s ease;
+}
+.hub-parent:hover .hub-parent-ring,
+.hub-parent:focus .hub-parent-ring,
+.hub-parent.on .hub-parent-ring { stroke-width: 4.5; opacity: 1; }
+
+.hub-parent-badge rect { fill: var(--warm); }
+.hub-parent-badge text {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.hub-badge rect { fill: var(--accent); }
+.hub-badge text { fill: #fff; text-anchor: middle; dominant-baseline: middle; }
+.hb-1 { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; }
+.hb-2 { font-size: 8.5px; font-weight: 600; letter-spacing: 0.14em; fill: rgba(255, 255, 255, 0.78); }
+
+.hub-caption {
+  margin: 18px auto 0;
+  max-width: 54ch;
+  min-height: 3.2em;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.hub-caption b { color: var(--ink); font-weight: 650; }
+
+.hub-hint {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  opacity: 0.7;
+  margin-top: 10px;
+}
+
+/* Build the picture on load: bridge first, then supports, then piers. */
+.hub-band { stroke-dasharray: 1600; stroke-dashoffset: 1600; animation: hub-sweep 1.6s 0.1s ease forwards; }
+.hub-span { stroke-dasharray: 230; stroke-dashoffset: 230; animation: hub-sweep 0.55s ease forwards; }
+.hub-spoke { stroke-dasharray: 200; stroke-dashoffset: 200; animation: hub-sweep 0.7s ease forwards; }
+.hub-node, .hub-badge { opacity: 0; animation: hub-pop 0.5s ease forwards; }
+.hub-parent { opacity: 0; animation: hub-pop 0.5s 1.4s ease forwards; }
+
+@keyframes hub-sweep { to { stroke-dashoffset: 0; } }
+@keyframes hub-pop { to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-band, .hub-span, .hub-spoke { stroke-dasharray: none; stroke-dashoffset: 0; animation: none; }
+  .hub-node, .hub-badge, .hub-parent { opacity: 1; animation: none; }
+}
+
+@media (max-width: 560px) {
+  .hub-node text { font-size: 16px; }
+  .hub-caption { min-height: 4.4em; }
+}
+
+/* ---- sections ---- */
+.lp-section { padding: 66px 0; }
+
+.lp-section.tint {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-section h2 {
+  font-size: clamp(1.55rem, 3.2vw, 2.05rem);
+  letter-spacing: -0.012em;
+  margin: 8px 0 0;
+  max-width: 22ch;
+}
+
+.lp-lead {
+  color: var(--ink-soft);
+  font-size: 1.03rem;
+  line-height: 1.65;
+  max-width: 62ch;
+  margin: 14px 0 0;
+}
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+  gap: 18px;
+  margin-top: 34px;
+}
+
+.lp-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.lp-section.tint .lp-card { background: var(--bg); }
+
+.lp-card h3 { font-size: 1.02rem; margin: 13px 0 6px; }
+.lp-card p { color: var(--ink-soft); font-size: 0.92rem; line-height: 1.55; margin: 0; }
+
+.lp-card-lit {
+  background: linear-gradient(150deg, var(--accent) 58%, var(--coral)) !important;
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+.lp-card-lit h3 { color: var(--accent-ink); margin-top: 0; }
+.lp-card-lit p { color: color-mix(in srgb, var(--accent-ink) 90%, transparent); }
+
+.lp-kicker {
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent-ink) 82%, transparent);
+  margin: 0 0 8px;
+}
+
+.lp-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.lp-ico.teal { background: var(--coral-soft); color: var(--coral); }
+.lp-ico.warm { background: var(--warm-soft); color: var(--warm); }
+
+/* ---- numbered steps (a real sequence, so numbering is structural) ---- */
+.lp-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 22px;
+  margin-top: 34px;
+  counter-reset: lpstep;
+}
+
+.lp-step { counter-increment: lpstep; padding-top: 46px; position: relative; }
+
+.lp-step::before {
+  content: counter(lpstep);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.lp-step h3 { font-size: 1rem; margin: 0 0 6px; }
+.lp-step p { color: var(--ink-soft); font-size: 0.93rem; line-height: 1.6; margin: 0; }
+
+/* ---- closing ---- */
+.lp-final {
+  background: linear-gradient(125deg, var(--accent) 55%, var(--coral));
+  border-radius: 24px;
+  padding: 46px 38px;
+  text-align: center;
+  color: var(--accent-ink);
+  box-shadow: var(--shadow);
+}
+
+.lp-final h2 { color: var(--accent-ink); margin: 0 auto; max-width: 20ch; }
+.lp-final p {
+  color: color-mix(in srgb, var(--accent-ink) 88%, transparent);
+  max-width: 48ch;
+  margin: 14px auto 0;
+  line-height: 1.6;
+}
+
+/* ---- footer ---- */
+.lp-foot {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 38px 0 30px;
+  margin-top: 66px;
+}
+
+.lp-foot-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.lp-foot-links { display: flex; flex-wrap: wrap; gap: 22px; }
+.lp-foot-links a { font-size: 0.9rem; color: var(--ink-soft); font-weight: 600; }
+.lp-foot-links a:hover { color: var(--accent); }
+
+.lp-fine {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 4px;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+/* Anchored sections must clear the sticky bar when jumped to. */
+.lp [id] { scroll-margin-top: 78px; }
+
+/* ---- contact ---- */
+.lp-contact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+  margin-top: 32px;
+  max-width: 680px;
+}
+
+.lp-contact-card {
+  display: grid;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.lp-contact-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+
+.lp-contact-card .lp-ico { margin-bottom: 8px; }
+
+.lp-contact-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.lp-contact-value {
+  font-size: 1.08rem;
+  font-weight: 650;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-contact-card:hover { transform: none; }
+}
+
+/* ---- the two settings, side by side ----
+   The single most load-bearing line on the page: families arrive assuming a tool
+   like this means leaving school. One short line each, read in a glance. */
+.lp-paths {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 26px auto 0;
+}
+
+.lp-path {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.94rem;
+  color: var(--ink-soft);
+}
+
+.lp-path b { color: var(--ink); font-weight: 650; }
+
+/* The join reads as a hinge between the two, not a divider. */
+.lp-path-join {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 8px 13px;
+}
+
+/* ---- the coordinating loop ----
+   Three stages that genuinely run in order and then repeat, so the arrows carry
+   meaning rather than decoration. */
+.lp-loop {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.lp-loop-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+
+.lp-loop-step p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.58;
+  color: var(--ink-soft);
+}
+
+.lp-loop-n {
+  font-size: 0.72rem !important;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent) !important;
+  margin-bottom: 9px !important;
+}
+
+.lp-loop-arrow {
+  align-self: center;
+  color: var(--accent);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.lp-loop-close {
+  margin-top: 20px;
+  font-size: 1.02rem;
+  color: var(--ink-soft);
+}
+
+.lp-loop-close strong { color: var(--ink); font-weight: 650; }
+
+@media (max-width: 860px) {
+  .lp-loop { grid-template-columns: 1fr; }
+  .lp-loop-arrow { justify-self: center; transform: rotate(90deg); }
+}
+
+/* ---- the gap between where they are and where they must be ----
+   Two anchors on one track. Naming both is what stops "personalised" quietly
+   meaning "lowered" — the target end never moves. */
+.lp-gap {
+  margin-top: 22px;
+  padding: 24px 28px 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.lp-gap-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  margin: 0 8px 16px;
+}
+
+/* The band between the two markers: the distance actually being closed. */
+.lp-gap-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--warm), var(--accent));
+  opacity: 0.55;
+}
+
+.lp-gap-dot {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 3px solid var(--surface);
+}
+
+.lp-gap-dot.now { left: 0; background: var(--warm); }
+.lp-gap-dot.goal { left: 100%; background: var(--accent); }
+
+.lp-gap-legend {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.lp-gap-end b {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin-bottom: 3px;
+}
+
+.lp-gap-end span {
+  font-size: 0.87rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.lp-gap-end.right { text-align: right; }
+
+.lp-gap-mid {
+  align-self: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .lp-gap-legend { grid-template-columns: 1fr; }
+  .lp-gap-end.right { text-align: left; }
+  .lp-gap-mid { justify-self: start; }
+}
+
+/* ---- naming the AI ----
+   The AI is what does the coordinating, so it is marked in the heading rather
+   than left as another word in the sentence. A tinted highlight rather than a
+   different colour alone, so it still reads at low contrast. */
+.lp-hl {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+/* Each stage of the loop is the AI doing something — the badge repeats it. */
+.lp-loop-n span {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 5px;
+  padding: 1px 5px;
+  margin-right: 5px;
+  letter-spacing: 0.06em;
+}
+
+/* ---- the learning profile, rendered ----
+   The section used to describe a document in three cards. Showing the document
+   is stronger: levels measured against the standard, goals with real statuses,
+   and a generated-today stamp — which is the whole claim. */
+.lp-profile {
+  margin: 32px auto 0;
+  max-width: 640px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.lp-profile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 22px;
+  background: linear-gradient(120deg, var(--accent) 58%, var(--coral));
+  color: var(--accent-ink);
+}
+
+.lp-profile-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+
+.lp-profile-sub {
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--accent-ink) 82%, transparent);
+}
+
+/* The stamp is the argument: this was made today, not last term. */
+.lp-profile-stamp {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--accent-ink);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.lp-profile-body { padding: 20px 22px 18px; }
+
+.lp-profile-section {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+}
+
+.lp-profile-section:not(:first-child) { margin-top: 22px; }
+
+/* A subject: name, distance to the standard, and the two levels named. */
+.lp-subject {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 7px 0;
+}
+
+.lp-subject-name { font-size: 0.92rem; font-weight: 600; }
+
+.lp-bar {
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.lp-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--warm), var(--accent));
+}
+
+.lp-subject-lvl {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-subject-lvl em { font-style: normal; color: var(--accent); padding: 0 3px; }
+
+.lp-goals { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+
+.lp-goals li {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.lp-goal-pill {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 4px 10px;
+  min-width: 84px;
+  text-align: center;
+}
+
+.lp-goal-pill.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.lp-goal-pill.warn { background: var(--warm-soft); color: var(--warm); }
+.lp-goal-pill.met { background: var(--accent-soft); color: var(--accent); }
+
+.lp-profile-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.lp-profile-foot b { color: var(--ink); font-weight: 700; }
+
+.lp-profile-export {
+  margin-left: auto;
+  font-weight: 650;
+  color: var(--accent);
+}
+
+/* Labelled as illustrative, so it never reads as one child's real record. */
+.lp-profile-cap {
+  display: block;
+  max-width: 640px;
+  margin: 12px auto 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 560px) {
+  .lp-subject { grid-template-columns: 66px 1fr; }
+  .lp-subject-lvl { grid-column: 2; font-size: 0.78rem; }
+  .lp-goal-pill { min-width: 0; }
+}
+
+/* ---- the team, rendered ----
+   One picture carrying three claims: everyone in one place, each specialist
+   scoped to their own activity, and access the parent can withdraw. */
+.lp-roster {
+  margin: 32px auto 0;
+  max-width: 640px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* The child sits above the team, not in it — they are who the team is for. */
+.lp-roster-child {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: linear-gradient(120deg, var(--accent) 58%, var(--coral));
+  color: var(--accent-ink);
+}
+
+.lp-roster-child .lp-roster-name { color: var(--accent-ink); }
+.lp-roster-child .lp-roster-meta {
+  color: color-mix(in srgb, var(--accent-ink) 82%, transparent);
+}
+
+.lp-roster-list { list-style: none; margin: 0; padding: 0; }
+
+.lp-roster-list li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-roster-list li:last-child { border-bottom: 0; }
+
+.lp-roster-name { margin: 0; font-size: 0.95rem; font-weight: 650; }
+.lp-roster-meta { margin: 2px 0 0; font-size: 0.83rem; color: var(--ink-soft); }
+
+.lp-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent-ink);
+}
+
+.lp-avatar.child { background: var(--accent-ink); color: var(--accent); }
+.lp-avatar.a { background: var(--accent); }
+.lp-avatar.b { background: var(--coral); }
+.lp-avatar.c { background: var(--warm); }
+.lp-avatar.d { background: color-mix(in srgb, var(--accent) 62%, var(--coral)); }
+
+/* The scope chip is the point: what this person may WRITE, spelled out. */
+.lp-scope {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+  white-space: nowrap;
+}
+
+.lp-scope.full {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.lp-scope.you {
+  color: var(--accent);
+  background: var(--accent-ink);
+  border-color: transparent;
+}
+
+.lp-roster-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.85rem;
+}
+
+.lp-roster-add { font-weight: 650; color: var(--accent); }
+.lp-roster-revoke { margin-left: auto; color: var(--ink-soft); }
+
+@media (max-width: 560px) {
+  .lp-roster-list li,
+  .lp-roster-child { flex-wrap: wrap; }
+  .lp-scope { margin-left: 54px; }
+  .lp-roster-revoke { margin-left: 0; }
+}
+
+/* ---- the learning profile (console) ----
+   Mirrors the landing page's mock deliberately: what a parent was shown is what
+   they get. Everything on it is counted, not estimated. */
+.lprof {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.lprof-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 22px;
+  background: linear-gradient(120deg, var(--accent) 58%, var(--coral));
+  color: var(--accent-ink);
+}
+
+.lprof-title { margin: 0; font-weight: 700; font-size: 1.02rem; }
+.lprof-sub {
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--accent-ink) 82%, transparent);
+}
+
+/* The stamp is the whole claim: this was made today, not last term. */
+.lprof-stamp {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--accent-ink);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.lprof-body { padding: 20px 22px 18px; }
+
+.lprof-section {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+}
+.lprof-section:not(:first-child) { margin-top: 22px; }
+
+.lprof-line { margin: 0; font-size: 0.94rem; }
+.lprof-line b { font-weight: 700; }
+
+.lprof-subject {
+  display: grid;
+  grid-template-columns: 84px 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 7px 0;
+}
+
+.lprof-subject-name { font-size: 0.92rem; font-weight: 600; }
+
+.lprof-bar {
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.lprof-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--warm), var(--accent));
+}
+
+.lprof-subject-lvl {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lprof-subject-lvl em { font-style: normal; color: var(--accent); padding: 0 3px; }
+
+.lprof-goals { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.lprof-goals li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.lprof-pill {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 4px 10px;
+  min-width: 86px;
+  text-align: center;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+}
+.lprof-pill.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.lprof-pill.warn { background: var(--warm-soft); color: var(--warm); }
+.lprof-pill.met { background: var(--accent-soft); color: var(--accent); }
+
+.lprof-ev {
+  display: block;
+  font-style: normal;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.lprof-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.lprof-foot b { color: var(--ink); font-weight: 700; }
+
+@media (max-width: 560px) {
+  .lprof-subject { grid-template-columns: 74px 1fr; }
+  .lprof-subject-lvl { grid-column: 2; }
+  .lprof-pill { min-width: 0; }
+}
+
+/* Urgent care information on a specialist's view. Deliberately loud — this is
+   the line someone needs before a session, not after it. */
+.intro-urgent,
+.intro-emergency {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.intro-urgent {
+  background: color-mix(in srgb, var(--crit) 10%, transparent);
+  border-left: 4px solid var(--crit);
+}
+
+.intro-emergency {
+  background: var(--surface-2);
+  border-left: 4px solid var(--accent);
+}
+
+.intro-emergency a { font-weight: 650; }

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NeuroBridge Academy — A learning path designed around your child",
+  title: "NeuroBridge Academy — One view of your child, in school or at home",
   description:
-    "AI-powered, standards-aligned education for neurodiverse learners — with families, educators, and specialists connected in one place.",
+    "For neurodiverse learners in traditional school or homeschooling. NeuroBridge connects the IEP, standardized tests, therapies, activities and home into one plan — and puts the parent in charge of it.",
 };
 
 export default function RootLayout({
