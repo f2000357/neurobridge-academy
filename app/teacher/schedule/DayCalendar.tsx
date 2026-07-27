@@ -53,6 +53,7 @@ export default function DayCalendar({
   busy,
   onMove,
   onDelete,
+  onAssign,
   onAdd,
 }: {
   childId: string;
@@ -63,6 +64,7 @@ export default function DayCalendar({
   busy: boolean;
   onMove: (id: string, startMin: number, endMin: number) => void;
   onDelete: (slot: CalSlot) => void;
+  onAssign: (slot: CalSlot, teacherId: string) => void;
   onAdd: (payload: {
     kind: string;
     subject: string;
@@ -100,9 +102,20 @@ export default function DayCalendar({
     return start;
   }
 
+  // Who is running a given block. Per block, not per child — a child can have
+  // three piano teachers across three slots, and only the one the parent put on
+  // a session may write it up.
+  const [who, setWho] = useState<{ slot: CalSlot; teacherId: string } | null>(null);
+
+  function saveWho() {
+    if (!who) return;
+    onAssign(who.slot, who.teacherId);
+    setWho(null);
+  }
+
   function onBlockPointerDown(e: React.PointerEvent, s: CalSlot) {
     const role = (e.target as HTMLElement).dataset.role;
-    if (role === "del" || role === "preview") return;
+    if (role === "del" || role === "preview" || role === "who") return;
     e.preventDefault();
     const grabOffset = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
     setAdd(null);
@@ -222,6 +235,18 @@ export default function DayCalendar({
                       👁
                     </a>
                   )}
+                  {!isLesson && specialists.length > 0 && (
+                    <button
+                      className="wg-who"
+                      data-role="who"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={() => setWho({ slot: s, teacherId: s.teacherId ?? "" })}
+                      title="Who is running this session"
+                      aria-label="Who is running this session"
+                    >
+                      {s.teacherId ? "👤" : "＋👤"}
+                    </button>
+                  )}
                   <span className="wg-btitle">
                     {isLesson
                       ? subj
@@ -237,6 +262,11 @@ export default function DayCalendar({
                         no lesson yet
                       </span>
                     ))}
+                  {s.teacherId && (
+                    <span className="wg-bwho">
+                      {specialists.find((t) => t.id === s.teacherId)?.name ?? "assigned"}
+                    </span>
+                  )}
                   <span className="wg-btime">
                     {fmtMin(s.startMin)}–{fmtMin(s.endMin)}
                   </span>
@@ -256,6 +286,39 @@ export default function DayCalendar({
         <p className="muted" style={{ fontSize: "0.85rem", margin: 0 }}>
           Click anywhere on the calendar to add a block · drag a block to move it · ✕ to delete.
         </p>
+      )}
+
+      {/* Who is running this session */}
+      {who && (
+        <div className="card" style={{ marginTop: 10 }}>
+          <p className="lbl" style={{ marginTop: 0 }}>
+            Who is running {activityLabel(who.slot.activity) ?? "this session"}?
+          </p>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select
+              className="field"
+              style={{ maxWidth: 240 }}
+              value={who.teacherId}
+              onChange={(e) => setWho({ ...who, teacherId: e.target.value })}
+            >
+              <option value="">You</option>
+              {specialists.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button className="btn" onClick={saveWho}>
+              Save
+            </button>
+            <button className="btn quiet" onClick={() => setWho(null)}>
+              Cancel
+            </button>
+          </div>
+          <p className="muted" style={{ fontSize: "0.82rem", margin: "8px 0 0" }}>
+            Only this person can write the note for this session.
+          </p>
+        </div>
       )}
 
       {/* Inline editor for a new block */}

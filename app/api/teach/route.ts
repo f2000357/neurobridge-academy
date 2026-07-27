@@ -69,10 +69,10 @@ export async function POST(req: NextRequest) {
         where: { id: slotId },
         select: { childId: true, activity: true, teacherId: true },
       });
-      const governs = grant?.subject || teacher.specialty;
-      const isTheirs =
-        slot?.childId === childId &&
-        (slot.teacherId === teacher.id || (Boolean(slot.activity) && slot.activity === governs));
+      // Only the person the parent put on this block. Matching on activity
+      // instead would let one of a child's three piano teachers write up
+      // another's session.
+      const isTheirs = slot?.childId === childId && slot.teacherId === teacher.id;
       if (!isTheirs) {
         return NextResponse.json(
           { error: "That session isn't yours to write up." },

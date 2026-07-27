@@ -3678,3 +3678,26 @@ textarea.field {
   flex-wrap: wrap;
   align-items: center;
 }
+
+/* Who is running a session — per block, since a child can have three piano
+   teachers across three slots. */
+.wg-who {
+  position: absolute;
+  top: 3px;
+  right: 22px;
+  font-size: 0.72rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  opacity: 0.65;
+}
+.wg-who:hover { opacity: 1; }
+
+.wg-bwho {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+  font-weight: 600;
+}

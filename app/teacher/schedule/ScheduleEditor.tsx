@@ -121,6 +121,30 @@ export default function ScheduleEditor({
     }
   }
 
+  // Who is running one session. Per block: three piano teachers across three
+  // slots is a normal week, and only the person on a block may write it up.
+  async function assignSlot(slot: Slot, teacherId: string) {
+    setNote(null);
+    setSlots((prev) => prev.map((s) => (s.id === slot.id ? { ...s, teacherId: teacherId || null } : s)));
+    const res = await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "update",
+        id: slot.id,
+        date,
+        startMin: slot.startMin,
+        endMin: slot.endMin,
+        teacherId,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      setNote("Could not change who is running that block.");
+      await refresh(childId, date);
+    }
+  }
+
   async function deleteSlot(slot: Slot) {
     if (slot.sessions.length > 0 && !confirm("This block has lesson work recorded. Remove it anyway?")) return;
     setBusy(true);
@@ -300,6 +324,7 @@ export default function ScheduleEditor({
         dayStartMin={dayStart}
         busy={busy}
         onMove={moveSlot}
+        onAssign={assignSlot}
         onDelete={deleteSlot}
         onAdd={addBlock}
       />

@@ -96,8 +96,14 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     lessonGoal: s.lessonPlan?.goal ?? "",
     lessonTopic: s.lessonPlan?.topic ?? "",
     mine: s.teacherId === teacher.id,
-    // Theirs to write up: explicitly assigned to them, or their own activity.
-    canNote: s.teacherId === teacher.id || (Boolean(s.activity) && s.activity === governs),
+    // Theirs to write up only if the PARENT put them on this block.
+    //
+    // It used to also match on activity — any music specialist could write on
+    // any music block. But a child can have three piano teachers on three
+    // different slots, and that rule let each of them write on the others'
+    // sessions. The assignment is per block, because that is how the parent
+    // actually arranges the week.
+    canNote: s.teacherId === teacher.id,
     noteId: noteBySlot.get(s.id) ?? null,
   }));
 

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "update") {
-    const { id, date, startMin, endMin } = body;
+    const { id, date, startMin, endMin, teacherId } = body;
     if (endMin <= startMin) {
       return NextResponse.json({ error: "End time must be after start time." }, { status: 400 });
     }
@@ -84,7 +84,18 @@ export async function POST(req: NextRequest) {
     if (clash) {
       return NextResponse.json({ error: "overlap" }, { status: 409 });
     }
-    await prisma.scheduleSlot.update({ where: { id }, data: { date, startMin, endMin } });
+    await prisma.scheduleSlot.update({
+      where: { id },
+      data: {
+        date,
+        startMin,
+        endMin,
+        // Who is running this one. Per block, not per child: three piano
+        // teachers on three slots is a normal week. `undefined` leaves it be;
+        // an empty string clears it.
+        ...(teacherId === undefined ? {} : { teacherId: teacherId || null }),
+      },
+    });
     return NextResponse.json({ ok: true });
   }
 
