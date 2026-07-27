@@ -259,7 +259,8 @@ export async function POST(req: NextRequest) {
     // Work the child missed. A lesson sitting on a past day with no session was
     // never started — it should follow them forward rather than quietly vanish
     // into history. Each one takes the earliest free block of its own subject.
-    const missed = await prisma.scheduleSlot.findMany({
+    // Everything the child never reached, ever — for the count we report.
+    const allMissed = await prisma.scheduleSlot.findMany({
       where: {
         childId,
         date: { lt: today },
@@ -268,8 +269,18 @@ export async function POST(req: NextRequest) {
         sessions: { none: { state: "closed" } },
       },
       include: { lessonPlan: { select: { subject: true, workUrl: true } } },
-      orderBy: [{ date: "asc" }, { startMin: "asc" }],
+      orderBy: [{ date: "desc" }, { startMin: "asc" }],
     });
+
+    // But only recent work travels. Past a week, the specific lesson stops
+    // following the child: it may no longer be the right next step, and
+    // replaying an old sequence is exactly what an adaptive planner exists to
+    // avoid. The skill still counts as uncovered and can be chosen again by
+    // generation — at whatever level now fits.
+    const CARRY_WINDOW_DAYS = 7;
+    const CARRY_PER_SUBJECT = 3;
+    const windowStart = addDaysStr(today, -CARRY_WINDOW_DAYS);
+    const missed = allMissed.filter((m) => m.date >= windowStart);
 
     let carriedForward = 0;
     const takenBySubject = new Map<string, typeof slots>();
@@ -284,13 +295,30 @@ export async function POST(req: NextRequest) {
     const alreadyAhead = new Set(
       upcoming.map((s) => s.lessonPlanId).filter((id): id is string => Boolean(id))
     );
+    // A week should never fill wall-to-wall with catch-up. Coming back from a
+    // bad fortnight to a wall of debt is the surest way to make a child refuse
+    // the screen — so a capped few return and the rest are simply reported.
+    const carriedPerSubject = new Map<string, number>();
+    let notCarried = 0;
+
     for (const m of missed) {
       if (m.lessonPlan?.workUrl && doneAlready.has(m.lessonPlan.workUrl)) continue; // since mastered
       if (m.lessonPlanId && alreadyAhead.has(m.lessonPlanId)) continue; // already rescheduled
+
+      const subj = m.lessonPlan?.subject ?? "";
+      const takenAlready = carriedPerSubject.get(subj) ?? 0;
+      if (takenAlready >= CARRY_PER_SUBJECT) {
+        notCarried++;
+        continue;
+      }
       if (m.lessonPlanId) alreadyAhead.add(m.lessonPlanId);
       const queue = takenBySubject.get(m.lessonPlan?.subject ?? "") ?? [];
       const target = queue.shift();
-      if (!target) continue; // no room this week; it stays where it is
+      if (!target) {
+        notCarried++; // no room this week — reported, not silently dropped
+        continue;
+      }
+      carriedPerSubject.set(subj, takenAlready + 1);
       // Give the missed lesson a future block — and leave Monday exactly as it
       // was. History is a record of what was planned and what happened; a
       // regenerate should never edit a day that has already been lived. The
@@ -490,9 +518,17 @@ export async function POST(req: NextRequest) {
       drafts: built,
       carriedForward,
       kept: carried.length,
+      // What the child never reached — including the part we chose not to carry.
+      // The old failure was silent: it reported what it did and said nothing
+      // about what it gave up on, so a growing backlog was invisible.
+      notReached: allMissed.length,
+      notCarried,
       note: [
         carriedForward ? `${carriedForward} unfinished lesson${carriedForward === 1 ? "" : "s"} moved forward` : "",
         carried.length ? `${carried.length} already had a lesson and were left alone` : "",
+        allMissed.length
+          ? `${allMissed.length} never reached${notCarried ? `, ${notCarried} not carried` : ""}`
+          : "",
       ]
         .filter(Boolean)
         .join(" · "),

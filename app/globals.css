@@ -3787,3 +3787,16 @@ textarea.field {
   font-size: 0.85rem;
   color: color-mix(in srgb, var(--accent-ink) 80%, transparent);
 }
+
+/* The plan needs attention — shown only when it does. */
+.plan-banner {
+  margin-bottom: 14px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--warm-soft);
+  border-left: 4px solid var(--warm);
+}
+
+.plan-banner-line { margin: 0; font-size: 0.94rem; line-height: 1.55; }
+.plan-banner-line + .plan-banner-line { margin-top: 8px; font-size: 0.88rem; }
+.plan-banner-line a { font-weight: 650; }

@@ -7,6 +7,7 @@ import TodayCalendar from "./TodayCalendar";
 import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
 import ValidationList from "./ValidationList";
 import LogExtra from "./LogExtra";
+import PlanBanner from "./PlanBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,11 @@ export default async function TeacherDashboard() {
 
   return (
     <main className="page">
+        {/* Only shows when something needs a decision. */}
+        {kids.map((c) => (
+          <PlanBanner key={c.id} childId={c.id} childName={c.name} />
+        ))}
+
         <div className="parent-hero">
           <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
