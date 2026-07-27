@@ -165,7 +165,7 @@ export default async function Home() {
             <p className="lp-eyebrow">Learning profile</p>
             <h2>Know where your child stands. Today, not last term.</h2>
             <p className="lp-lead">
-              Schools report twice a year. We have it ready today.
+              Schools report twice a year. We produce it in real time!
             </p>
 
             <figure className="lp-profile">
