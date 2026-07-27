@@ -29,7 +29,17 @@ export default async function WeekPlanPage({
 
   const plan = await prisma.weeklyPlan.findUnique({
     where: { childId_weekStart: { childId, weekStart } },
-    include: { lessons: { orderBy: [{ subject: "asc" }, { order: "asc" }] } },
+    // Ordered by the DAY, not by `order`.
+    //
+    // `order` is assigned per generation batch, so regenerating a single empty
+    // block gives that lesson order 0 — colliding with whatever already held 0,
+    // and the tie resolved however the database felt. The week showed Mon, Thu,
+    // Tue, Wed, Fri.
+    //
+    // The day is the ramp anyway: these lessons are laid out across the week in
+    // rising difficulty, so date and time already carry the sequence and cannot
+    // collide.
+    include: { lessons: { orderBy: [{ subject: "asc" }, { date: "asc" }, { order: "asc" }] } },
   });
 
   const initialPlan: PlanData | null = plan
