@@ -5,7 +5,9 @@ import { type PersonRow, type HistoryRow } from "./People";
 import { peopleForChild } from "@/lib/access";
 import { historyForChild } from "@/lib/audit";
 import { can, canEditIntro } from "@/lib/authz";
-import { type IntroData } from "./Profile";
+import { type IntroData, type ContactData, EMPTY_CONTACT } from "./Profile";
+import { type ProfileData } from "./LearningProfile";
+import { buildLearningProfile } from "@/lib/learningProfile";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +45,7 @@ export default async function ChildAdminPage({
     name: child.name,
     age: child.age ?? null,
     gradeLevel: child.gradeLevel ?? "",
+    stateCode: child.stateCode ?? "",
     interests: p?.interests ?? "",
     notes: p?.iepNotes ?? "",
     accessCode: child.accessCode,
@@ -145,6 +148,18 @@ export default async function ChildAdminPage({
     select: { updatedAt: true },
   });
   const canEditProfile = await canEditIntro(childId);
+  // Address / emergency / doctor: its own table, loaded only on this screen.
+  const contactRow = await prisma.childContact.findUnique({ where: { childId } });
+  const contact: ContactData = contactRow
+    ? {
+        addressLine1: contactRow.addressLine1, addressLine2: contactRow.addressLine2,
+        city: contactRow.city, region: contactRow.region, postalCode: contactRow.postalCode,
+        emergencyName: contactRow.emergencyName, emergencyRelation: contactRow.emergencyRelation,
+        emergencyPhone: contactRow.emergencyPhone, emergencyAltPhone: contactRow.emergencyAltPhone,
+        doctorName: contactRow.doctorName, doctorPractice: contactRow.doctorPractice,
+        doctorPhone: contactRow.doctorPhone, urgentNotes: contactRow.urgentNotes,
+      }
+    : EMPTY_CONTACT;
   const primary = people.find((x) => x.role === "primary_guide");
   const intro: IntroData = {
     childId: child.id,
@@ -156,6 +171,15 @@ export default async function ChildAdminPage({
     updatedAt: p?.introUpdatedAt
       ? p.introUpdatedAt.toLocaleDateString(undefined, { dateStyle: "medium" })
       : null,
+  };
+
+  // The learning profile is counted from the database on every load — no AI
+  // call, so there is nothing to cache and nothing to wait for.
+  const built = await buildLearningProfile(childId);
+  const learningProfile: ProfileData | null = built && {
+    ...built,
+    generatedAt: built.generatedAt.toLocaleDateString(undefined, { dateStyle: "medium" }),
+    goalsFrom: built.goalsFrom ? built.goalsFrom.toISOString() : null,
   };
 
   const interestBlocks = child.interestBlocks.map((i) => ({
@@ -185,6 +209,8 @@ export default async function ChildAdminPage({
       intro={intro}
       canEditProfile={canEditProfile}
       primaryGuideName={primary?.name ?? null}
+      learningProfile={learningProfile}
+      contact={contact}
     />
   );
 }

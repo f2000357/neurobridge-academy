@@ -34,6 +34,18 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
         // The parent's own introduction — the first thing a therapist should read.
         profile: { select: { aboutMe: true, likes: true, dislikes: true } },
         photo: { select: { updatedAt: true } }, // presence only; bytes come from the image route
+        // Emergency contact ONLY — never the home address or the doctor. A
+        // specialist may need to reach someone mid-session; they have no reason
+        // to know where the child lives.
+        contact: {
+          select: {
+            emergencyName: true,
+            emergencyRelation: true,
+            emergencyPhone: true,
+            emergencyAltPhone: true,
+            urgentNotes: true,
+          },
+        },
       },
     }),
     prisma.teacherAssignment.findUnique({
@@ -130,6 +142,17 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
         aboutMe={child.profile?.aboutMe ?? ""}
         likes={child.profile?.likes ?? ""}
         dislikes={child.profile?.dislikes ?? ""}
+        emergency={
+          child.contact?.emergencyName || child.contact?.emergencyPhone
+            ? {
+                name: child.contact.emergencyName,
+                relation: child.contact.emergencyRelation,
+                phone: child.contact.emergencyPhone,
+                altPhone: child.contact.emergencyAltPhone,
+              }
+            : null
+        }
+        urgentNotes={child.contact?.urgentNotes ?? ""}
       />
 
       <TeachConsole

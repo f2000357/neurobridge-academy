@@ -14,6 +14,8 @@ export default function IntroCard({
   aboutMe,
   likes,
   dislikes,
+  emergency,
+  urgentNotes,
 }: {
   childId: string;
   childName: string;
@@ -21,8 +23,10 @@ export default function IntroCard({
   aboutMe: string;
   likes: string;
   dislikes: string;
+  emergency: { name: string; relation: string; phone: string; altPhone: string } | null;
+  urgentNotes: string;
 }) {
-  if (!hasPhoto && !aboutMe && !likes && !dislikes) return null;
+  if (!hasPhoto && !aboutMe && !likes && !dislikes && !emergency && !urgentNotes) return null;
 
   const firstName = childName.split(" ")[0] || childName;
   const initials = childName
@@ -56,6 +60,31 @@ export default function IntroCard({
           )}
         </div>
       </div>
+
+      {urgentNotes && (
+        <p className="intro-urgent">
+          <b>Before you start:</b> {urgentNotes}
+        </p>
+      )}
+
+      {emergency && (
+        <p className="intro-emergency">
+          <b>In an emergency</b> call {emergency.name}
+          {emergency.relation ? ` (${emergency.relation})` : ""}
+          {emergency.phone ? (
+            <>
+              {" — "}
+              <a href={`tel:${emergency.phone.replace(/[^\d+]/g, "")}`}>{emergency.phone}</a>
+            </>
+          ) : null}
+          {emergency.altPhone ? (
+            <>
+              {" or "}
+              <a href={`tel:${emergency.altPhone.replace(/[^\d+]/g, "")}`}>{emergency.altPhone}</a>
+            </>
+          ) : null}
+        </p>
+      )}
 
       {(likes || dislikes) && (
         <div className="intro-prefs">

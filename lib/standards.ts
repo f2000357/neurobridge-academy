@@ -38,3 +38,28 @@ export function getStandards(code?: string | null): StandardsProvider {
 export function listStandards(): StandardsProvider[] {
   return Object.values(PROVIDERS);
 }
+
+/**
+ * Which framework applies to a family in this state — and whether it is that
+ * state's own standards or the closest one we have implemented.
+ *
+ * Only NJ is implemented today. Rather than silently serving NJSLS to a family
+ * in Michigan, this reports `exact: false` so the UI can say so plainly. NJSLS
+ * derives from the Common Core, so for the many states whose standards are also
+ * Common Core-derived the maths and ELA progressions line up closely — but
+ * "closely" is not "exactly", and a parent deserves to know which they have.
+ */
+export function standardsForState(stateCode: string): {
+  provider: StandardsProvider;
+  exact: boolean;
+} {
+  const code = (stateCode ?? "").toUpperCase();
+  const provider = PROVIDERS[code];
+  if (provider) return { provider, exact: true };
+  return { provider: PROVIDERS[DEFAULT_STANDARDS], exact: false };
+}
+
+/** Which states we hold first-party standards for. */
+export function implementedStates(): string[] {
+  return Object.keys(PROVIDERS);
+}

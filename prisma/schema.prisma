@@ -182,6 +182,9 @@ model Child {
   archived            Boolean              @default(false) // deactivated: hidden from rosters, no learner access
   // Which standards framework this learner is held to (see lib/standards.ts).
   standardsCode       String               @default("NJ")
+  // The family's state. Decides which standards framework applies, and tells us
+  // which state to implement next when we don't hold theirs yet.
+  stateCode           String               @default("")
   // The grade the learner is enrolled in / expected to be at ("K", "1" … "12").
   // They may be working below it — the weekly planner treats this as the TARGET
   // and deliberately closes the gap as fast as the child can sustain.
@@ -217,6 +220,7 @@ model Child {
   access              ChildAccess[]
   guideInvites        GuideInvitation[]
   photo               ChildPhoto?
+  contact             ChildContact?
 }
 
 // A provider lesson (IXL) the child did off-platform and marked done. The
@@ -725,5 +729,43 @@ model ChildPhoto {
   child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
   mimeType  String
   data      String // base64-encoded image bytes
+  updatedAt DateTime @updatedAt
+}
+
+// Where the child lives and who to call. Kept in its own table because it is
+// the most sensitive record we hold about a learner: a home address and a
+// child's doctor. Separating it means no roster, schedule, or planner query
+// ever loads it by accident — only the screens that ask for it.
+//
+// Editing is restricted to the primary guardian (see lib/authz canEditIntro).
+// Specialists never see the address; they see the emergency contact only, which
+// is the one thing they might genuinely need mid-session.
+model ChildContact {
+  id      String @id @default(cuid())
+  childId String @unique
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  // Where they live
+  addressLine1 String @default("")
+  addressLine2 String @default("")
+  city         String @default("")
+  region       String @default("") // state / province
+  postalCode   String @default("")
+
+  // Who to call first if something happens
+  emergencyName     String @default("")
+  emergencyRelation String @default("") // "Mother", "Grandfather", "Neighbour"
+  emergencyPhone    String @default("")
+  emergencyAltPhone String @default("")
+
+  // Primary care
+  doctorName     String @default("")
+  doctorPractice String @default("")
+  doctorPhone    String @default("")
+
+  // Anything an adult in the room should know immediately — allergies, a
+  // seizure protocol, a medication timing. Deliberately free text.
+  urgentNotes String @default("")
+
   updatedAt DateTime @updatedAt
 }

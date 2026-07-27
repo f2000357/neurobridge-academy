@@ -12,7 +12,7 @@ import {
   providerBrowseUrl,
 } from "@/lib/contentIndex";
 import { usernameFrom } from "@/lib/username";
-import { getStandards } from "@/lib/standards";
+import { getStandards, standardsForState } from "@/lib/standards";
 import { guardOperate, guardOperatorPresent } from "@/lib/authz";
 import { assessmentById } from "@/lib/assessments";
 
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "save") {
-    const { childId, name, age, interests, notes, providers, gradeLevel } = body;
+    const { childId, name, age, interests, notes, providers, gradeLevel, stateCode } = body;
     // Give the child a friendly URL handle if they don't have one yet.
     const existing = await prisma.child.findUnique({ where: { id: childId }, select: { username: true } });
     const username =
@@ -126,6 +126,15 @@ export async function POST(req: NextRequest) {
         name: name?.trim() || undefined,
         age: age === "" || age == null ? null : Number(age),
         ...(typeof gradeLevel === "string" ? { gradeLevel } : {}),
+        // The family's state, and the standards framework it resolves to. Only
+        // NJ is implemented; everyone else gets it as the closest match, which
+        // the Setup screen says plainly rather than hiding.
+        ...(typeof stateCode === "string"
+          ? {
+              stateCode: stateCode.toUpperCase(),
+              standardsCode: standardsForState(stateCode).provider.code,
+            }
+          : {}),
         ...(username ? { username } : {}),
         // The family's subscriptions, CSV (drives which deep links we emit). An
         // empty string is meaningful — "we have none" — so it must persist too.

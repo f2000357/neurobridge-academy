@@ -10,7 +10,12 @@ import { activeProviders, providerName, DEFAULT_PROVIDER } from "@/lib/providers
 import InterestBlocks, { type InterestRow } from "./InterestBlocks";
 import Tests, { type TestRow } from "./Tests";
 import People, { type PersonRow, type HistoryRow } from "./People";
-import Profile, { type IntroData } from "./Profile";
+import Profile, { type IntroData, type ContactData, EMPTY_CONTACT } from "./Profile";
+import LearningProfile, { type ProfileData } from "./LearningProfile";
+import { US_STATES, stateName } from "@/lib/usStates";
+import { implementedStates } from "@/lib/standards";
+
+const IMPLEMENTED = implementedStates();
 
 export type ChildForm = {
   childId: string;
@@ -18,6 +23,7 @@ export type ChildForm = {
   name: string;
   age: number | null;
   gradeLevel: string; // enrolled grade — the target the plan works toward
+  stateCode: string; // which state's standards apply
   interests: string;
   notes: string;
   accessCode: string;
@@ -107,6 +113,8 @@ export default function AdminChild({
   intro,
   canEditProfile = false,
   primaryGuideName = null,
+  learningProfile = null,
+  contact = EMPTY_CONTACT,
 }: {
   initial: ChildForm;
   documents: DocMeta[];
@@ -126,6 +134,8 @@ export default function AdminChild({
   intro: IntroData;
   canEditProfile?: boolean;
   primaryGuideName?: string | null;
+  learningProfile?: ProfileData | null;
+  contact?: ContactData;
 }) {
   const REVIEW_CAP = 3;
   const router = useRouter();
@@ -133,7 +143,7 @@ export default function AdminChild({
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
-  const [tab, setTab] = useState<"profile" | "setup" | "iep" | "tests" | "lessons">("profile");
+  const [tab, setTab] = useState<"profile" | "standing" | "setup" | "iep" | "tests" | "lessons">("profile");
   const [uploadKind, setUploadKind] = useState("iep");
   const [review, setReview] = useState<IepReviewData>(iepReview);
   const [iepBusy, setIepBusy] = useState(false);
@@ -372,6 +382,7 @@ export default function AdminChild({
       <div className="row" role="tablist" aria-label="Child sections" style={{ gap: 6, marginTop: 12 }}>
         {([
           ["profile", "Profile"],
+          ["standing", "Where they stand"],
           ["setup", "Setup"],
           ["iep", "IEP support"],
           ["tests", "Tests"],
@@ -395,8 +406,17 @@ export default function AdminChild({
       )}
 
       {tab === "profile" && (
-        <Profile intro={intro} canEdit={canEditProfile} editorName={primaryGuideName} />
+        <Profile intro={intro} contact={contact} canEdit={canEditProfile} editorName={primaryGuideName} />
       )}
+
+      {tab === "standing" &&
+        (learningProfile ? (
+          <LearningProfile data={learningProfile} />
+        ) : (
+          <p className="muted" style={{ marginTop: 16 }}>
+            This learner&apos;s profile couldn&apos;t be built.
+          </p>
+        ))}
 
       {tab === "setup" && (
         <>
@@ -439,6 +459,50 @@ export default function AdminChild({
           The grade {form.name || "this child"} is enrolled in. Lessons meet them where they are, but
           the weekly plan works to close any gap and get them to grade level as fast as they can
           sustain.
+        </p>
+
+        {/* Which state's standards this child is held to. Every lesson, test and
+            weekly plan is generated against this framework. */}
+        <label className="lbl" style={{ marginTop: 16 }}>State</label>
+        <div className="row" style={{ gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select
+            className="field"
+            style={{ maxWidth: 260 }}
+            value={form.stateCode}
+            onChange={(e) => set("stateCode", e.target.value)}
+          >
+            <option value="">Choose a state…</option>
+            {US_STATES.map((st) => (
+              <option key={st.code} value={st.code}>
+                {st.name}
+                {IMPLEMENTED.includes(st.code) ? "" : " — approximate"}
+              </option>
+            ))}
+          </select>
+          {form.stateCode && (
+            <span className={`pill ${IMPLEMENTED.includes(form.stateCode) ? "good" : "warn"}`}>
+              {IMPLEMENTED.includes(form.stateCode) ? "Full standards" : "Closest match"}
+            </span>
+          )}
+        </div>
+        <p className="muted" style={{ margin: "6px 0 0", fontSize: "0.82rem" }}>
+          {form.stateCode && IMPLEMENTED.includes(form.stateCode) ? (
+            <>
+              Lessons, tests and weekly plans are generated against{" "}
+              <strong>{stateName(form.stateCode)}</strong>&apos;s own standards.
+            </>
+          ) : form.stateCode ? (
+            <>
+              We don&apos;t hold {stateName(form.stateCode)}&apos;s standards yet, so plans use the
+              New Jersey framework — Common Core–derived, so maths and ELA line up closely, but not
+              exactly. Telling us your state is how we decide which to add next.
+            </>
+          ) : (
+            <>
+              Which state&apos;s standards this child is held to. Every lesson and test is generated
+              against it.
+            </>
+          )}
         </p>
         <label className="lbl">Interests (used to personalize examples)</label>
         <input

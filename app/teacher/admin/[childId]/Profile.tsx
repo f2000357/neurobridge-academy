@@ -20,6 +20,28 @@ export type IntroData = {
   updatedAt: string | null;
 };
 
+export type ContactData = {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  emergencyName: string;
+  emergencyRelation: string;
+  emergencyPhone: string;
+  emergencyAltPhone: string;
+  doctorName: string;
+  doctorPractice: string;
+  doctorPhone: string;
+  urgentNotes: string;
+};
+
+export const EMPTY_CONTACT: ContactData = {
+  addressLine1: "", addressLine2: "", city: "", region: "", postalCode: "",
+  emergencyName: "", emergencyRelation: "", emergencyPhone: "", emergencyAltPhone: "",
+  doctorName: "", doctorPractice: "", doctorPhone: "", urgentNotes: "",
+};
+
 /**
  * Shrink to at most 512px on the long edge before upload. A modern phone photo
  * is several megabytes; the profile shows it at ~120px. Doing this in the
@@ -46,10 +68,12 @@ async function downscale(file: File): Promise<{ mimeType: string; data: string }
 
 export default function Profile({
   intro,
+  contact,
   canEdit,
   editorName,
 }: {
   intro: IntroData;
+  contact: ContactData;
   canEdit: boolean;
   editorName: string | null;
 }) {
@@ -65,6 +89,23 @@ export default function Profile({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [c, setC] = useState<ContactData>(contact);
+  const setField = (k: keyof ContactData, v: string) => setC((cur) => ({ ...cur, [k]: v }));
+  const contactDirty = (Object.keys(contact) as (keyof ContactData)[]).some(
+    (k) => c[k] !== contact[k]
+  );
+
+  async function saveContact() {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    const d = await post({ op: "saveContact", ...c });
+    setBusy(false);
+    if (d.error) return setError(d.error);
+    setNote("Contact details saved.");
+    router.refresh();
+  }
 
   const dirty =
     aboutMe !== intro.aboutMe || likes !== intro.likes || dislikes !== intro.dislikes;
@@ -257,6 +298,69 @@ export default function Profile({
           <p className="muted" style={{ fontSize: "0.8rem", marginTop: 12, marginBottom: 0 }}>
             Last updated {intro.updatedAt}.
           </p>
+        )}
+      </div>
+
+      {/* Address, emergency contact, doctor. Held apart from everything else in
+          the database and shown only here — a specialist sees the emergency
+          contact and nothing more. */}
+      <div className="card" style={{ marginTop: 12 }}>
+        <h2>Address &amp; contacts</h2>
+        <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
+          Kept private. The address is never shown to therapists or teachers — they see only who to
+          call in an emergency.
+        </p>
+
+        <p className="lbl" style={{ marginTop: 16 }}>Home address</p>
+        <input className="field" disabled={!canEdit} placeholder="Street address"
+          value={c.addressLine1} onChange={(e) => setField("addressLine1", e.target.value)} />
+        <input className="field" disabled={!canEdit} placeholder="Apartment, unit (optional)"
+          style={{ marginTop: 8 }}
+          value={c.addressLine2} onChange={(e) => setField("addressLine2", e.target.value)} />
+        <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <input className="field" disabled={!canEdit} placeholder="City" style={{ flex: "2 1 160px" }}
+            value={c.city} onChange={(e) => setField("city", e.target.value)} />
+          <input className="field" disabled={!canEdit} placeholder="State" style={{ flex: "1 1 90px" }}
+            value={c.region} onChange={(e) => setField("region", e.target.value)} />
+          <input className="field" disabled={!canEdit} placeholder="ZIP" style={{ flex: "1 1 90px" }}
+            value={c.postalCode} onChange={(e) => setField("postalCode", e.target.value)} />
+        </div>
+
+        <p className="lbl" style={{ marginTop: 20 }}>In an emergency, call</p>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <input className="field" disabled={!canEdit} placeholder="Name" style={{ flex: "2 1 160px" }}
+            value={c.emergencyName} onChange={(e) => setField("emergencyName", e.target.value)} />
+          <input className="field" disabled={!canEdit} placeholder="Relationship" style={{ flex: "1 1 120px" }}
+            value={c.emergencyRelation} onChange={(e) => setField("emergencyRelation", e.target.value)} />
+        </div>
+        <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <input className="field" disabled={!canEdit} type="tel" placeholder="Phone" style={{ flex: "1 1 150px" }}
+            value={c.emergencyPhone} onChange={(e) => setField("emergencyPhone", e.target.value)} />
+          <input className="field" disabled={!canEdit} type="tel" placeholder="Another number (optional)" style={{ flex: "1 1 150px" }}
+            value={c.emergencyAltPhone} onChange={(e) => setField("emergencyAltPhone", e.target.value)} />
+        </div>
+
+        <p className="lbl" style={{ marginTop: 20 }}>Primary care doctor</p>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <input className="field" disabled={!canEdit} placeholder="Doctor's name" style={{ flex: "1 1 160px" }}
+            value={c.doctorName} onChange={(e) => setField("doctorName", e.target.value)} />
+          <input className="field" disabled={!canEdit} type="tel" placeholder="Phone" style={{ flex: "1 1 140px" }}
+            value={c.doctorPhone} onChange={(e) => setField("doctorPhone", e.target.value)} />
+        </div>
+        <input className="field" disabled={!canEdit} placeholder="Practice or clinic (optional)"
+          style={{ marginTop: 8 }}
+          value={c.doctorPractice} onChange={(e) => setField("doctorPractice", e.target.value)} />
+
+        <p className="lbl" style={{ marginTop: 20 }}>Anything urgent an adult should know</p>
+        <textarea className="field" rows={3} disabled={!canEdit} maxLength={600}
+          placeholder="Allergies, a seizure protocol, medication timing — what someone in the room would need to know straight away."
+          value={c.urgentNotes} onChange={(e) => setField("urgentNotes", e.target.value)} />
+
+        {canEdit && (
+          <button className="btn" style={{ marginTop: 14 }} onClick={saveContact}
+            disabled={busy || !contactDirty}>
+            {busy ? "Saving…" : contactDirty ? "Save contact details" : "Saved"}
+          </button>
         )}
       </div>
     </>

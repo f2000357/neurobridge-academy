@@ -104,6 +104,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // ── where they live, who to call ──────────────────────────────────────────
+  // The most sensitive record we hold: a child's home address and their doctor.
+  // Same gate as the rest of the profile — the primary guardian alone.
+  if (op === "saveContact") {
+    const denied = await guardEditIntro(childId);
+    if (denied) return denied;
+
+    const f = (k: string, max = 120) => clean((body as Record<string, unknown>)[k], max);
+    const data = {
+      addressLine1: f("addressLine1"),
+      addressLine2: f("addressLine2"),
+      city: f("city", 80),
+      region: f("region", 80),
+      postalCode: f("postalCode", 20),
+      emergencyName: f("emergencyName", 80),
+      emergencyRelation: f("emergencyRelation", 60),
+      emergencyPhone: f("emergencyPhone", 40),
+      emergencyAltPhone: f("emergencyAltPhone", 40),
+      doctorName: f("doctorName", 80),
+      doctorPractice: f("doctorPractice", 120),
+      doctorPhone: f("doctorPhone", 40),
+      urgentNotes: f("urgentNotes", 600),
+    };
+
+    await prisma.childContact.upsert({
+      where: { childId },
+      create: { childId, ...data },
+      update: data,
+    });
+
+    // Logged as a profile change, but WITHOUT the values — an audit trail that
+    // repeated a home address would defeat the point of guarding it.
+    await audit({
+      actorId: me.id,
+      actorName: me.name,
+      action: AUDIT.profileUpdated,
+      childId,
+      detail: `updated ${child.name}'s address and contacts`,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   if (op === "removePhoto") {
     const denied = await guardEditIntro(childId);
     if (denied) return denied;
