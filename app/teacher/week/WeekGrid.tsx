@@ -491,23 +491,33 @@ export default function WeekGrid({
                           : KIND_LABEL[s.kind]
                       }
                     >
-                      <button className="wg-del" data-role="del" aria-label="Delete block" onClick={() => deleteSlot(s)}>
-                        ✕
-                      </button>
-                      {isLesson && s.lessonPlanId && (
-                        <a
-                          className="wg-preview"
-                          data-role="preview"
-                          href={`/preview/${s.lessonPlanId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          title="Preview this lesson"
-                          aria-label="Preview lesson"
+                      {/* Same toolbar as the day view. The week keeps only the
+                          two controls that fit a narrow column — arranging the
+                          week is a different job from running a session. */}
+                      <span className="wg-tools">
+                        {isLesson && s.lessonPlanId && (
+                          <a
+                            className="wg-tool wg-preview"
+                            data-role="preview"
+                            href={`/preview/${s.lessonPlanId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            title="Preview this lesson"
+                            aria-label="Preview lesson"
+                          >
+                            👁
+                          </a>
+                        )}
+                        <button
+                          className="wg-tool wg-del"
+                          data-role="del"
+                          aria-label="Delete block"
+                          onClick={() => deleteSlot(s)}
                         >
-                          👁
-                        </a>
-                      )}
+                          ✕
+                        </button>
+                      </span>
                       {isLesson ? (
                         // Subject is shown by the block's colour; time by its
                         // position — so use the whole block for the lesson name.

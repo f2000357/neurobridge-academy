@@ -1119,6 +1119,13 @@ select.field {
 .wg-preview:hover { background: var(--accent); }
 .wg-del:hover { background: var(--slot-break); color: #fff; }
 
+/* The week packs seven columns into the same width, so its blocks get smaller
+   controls and the text is kept clear of them. */
+/* Seven columns share the width one day gets, so the week's controls are
+   smaller. `.daygrid` already marks the single-day view. */
+.weekgrid:not(.daygrid) .wg-tools { gap: 2px; }
+.weekgrid:not(.daygrid) .wg-tool { width: 17px; height: 17px; font-size: 0.62rem; }
+
 /* A block that already has someone on it keeps that visible without hover. */
 .wg-block .wg-who.set { opacity: 0.85; background: var(--coral-soft); }
 
