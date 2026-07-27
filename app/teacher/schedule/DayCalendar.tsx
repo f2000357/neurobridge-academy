@@ -215,52 +215,54 @@ export default function DayCalendar({
                   onPointerDown={(e) => onBlockPointerDown(e, s)}
                   title={isLesson && s.lessonPlanId ? "Click to preview · drag to move" : "Drag to move"}
                 >
-                  <button
-                    className="wg-del"
-                    data-role="del"
-                    aria-label="Delete block"
-                    onClick={() => onDelete(s)}
-                  >
-                    ✕
-                  </button>
-                  {isLesson && s.lessonPlanId && (
-                    <a
-                      className="wg-preview"
-                      data-role="preview"
-                      href={`/preview/${s.lessonPlanId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      title="Preview this lesson"
-                      aria-label="Preview lesson"
-                    >
-                      👁
-                    </a>
-                  )}
-                  {!isLesson && Boolean(s.activity) && (
+                  <span className="wg-tools">
+                    {!isLesson && Boolean(s.activity) && (
+                      <>
+                        <button
+                          className="wg-tool wg-note"
+                          data-role="note"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => onNote(s)}
+                          title="Write up this session"
+                          aria-label="Write up this session"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className={`wg-tool wg-who ${s.teacherId ? "set" : ""}`}
+                          data-role="who"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => setWho({ slot: s, teacherId: s.teacherId ?? "" })}
+                          title="Who is running this session"
+                          aria-label="Who is running this session"
+                        >
+                          👤
+                        </button>
+                      </>
+                    )}
+                    {isLesson && s.lessonPlanId && (
+                      <a
+                        className="wg-tool wg-preview"
+                        data-role="preview"
+                        href={`/preview/${s.lessonPlanId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        title="Preview this lesson"
+                        aria-label="Preview lesson"
+                      >
+                        👁
+                      </a>
+                    )}
                     <button
-                      className="wg-note"
-                      data-role="note"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => onNote(s)}
-                      title="Write up this session"
-                      aria-label="Write up this session"
+                      className="wg-tool wg-del"
+                      data-role="del"
+                      aria-label="Delete block"
+                      onClick={() => onDelete(s)}
                     >
-                      ✎
+                      ✕
                     </button>
-                  )}
-                  {!isLesson && Boolean(s.activity) && (
-                    <button
-                      className="wg-who"
-                      data-role="who"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => setWho({ slot: s, teacherId: s.teacherId ?? "" })}
-                      title="Who is running this session"
-                      aria-label="Who is running this session"
-                    >
-                      {s.teacherId ? "👤" : "＋👤"}
-                    </button>
-                  )}
+                  </span>
                   <span className="wg-btitle">
                     {isLesson
                       ? subj

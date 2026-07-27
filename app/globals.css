@@ -1079,54 +1079,49 @@ select.field {
   box-shadow: var(--shadow);
 }
 /* Delete button on each block. */
-.wg-del {
+/* Block controls: one row, spaced by layout.
+   These used to be positioned individually with hand-picked `right` offsets,
+   which collided the moment a third and fourth were added. */
+.wg-tools {
   position: absolute;
   top: 3px;
   right: 3px;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.wg-tool {
   width: 20px;
   height: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
   line-height: 1;
   border-radius: 6px;
   border: none;
   background: color-mix(in srgb, var(--ink) 8%, transparent);
   color: var(--ink);
-  font-size: 0.72rem;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.wg-block:hover .wg-del,
-.wg-del:focus-visible {
-  opacity: 1;
-}
-.wg-del:hover {
-  background: var(--slot-break);
-  color: #fff;
-}
-/* Preview a lesson from its schedule block. */
-.wg-preview {
-  position: absolute;
-  top: 3px;
-  right: 26px;
-  width: 20px;
-  height: 20px;
-  line-height: 20px;
-  text-align: center;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   text-decoration: none;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.12s;
+  transition: opacity 0.12s, background 0.12s;
 }
-.wg-block:hover .wg-preview,
-.wg-preview:focus-visible {
+
+.wg-block:hover .wg-tool,
+.wg-tool:focus-visible {
   opacity: 1;
 }
-.wg-preview:hover {
-  background: var(--accent);
-}
+
+.wg-note:hover { background: var(--accent); color: #fff; }
+.wg-who:hover { background: var(--coral); color: #fff; }
+.wg-preview:hover { background: var(--accent); }
+.wg-del:hover { background: var(--slot-break); color: #fff; }
+
+/* A block that already has someone on it keeps that visible without hover. */
+.wg-block .wg-who.set { opacity: 0.85; background: var(--coral-soft); }
+
 /* The ghost of a block being added. */
 .wg-block.ghost {
   background: var(--accent-soft);
@@ -3679,21 +3674,6 @@ textarea.field {
   align-items: center;
 }
 
-/* Who is running a session — per block, since a child can have three piano
-   teachers across three slots. */
-.wg-who {
-  position: absolute;
-  top: 3px;
-  right: 22px;
-  font-size: 0.72rem;
-  line-height: 1;
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  opacity: 0.65;
-}
-.wg-who:hover { opacity: 1; }
 
 .wg-bwho {
   display: block;
@@ -3727,17 +3707,3 @@ textarea.field {
 /* Not yet awarded reads as the open action. */
 .award-cta { border-color: var(--accent); color: var(--accent); }
 
-/* Write up a session, from the guide's own day view. */
-.wg-note {
-  position: absolute;
-  top: 3px;
-  right: 40px;
-  font-size: 0.72rem;
-  line-height: 1;
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  opacity: 0.65;
-}
-.wg-note:hover { opacity: 1; }
