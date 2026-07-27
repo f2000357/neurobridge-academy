@@ -206,7 +206,10 @@ export async function POST(req: NextRequest) {
     const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(weekStart, i));
     const allSlots = await prisma.scheduleSlot.findMany({
       where: { childId, date: { in: dates }, kind: "lesson" },
-      include: { lessonPlan: { select: { subject: true } }, sessions: { select: { state: true } } },
+      include: {
+        lessonPlan: { select: { subject: true, workUrl: true } },
+        sessions: { select: { state: true } },
+      },
       orderBy: [{ date: "asc" }, { startMin: "asc" }],
     });
     // A lesson block's subject: its attached content's subject, else the subject
@@ -226,19 +229,77 @@ export async function POST(req: NextRequest) {
     // and finished lessons are history and stay exactly as they are.
     const today = todayStr();
     const isDone = (s: (typeof allSlots)[number]) => s.sessions.some((x) => x.state === "closed");
-    const slots = allSlots.filter((s) => s.date >= today && !isDone(s));
-    const upcomingSlotIds = slots.map((s) => s.id);
+
+    // Upcoming blocks that still need content.
+    //
+    // A block that ALREADY has a lesson the child simply hasn't got to is not a
+    // free slot — it is unfinished work. Regeneration used to overwrite those,
+    // because "no closed session" looked the same as "empty", so a Monday the
+    // child missed came back on Tuesday as a different skill entirely. The one
+    // exception is a lesson since mastered elsewhere: that is genuinely stale
+    // and should be replaced.
+    const doneAlready = await masteredSkillUrls(childId);
+    const stale = (s: (typeof allSlots)[number]) =>
+      Boolean(s.lessonPlan?.workUrl) && doneAlready.has(s.lessonPlan!.workUrl);
+
+    const upcoming = allSlots.filter((s) => s.date >= today && !isDone(s));
+    const carried = upcoming.filter((s) => s.lessonPlanId && !stale(s));
+    const slots = upcoming.filter((s) => !s.lessonPlanId || stale(s));
+    let upcomingSlotIds = slots.map((s) => s.id);
     if (slots.length === 0) {
       return NextResponse.json({
         ok: true,
         count: 0,
-        note: "No upcoming sessions left this week — past lessons stay as they are. Generate next week instead.",
+        note: carried.length
+          ? `Every upcoming block already has a lesson waiting (${carried.length}). Nothing was replaced — finish those, or unapprove one to swap it.`
+          : "No upcoming sessions left this week — past lessons stay as they are. Generate next week instead.",
       });
     }
 
+    // Work the child missed. A lesson sitting on a past day with no session was
+    // never started — it should follow them forward rather than quietly vanish
+    // into history. Each one takes the earliest free block of its own subject.
+    const missed = await prisma.scheduleSlot.findMany({
+      where: {
+        childId,
+        date: { lt: today },
+        kind: "lesson",
+        lessonPlanId: { not: null },
+        sessions: { none: { state: "closed" } },
+      },
+      include: { lessonPlan: { select: { subject: true, workUrl: true } } },
+      orderBy: [{ date: "asc" }, { startMin: "asc" }],
+    });
+
+    let carriedForward = 0;
+    const takenBySubject = new Map<string, typeof slots>();
+    for (const s of slots) {
+      const k = slotSubject(s);
+      if (!takenBySubject.has(k)) takenBySubject.set(k, []);
+      takenBySubject.get(k)!.push(s);
+    }
+    for (const m of missed) {
+      if (m.lessonPlan?.workUrl && doneAlready.has(m.lessonPlan.workUrl)) continue; // since mastered
+      const queue = takenBySubject.get(m.lessonPlan?.subject ?? "") ?? [];
+      const target = queue.shift();
+      if (!target) continue; // no room this week; it stays where it is
+      await prisma.scheduleSlot.update({
+        where: { id: target.id },
+        data: { lessonPlanId: m.lessonPlanId },
+      });
+      await prisma.scheduleSlot.update({ where: { id: m.id }, data: { lessonPlanId: null } });
+      carriedForward++;
+    }
+    // Blocks that just took missed work are no longer free.
+    const filled = new Set<string>();
+    for (const [, q] of takenBySubject) for (const s of q) filled.add(s.id);
+    const openSlots = slots.filter((s) => filled.has(s.id));
+    // Generation only touches what is still empty.
+    upcomingSlotIds = openSlots.map((s) => s.id);
+
     // Group upcoming blocks by subject, in day/time order — that order IS the ramp.
     const bySubject = new Map<string, typeof slots>();
-    for (const s of slots) {
+    for (const s of openSlots) {
       const subj = slotSubject(s);
       if (!bySubject.has(subj)) bySubject.set(subj, []);
       bySubject.get(subj)!.push(s);
@@ -411,7 +472,20 @@ export async function POST(req: NextRequest) {
       built++;
     }
 
-    return NextResponse.json({ ok: true, planId, count: rows.length, drafts: built });
+    return NextResponse.json({
+      ok: true,
+      planId,
+      count: rows.length,
+      drafts: built,
+      carriedForward,
+      kept: carried.length,
+      note: [
+        carriedForward ? `${carriedForward} unfinished lesson${carriedForward === 1 ? "" : "s"} moved forward` : "",
+        carried.length ? `${carried.length} already had a lesson and were left alone` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    });
   }
 
   if (op === "approve") {
