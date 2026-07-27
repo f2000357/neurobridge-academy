@@ -58,6 +58,36 @@ export async function canOperateChild(childId: string): Promise<boolean> {
   return can(childId, "manage");
 }
 
+/**
+ * May the current operator edit the child's introduction — the photo and the few
+ * sentences every adult who works with them reads?
+ *
+ * Deliberately NARROWER than every other check in this file. "manage" is shared
+ * by all guides, and centre/NeuroBridge admins override most things; none of
+ * that applies here. This is the parent's own description of their child, and it
+ * carries their voice, so only the primary guardian may change it. A second
+ * guide, a therapist, a centre, and NeuroBridge itself can all read it and none
+ * of them can rewrite it.
+ */
+export async function canEditIntro(childId: string): Promise<boolean> {
+  if (!childId) return false;
+  const user = await currentOperator();
+  if (!user) return false;
+  return (await roleOnChild(user.id, childId)) === "primary_guide";
+}
+
+/** For a route: 403 unless the caller is the child's primary guardian. */
+export async function guardEditIntro(childId: string): Promise<NextResponse | null> {
+  if (await canEditIntro(childId)) return null;
+  return NextResponse.json(
+    {
+      error:
+        "Only this child's main parent or guardian can change their profile. You can read it, but not edit it.",
+    },
+    { status: 403 }
+  );
+}
+
 /** The child themselves, signed in with their access code on their own device. */
 async function childIsSignedIn(childId: string): Promise<boolean> {
   const child = await prisma.child.findUnique({ where: { id: childId }, select: { accessCode: true } });

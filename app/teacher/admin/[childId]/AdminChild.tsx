@@ -10,6 +10,7 @@ import { activeProviders, providerName, DEFAULT_PROVIDER } from "@/lib/providers
 import InterestBlocks, { type InterestRow } from "./InterestBlocks";
 import Tests, { type TestRow } from "./Tests";
 import People, { type PersonRow, type HistoryRow } from "./People";
+import Profile, { type IntroData } from "./Profile";
 
 export type ChildForm = {
   childId: string;
@@ -103,6 +104,9 @@ export default function AdminChild({
   history = [],
   canManageAccess = false,
   meUserId = "",
+  intro,
+  canEditProfile = false,
+  primaryGuideName = null,
 }: {
   initial: ChildForm;
   documents: DocMeta[];
@@ -119,6 +123,9 @@ export default function AdminChild({
   history?: HistoryRow[];
   canManageAccess?: boolean;
   meUserId?: string;
+  intro: IntroData;
+  canEditProfile?: boolean;
+  primaryGuideName?: string | null;
 }) {
   const REVIEW_CAP = 3;
   const router = useRouter();
@@ -126,7 +133,7 @@ export default function AdminChild({
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
-  const [tab, setTab] = useState<"setup" | "iep" | "tests" | "lessons">("setup");
+  const [tab, setTab] = useState<"profile" | "setup" | "iep" | "tests" | "lessons">("profile");
   const [uploadKind, setUploadKind] = useState("iep");
   const [review, setReview] = useState<IepReviewData>(iepReview);
   const [iepBusy, setIepBusy] = useState(false);
@@ -364,6 +371,7 @@ export default function AdminChild({
 
       <div className="row" role="tablist" aria-label="Child sections" style={{ gap: 6, marginTop: 12 }}>
         {([
+          ["profile", "Profile"],
           ["setup", "Setup"],
           ["iep", "IEP support"],
           ["tests", "Tests"],
@@ -384,6 +392,10 @@ export default function AdminChild({
         <p className="muted" role="status" style={{ marginTop: 10 }}>
           {note}
         </p>
+      )}
+
+      {tab === "profile" && (
+        <Profile intro={intro} canEdit={canEditProfile} editorName={primaryGuideName} />
       )}
 
       {tab === "setup" && (

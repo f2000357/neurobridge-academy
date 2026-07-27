@@ -6,6 +6,7 @@ import { specialtyLabel } from "@/lib/specialists";
 import { activityLabel } from "@/lib/activities";
 import { todayStr, addDaysStr } from "@/lib/time";
 import TeachConsole, { type BlockRow, type NoteRow } from "./TeachConsole";
+import IntroCard from "./IntroCard";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,17 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
   if (!(await teacherCanSee(teacher.id, childId))) redirect("/teach");
 
   const [child, grant, roster] = await Promise.all([
-    prisma.child.findUnique({ where: { id: childId }, select: { id: true, name: true, age: true } }),
+    prisma.child.findUnique({
+      where: { id: childId },
+      select: {
+        id: true,
+        name: true,
+        age: true,
+        // The parent's own introduction — the first thing a therapist should read.
+        profile: { select: { aboutMe: true, likes: true, dislikes: true } },
+        photo: { select: { updatedAt: true } }, // presence only; bytes come from the image route
+      },
+    }),
     prisma.teacherAssignment.findUnique({
       where: { teacherId_childId: { teacherId: teacher.id, childId } },
     }),
@@ -111,6 +122,15 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
           </Link>
         )}
       </div>
+
+      <IntroCard
+        childId={child.id}
+        childName={child.name}
+        hasPhoto={Boolean(child.photo)}
+        aboutMe={child.profile?.aboutMe ?? ""}
+        likes={child.profile?.likes ?? ""}
+        dislikes={child.profile?.dislikes ?? ""}
+      />
 
       <TeachConsole
         childId={child.id}

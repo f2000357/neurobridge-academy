@@ -4,7 +4,8 @@ import AdminChild, { type ChildForm, type DocMeta, type Proposal, type LessonRow
 import { type PersonRow, type HistoryRow } from "./People";
 import { peopleForChild } from "@/lib/access";
 import { historyForChild } from "@/lib/audit";
-import { can } from "@/lib/authz";
+import { can, canEditIntro } from "@/lib/authz";
+import { type IntroData } from "./Profile";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -137,6 +138,26 @@ export default async function ChildAdminPage({
     }
   }
 
+  // The parent's introduction. `select` deliberately omits ChildPhoto.data —
+  // we only need to know whether a picture exists, not carry its bytes.
+  const photo = await prisma.childPhoto.findUnique({
+    where: { childId },
+    select: { updatedAt: true },
+  });
+  const canEditProfile = await canEditIntro(childId);
+  const primary = people.find((x) => x.role === "primary_guide");
+  const intro: IntroData = {
+    childId: child.id,
+    childName: child.name,
+    aboutMe: p?.aboutMe ?? "",
+    likes: p?.likes ?? "",
+    dislikes: p?.dislikes ?? "",
+    hasPhoto: Boolean(photo),
+    updatedAt: p?.introUpdatedAt
+      ? p.introUpdatedAt.toLocaleDateString(undefined, { dateStyle: "medium" })
+      : null,
+  };
+
   const interestBlocks = child.interestBlocks.map((i) => ({
     activity: i.activity,
     sessionsPerWeek: i.sessionsPerWeek,
@@ -161,6 +182,9 @@ export default async function ChildAdminPage({
       meUserId={me?.id ?? ""}
       tests={testRows}
       interestBlocks={interestBlocks}
+      intro={intro}
+      canEditProfile={canEditProfile}
+      primaryGuideName={primary?.name ?? null}
     />
   );
 }

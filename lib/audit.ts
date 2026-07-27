@@ -24,6 +24,8 @@ export const AUDIT = {
   weekGenerated: "week_generated",
   weekApproved: "week_approved",
   lessonUnapproved: "lesson_unapproved",
+  // profile — the parent's own description of their child
+  profileUpdated: "profile_updated",
   // sensitive
   iepReviewGenerated: "iep_review_generated",
   iepReviewsArchived: "iep_reviews_archived",
@@ -47,6 +49,7 @@ export const AUDIT_LABEL: Record<string, string> = {
   week_generated: "Generated the week's lessons",
   week_approved: "Approved the week",
   lesson_unapproved: "Took a lesson off the schedule",
+  profile_updated: "Updated the child's profile",
   iep_review_generated: "Generated an IEP review",
   iep_reviews_archived: "Archived IEP reviews",
   // legacy admin actions
