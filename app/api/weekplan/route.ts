@@ -278,16 +278,27 @@ export async function POST(req: NextRequest) {
       if (!takenBySubject.has(k)) takenBySubject.set(k, []);
       takenBySubject.get(k)!.push(s);
     }
+    // Anything already waiting on an upcoming block does not need carrying
+    // again — otherwise each regenerate would copy the same missed lesson into
+    // one more slot.
+    const alreadyAhead = new Set(
+      upcoming.map((s) => s.lessonPlanId).filter((id): id is string => Boolean(id))
+    );
     for (const m of missed) {
       if (m.lessonPlan?.workUrl && doneAlready.has(m.lessonPlan.workUrl)) continue; // since mastered
+      if (m.lessonPlanId && alreadyAhead.has(m.lessonPlanId)) continue; // already rescheduled
+      if (m.lessonPlanId) alreadyAhead.add(m.lessonPlanId);
       const queue = takenBySubject.get(m.lessonPlan?.subject ?? "") ?? [];
       const target = queue.shift();
       if (!target) continue; // no room this week; it stays where it is
+      // Give the missed lesson a future block — and leave Monday exactly as it
+      // was. History is a record of what was planned and what happened; a
+      // regenerate should never edit a day that has already been lived. The
+      // past block keeps its lesson, unstarted, which is the truth of it.
       await prisma.scheduleSlot.update({
         where: { id: target.id },
         data: { lessonPlanId: m.lessonPlanId },
       });
-      await prisma.scheduleSlot.update({ where: { id: m.id }, data: { lessonPlanId: null } });
       carriedForward++;
     }
     // Blocks that just took missed work are no longer free.
