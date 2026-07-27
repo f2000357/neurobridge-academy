@@ -3746,3 +3746,44 @@ textarea.field {
 }
 
 .note-clip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* "Keep going" — the offer to start the next lesson early.
+   Deliberately the loudest thing on the summary screen: a child who has just
+   finished well and wants more should not have to go looking. */
+.keep-going {
+  width: 100%;
+  max-width: 34rem;
+  margin: 4px auto 18px;
+  padding: 20px 22px;
+  border-radius: 20px;
+  background: linear-gradient(150deg, var(--accent) 55%, var(--coral));
+  color: var(--accent-ink);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.keep-going-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent-ink) 82%, transparent);
+}
+
+.keep-going-what {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.keep-going .btn {
+  background: var(--accent-ink);
+  color: var(--accent);
+}
+
+.keep-going-fine {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--accent-ink) 80%, transparent);
+}

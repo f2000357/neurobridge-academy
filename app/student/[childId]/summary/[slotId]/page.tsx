@@ -62,6 +62,37 @@ export default async function SummaryPage({
     currentSlot.kind === "flexible" ||
     currentSlot.kind === "free_time";
 
+  // What's next, if they want it.
+  //
+  // A child who finishes early used to have nowhere to go: their options were
+  // "do it again" or wait until tomorrow. Everything the product rewards —
+  // points for finished work, points for going further — stopped exactly where
+  // they were most willing to keep going.
+  //
+  // So: the next lesson that has content and hasn't been done, today or any day
+  // after. Doing it now completes that real block early, which means the plan
+  // already understands it — a finished session is skipped by regeneration, so
+  // nothing needs moving and tomorrow simply arrives lighter.
+  //
+  // Offered only when it went well. Pushing a child who just struggled straight
+  // into more work is the opposite of what this should feel like.
+  const wentWell = answers.length === 0 || correct / answers.length >= 0.8;
+  const nextUp = wentWell
+    ? await prisma.scheduleSlot.findFirst({
+        where: {
+          childId,
+          kind: "lesson",
+          lessonPlanId: { not: null },
+          id: { not: slot.id },
+          sessions: { none: { state: "closed" } },
+          OR: [{ date: { gt: slot.date } }, { date: slot.date, startMin: { gt: slot.startMin } }],
+        },
+        include: { lessonPlan: { select: { title: true, subject: true } } },
+        orderBy: [{ date: "asc" }, { startMin: "asc" }],
+      })
+    : null;
+  const nextIsLater = nextUp ? nextUp.date > slot.date : false;
+
   return (
     <>
       <header className="topbar kidbar">
@@ -101,8 +132,25 @@ export default async function SummaryPage({
             </p>
           </div>
 
+          {nextUp && (
+            <div className="keep-going">
+              <p className="keep-going-eyebrow">Feeling good?</p>
+              <p className="keep-going-what">
+                {nextIsLater ? "Tomorrow's" : "Your next"} {nextUp.lessonPlan?.subject || "lesson"} is
+                ready: <strong>{nextUp.lessonPlan?.title}</strong>
+              </p>
+              <Link className="btn big" href={`/student/${linkHandle}/session/${nextUp.id}`}>
+                Keep going →
+              </Link>
+              <p className="keep-going-fine">
+                You&apos;ll earn points for it, and it&apos;s one less thing{" "}
+                {nextIsLater ? "tomorrow" : "later"}.
+              </p>
+            </div>
+          )}
+
           {redoAllowed ? (
-            <Link className="btn big" href={`/student/${linkHandle}/session/${slot.id}`}>
+            <Link className={`btn ${nextUp ? "quiet" : "big"}`} href={`/student/${linkHandle}/session/${slot.id}`}>
               ↻ Do it again
             </Link>
           ) : (
