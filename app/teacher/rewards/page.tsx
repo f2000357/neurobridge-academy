@@ -3,13 +3,12 @@ import { prisma } from "@/lib/prisma";
 import RewardsManager from "./RewardsManager";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
+import { guideIdsForChildren } from "@/lib/rewards";
 
 export const dynamic = "force-dynamic";
 
 export default async function RewardsPage() {
-  const teacher = await getCurrentUser({
-    include: { rewards: { orderBy: { createdAt: "asc" } } },
-  });
+  const teacher = await getCurrentUser();
 
   // The learners this guide WORKS WITH, not the ones they happen to own.
   // `user.children` is Child.teacherId — a single owner — so a second guide
@@ -29,6 +28,12 @@ export default async function RewardsPage() {
   }
 
   // Recent redemptions across all children, for the activity feed.
+  // The shared shelf: prizes added by anyone who guides these children.
+  const rewards = await prisma.reward.findMany({
+    where: { teacherId: { in: await guideIdsForChildren(kids.map((c) => c.id)) } },
+    orderBy: { createdAt: "asc" },
+  });
+
   // Scoped to this guide's own learners. It used to read every redemption on
   // the platform, which showed one family another family's children.
   const redemptions = await prisma.redemption.findMany({
@@ -45,7 +50,7 @@ export default async function RewardsPage() {
         name: c.name,
         balance: c.points - c.pointsSpent,
       }))}
-      rewards={teacher.rewards.map((r) => ({
+      rewards={rewards.map((r) => ({
         id: r.id,
         name: r.name,
         cost: r.cost,

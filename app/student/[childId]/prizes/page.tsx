@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import KidLock from "../KidLock";
+import { guideIdsForChild } from "@/lib/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,11 @@ export default async function KidPrizes({
   const linkHandle = child.username ?? child.id;
   const balance = child.points - child.pointsSpent;
 
+  // Every guide's prizes, not just the owner's — the shelf belongs to the
+  // child, and shouldn't change depending on which adult set it up.
+  const guideIds = await guideIdsForChild(child.id);
   const rewards = await prisma.reward.findMany({
-    where: { teacherId: child.teacherId, active: true },
+    where: { teacherId: { in: guideIds }, active: true },
     orderBy: { cost: "asc" },
   });
 

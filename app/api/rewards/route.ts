@@ -10,7 +10,26 @@ async function ownsReward(rewardId: string): Promise<boolean> {
     prisma.reward.findUnique({ where: { id: rewardId }, select: { teacherId: true } }),
   ]);
   if (!me || !reward) return false;
-  return me.role === "neurable_admin" || reward.teacherId === me.id;
+  if (me.role === "neurable_admin" || reward.teacherId === me.id) return true;
+
+  // A guide who shares a child with the owner shares the shelf. Anything less
+  // means the person who typed the prize in is the only one who can fix a typo.
+  const mine = await prisma.childAccess.findMany({
+    where: { userId: me.id },
+    select: { childId: true },
+  });
+  if (mine.length === 0) return false;
+  const theirs = await prisma.childAccess.findFirst({
+    where: { userId: reward.teacherId, childId: { in: mine.map((c) => c.childId) } },
+    select: { id: true },
+  });
+  if (theirs) return true;
+  // Or the owner is the child's own account holder.
+  const owned = await prisma.child.findFirst({
+    where: { teacherId: reward.teacherId, id: { in: mine.map((c) => c.childId) } },
+    select: { id: true },
+  });
+  return Boolean(owned);
 }
 
 // Prizes the guide offers + guide-assisted redemptions.
