@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { tutorText } from "@/lib/ai";
-import { saveUpload, MAX_IMAGE_BYTES } from "@/lib/uploads";
+import { putObject, MAX_IMAGE_BYTES, storageConfigured } from "@/lib/storage";
 import { subjectKey } from "@/lib/subjects";
 import type { Prisma } from "@prisma/client";
 
@@ -192,14 +192,24 @@ async function handleAssetUpload(req: NextRequest) {
     return NextResponse.json({ error: "That image is too large — keep it under 8 MB." }, { status: 413 });
   }
 
-  const saved = await saveUpload(file, `lessons/${planId}`);
+  const put = await putObject(file, `lessons/${planId}`);
+  if (!put.ok) {
+    return NextResponse.json(
+      {
+        error: storageConfigured()
+          ? "That didn't upload. Try again in a moment."
+          : "Image uploads aren't set up on this deployment yet.",
+      },
+      { status: 502 }
+    );
+  }
   const asset = await prisma.lessonAsset.create({
     data: {
       lessonId: planId,
       filename: file.name || "image",
       mimeType: file.type,
       bytes: file.size,
-      path: saved.path,
+      path: put.key,
     },
   });
   return NextResponse.json({ ok: true, assetId: asset.id });

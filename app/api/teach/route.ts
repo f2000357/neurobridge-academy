@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTeacherCode } from "@/lib/specialists";
 import { getCurrentTeacher, teacherCanSee, TEACHER_COOKIE } from "@/lib/teacherAuth";
-import { saveUpload, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/uploads";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, putObject, storageConfigured } from "@/lib/storage";
 
 // The visiting specialist's own API: sign in with a code, then read only what
 // their live assignments allow and write notes about it.
@@ -128,6 +128,13 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ error: "unknown op" }, { status: 400 });
 }
 
+/** What to tell someone when the upload could not be stored. */
+function uploadError(reason: string): string {
+  return storageConfigured()
+    ? "That didn't upload. Try again in a moment."
+    : "Photos and videos aren't set up on this deployment yet.";
+}
+
 // A photo of the finished painting, or a short video of the swim stroke.
 async function handleUpload(req: NextRequest) {
   const teacher = await getCurrentTeacher();
@@ -143,6 +150,7 @@ async function handleUpload(req: NextRequest) {
   const note = await prisma.teacherNote.findFirst({ where: { id: noteId, teacherId: teacher.id } });
   if (!note) return NextResponse.json({ error: "not your note" }, { status: 403 });
 
+
   const isVideo = file.type.startsWith("video/");
   const isImage = file.type.startsWith("image/");
   if (!isVideo && !isImage) {
@@ -157,7 +165,12 @@ async function handleUpload(req: NextRequest) {
     );
   }
 
-  const saved = await saveUpload(file, note.childId);
+  const put = await putObject(file, note.childId);
+  if (!put.ok) {
+    // Say so rather than creating a row pointing at nothing — a note claiming a
+    // video that will not play is worse than a failed upload.
+    return NextResponse.json({ error: uploadError(put.reason) }, { status: 502 });
+  }
   const media = await prisma.teacherMedia.create({
     data: {
       noteId: note.id,
@@ -165,7 +178,7 @@ async function handleUpload(req: NextRequest) {
       mimeType: file.type,
       kind: isVideo ? "video" : "image",
       bytes: file.size,
-      path: saved.path,
+      path: put.key,
       caption: String(form.get("caption") ?? ""),
     },
   });

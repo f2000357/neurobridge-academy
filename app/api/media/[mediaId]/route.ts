@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createReadStream, statSync } from "node:fs";
-import { Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentTeacher, teacherCanSee } from "@/lib/teacherAuth";
-import { resolveUpload } from "@/lib/uploads";
+import { signedUrl, storageConfigured } from "@/lib/storage";
 
 // Serves a note's photo or video. Never public: an operator (guide, center,
 // NeuroBridge admin) or a specialist still assigned to that learner.
@@ -23,22 +21,20 @@ export async function GET(
   const allowed = await canRead(media.note.childId);
   if (!allowed) return new NextResponse("Not allowed", { status: 403 });
 
-  const abs = resolveUpload(media.path);
-  if (!abs) return new NextResponse("Not found", { status: 404 });
-  let size: number;
-  try {
-    size = statSync(abs).size;
-  } catch {
-    return new NextResponse("Not found", { status: 404 });
+  // Authorization happened above. Supabase carries the bytes from here — a
+  // 60MB video streamed through a serverless function hits every limit at once
+  // — but the link dies in two minutes, so it is not something to forward.
+  const url = await signedUrl(media.path, 120);
+  if (!url) {
+    return new NextResponse(
+      storageConfigured() ? "Could not fetch that file" : "Media storage is not configured",
+      { status: storageConfigured() ? 502 : 503 }
+    );
   }
-
-  const stream = Readable.toWeb(createReadStream(abs)) as ReadableStream;
-  return new NextResponse(stream, {
-    headers: {
-      "Content-Type": media.mimeType || "application/octet-stream",
-      "Content-Length": String(size),
-      "Cache-Control": "private, max-age=3600",
-    },
+  return NextResponse.redirect(url, {
+    // Never cached by anything shared: this is a photograph of a child, behind
+    // a URL that is about to expire.
+    headers: { "Cache-Control": "private, no-store" },
   });
 }
 

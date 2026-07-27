@@ -3714,3 +3714,35 @@ textarea.field {
 /* Not yet awarded reads as the open action. */
 .award-cta { border-color: var(--accent); color: var(--accent); }
 
+
+/* Photos and clips a specialist or guide attached to a session note. */
+.note-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.note-media img {
+  width: 108px;
+  height: 108px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.note-clip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.note-clip:hover { border-color: var(--accent); color: var(--accent); }

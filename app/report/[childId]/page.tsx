@@ -258,14 +258,30 @@ export default async function ReportPage({
                     <strong>Next time:</strong> {n.nextTime}
                   </p>
                 )}
-                {(n.focus != null || n.mediaCount > 0) && (
+                {n.focus != null && (
                   <p className="muted" style={{ margin: "2px 0", fontSize: "0.85rem" }}>
-                    {n.focus != null ? `Settled ${n.focus}/5` : ""}
-                    {n.focus != null && n.mediaCount > 0 ? " · " : ""}
-                    {n.mediaCount > 0
-                      ? `${n.mediaCount} photo${n.mediaCount === 1 ? "" : "s"} or video${n.mediaCount === 1 ? "" : "s"} attached`
-                      : ""}
+                    Settled {n.focus}/5
                   </p>
+                )}
+
+                {/* The pictures, not a count of them. For most parents this is
+                    the part of the day summary they actually came for. */}
+                {n.media.length > 0 && (
+                  <div className="note-media">
+                    {n.media.map((m) =>
+                      m.kind === "video" ? (
+                        <a key={m.id} className="note-clip" href={`/api/media/${m.id}`} target="_blank" rel="noreferrer">
+                          <span aria-hidden="true">▶</span>
+                          <span>{m.caption || "Watch the clip"}</span>
+                        </a>
+                      ) : (
+                        <a key={m.id} href={`/api/media/${m.id}`} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/api/media/${m.id}`} alt={m.caption || "From the session"} />
+                        </a>
+                      )
+                    )}
+                  </div>
                 )}
               </div>
             ))}

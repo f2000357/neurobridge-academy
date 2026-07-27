@@ -48,6 +48,8 @@ export type TeacherNoteSummary = {
   nextTime: string;
   focus: number | null;
   mediaCount: number;
+  /** The actual photos and clips — a parent came here to see them, not count them. */
+  media: { id: string; kind: string; caption: string }[];
 };
 
 // Report time window. "term" ≈ the last ~120 days; anything else = all time.
@@ -111,6 +113,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     where: { childId, ...(sinceStr ? { date: { gte: sinceStr } } : {}) },
     include: {
       ...withAuthor,
+      media: { select: { id: true, kind: true, caption: true } },
       _count: { select: { media: true } },
     },
     orderBy: { date: "desc" },
@@ -126,6 +129,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     nextTime: n.nextTime,
     focus: n.focus,
     mediaCount: n._count.media,
+    media: n.media.map((m) => ({ id: m.id, kind: m.kind, caption: m.caption })),
   }));
 
   const bySubject = new Map<string, { scores: number[]; mastered: Set<string> }>();
