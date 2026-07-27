@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentTeacher, teacherRoster } from "@/lib/teacherAuth";
 import { specialtyLabel } from "@/lib/specialists";
 import SignIn from "./SignIn";
+import ListingCard, { type ListingState } from "./ListingCard";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,27 @@ export default async function TeachHome() {
   if (!teacher) return <SignIn />;
 
   const roster = await teacherRoster(teacher.id);
-  if (roster.length === 1) redirect(`/teach/${roster[0].childId}`);
+  // One learner normally means going straight to them. Hold that back until
+  // we've asked the directory question once — otherwise the common case never
+  // gets asked at all.
+  const asked = Boolean(teacher.listedAskedAt);
+  if (roster.length === 1 && asked) redirect(`/teach/${roster[0].childId}`);
+
+  const listing: ListingState = {
+    name: teacher.name,
+    specialty: teacher.specialty,
+    listed: teacher.listed,
+    asked,
+    town: teacher.town,
+    region: teacher.region,
+    telehealth: teacher.telehealth,
+    credentials: teacher.credentials,
+    agesServed: teacher.agesServed,
+    blurb: teacher.blurb,
+    phone: teacher.phone,
+    takingClients: teacher.takingClients,
+    availableAt: teacher.availableAt ? teacher.availableAt.toISOString() : null,
+  };
 
   return (
     <main className="page wrap teach-wrap">
@@ -21,6 +42,8 @@ export default async function TeachHome() {
         {specialtyLabel(teacher.specialty)} · your learners are below. Notes you write are shared with
         the family, never with the child.
       </p>
+
+      <ListingCard state={listing} />
 
       {roster.length === 0 ? (
         <div className="card" style={{ marginTop: 18 }}>

@@ -46,6 +46,12 @@ const items: Item[] = [
     icon: icon("M4 20V10|M10 20V4|M16 20v-7|M22 20H2"),
   },
   {
+    href: "/teacher/find",
+    label: "Find help",
+    match: (p) => p.startsWith("/teacher/find"),
+    icon: icon("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z|M20 20l-4-4"),
+  },
+  {
     href: "/teacher/specialists",
     label: "Teachers",
     match: (p) => p.startsWith("/teacher/specialists"),

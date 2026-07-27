@@ -609,24 +609,46 @@ model ProgressNote {
 // code says who is writing. Only NeuroBridge admin can ever read it back; everyone
 // else adds a teacher and the code goes to the teacher directly.
 model SpecialistTeacher {
-  id            String                 @id @default(cuid())
-  email         String                 @unique // the identity key — one profile per person
+  id            String              @id @default(cuid())
+  email         String              @unique // the identity key — one profile per person
   name          String
-  phone         String                 @default("")
-  specialty     String                 @default("misc") // see SPECIALTIES in lib/specialists.ts
-  code          String                 @unique // "T" + 8 digits — never shown outside NeuroBridge admin
+  phone         String              @default("")
+  specialty     String              @default("misc") // see SPECIALTIES in lib/specialists.ts
+  code          String              @unique // "T" + 8 digits — never shown outside NeuroBridge admin
   // Whoever added them. Anyone may: a center admin, or a homeschool parent who
   // hired a piano teacher. It does not restrict who can assign them later.
   createdById   String
-  createdByName String                 @default("")
-  archived      Boolean                @default(false)
+  createdByName String              @default("")
+  archived      Boolean             @default(false)
   // Has the code actually reached them yet? Email/SMS delivery is not built,
   // so this stays false and NeuroBridge admin works the pending list by hand.
   codeSentAt    DateTime?
-  createdAt     DateTime               @default(now())
+  createdAt     DateTime            @default(now())
   assignments   TeacherAssignment[]
   notes         TeacherNote[]
-  loginTokens   SpecialistLoginToken[]
+  // ---- The directory ----------------------------------------------------
+  // A therapist's profile is only discoverable if THEY say so. These records are
+  // created by parents typing in someone else's name and number, so consent to
+  // be listed can only come from the person themselves — asked at their first
+  // sign-in, defaulting to no.
+  //
+  // A listing carries nothing derived from our data: no client counts, no
+  // ratings, no "added by N families". In a town with one ABA provider a count
+  // starts identifying families, and any quality signal would put NeuroBridge in
+  // the business of vouching for people who work alone with disabled children.
+  // The listing is the therapist's own words and nothing else.
+  listed        Boolean             @default(false) // opted in to being findable
+  listedAskedAt DateTime? // we asked once; don't nag on every sign-in
+  town          String              @default("") // how parents search, with specialty
+  region        String              @default("") // state, for disambiguating towns
+  telehealth    Boolean             @default(false)
+  credentials   String              @default("") // "BCBA", "MS OTR/L" — self-reported
+  agesServed    String              @default("") // "5–12", free text
+  blurb         String              @default("") // a few lines in their own words
+  takingClients Boolean             @default(false)
+  availableAt   DateTime? // when they last answered that — shown, so stale reads as stale
+
+  loginTokens SpecialistLoginToken[]
 }
 
 // The grant. Delete it and the learner disappears from the teacher's roster —
