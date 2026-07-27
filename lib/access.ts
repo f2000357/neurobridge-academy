@@ -100,18 +100,24 @@ export async function rosterChildIds(user: {
     const all = await prisma.child.findMany({ where: { archived: false }, select: { id: true } });
     return all.map((c) => c.id);
   }
-  if (user.role === "center_admin") {
-    const mine = await prisma.child.findMany({
-      where: { archived: false, centerId: user.centerId ?? "__none__" },
-      select: { id: true },
-    });
-    return mine.map((c) => c.id);
-  }
+  // A centre admin's roster is their centre's children PLUS any child they
+  // personally guide — the person running a co-op usually homeschools their own.
+  const centreIds =
+    user.role === "center_admin"
+      ? (
+          await prisma.child.findMany({
+            where: { archived: false, centerId: user.centerId ?? "__none__" },
+            select: { id: true },
+          })
+        ).map((c) => c.id)
+      : [];
+
   const rows = await prisma.childAccess.findMany({
     where: { userId: user.id },
     select: { childId: true, expiresAt: true },
   });
-  return rows.filter(live).map((r) => r.childId);
+  const ownIds = rows.filter(live).map((r) => r.childId);
+  return [...new Set([...centreIds, ...ownIds])];
 }
 
 /**

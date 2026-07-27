@@ -56,7 +56,10 @@ async function canRead(childId: string): Promise<boolean> {
       select: { teacherId: true, centerId: true },
     });
     if (!child) return false;
-    if (user.role === "center_admin") return Boolean(child.centerId) && child.centerId === user.centerId;
+    // Centre membership grants access on top of anything held as a guide.
+    if (user.role === "center_admin" && Boolean(child.centerId) && child.centerId === user.centerId) {
+      return true;
+    }
     return child.teacherId === user.id; // the guide
   }
   return false;

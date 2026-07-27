@@ -41,8 +41,15 @@ export async function can(childId: string, capability: Capability = "manage"): P
   if (!child) return false;
 
   if (user.role === "neurable_admin") return true;
-  if (user.role === "center_admin") {
-    return Boolean(child.centerId) && child.centerId === user.centerId;
+
+  // A centre admin covers every child in their centre, without needing a
+  // ChildAccess row. This is an ADDITION to whatever they hold personally, not
+  // a replacement: the same person is often a centre admin AND a parent — the
+  // one running the co-op is usually a homeschooling parent themselves. Falling
+  // through matters, or promoting a parent would quietly cut them off from their
+  // own child the moment that child isn't in the centre.
+  if (user.role === "center_admin" && Boolean(child.centerId) && child.centerId === user.centerId) {
+    return true;
   }
 
   const role = await roleOnChild(user.id, childId);

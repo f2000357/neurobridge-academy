@@ -212,7 +212,8 @@ export async function canReport(
 ): Promise<boolean> {
   if (!me) return false;
   if (me.role === "neurable_admin") return true;
-  if (me.role === "center_admin") return Boolean(me.centerId) && me.centerId === child.centerId;
-  if (me.role === "guide") return me.id === child.teacherId;
-  return false;
+  // Centre membership grants access, and does not remove what they hold as a
+  // guide — the same person is often both.
+  if (me.role === "center_admin" && Boolean(me.centerId) && me.centerId === child.centerId) return true;
+  return me.id === child.teacherId;
 }
