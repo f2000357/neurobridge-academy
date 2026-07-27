@@ -235,7 +235,7 @@ export default function DayCalendar({
                       👁
                     </a>
                   )}
-                  {!isLesson && specialists.length > 0 && (
+                  {!isLesson && Boolean(s.activity) && (
                     <button
                       className="wg-who"
                       data-role="who"
@@ -294,30 +294,49 @@ export default function DayCalendar({
           <p className="lbl" style={{ marginTop: 0 }}>
             Who is running {activityLabel(who.slot.activity) ?? "this session"}?
           </p>
-          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <select
-              className="field"
-              style={{ maxWidth: 240 }}
-              value={who.teacherId}
-              onChange={(e) => setWho({ ...who, teacherId: e.target.value })}
-            >
-              <option value="">You</option>
-              {specialists.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <button className="btn" onClick={saveWho}>
-              Save
-            </button>
-            <button className="btn quiet" onClick={() => setWho(null)}>
-              Cancel
-            </button>
-          </div>
-          <p className="muted" style={{ fontSize: "0.82rem", margin: "8px 0 0" }}>
-            Only this person can write the note for this session.
-          </p>
+          {specialists.length === 0 ? (
+            <>
+              <p className="muted" style={{ margin: "0 0 10px", fontSize: "0.9rem" }}>
+                You haven&apos;t added any teachers or therapists yet. Add one, then come back and
+                put them on this session.
+              </p>
+              <div className="row" style={{ gap: 8 }}>
+                <a className="btn" href="/teacher/specialists">
+                  Add a teacher →
+                </a>
+                <button className="btn quiet" onClick={() => setWho(null)}>
+                  Not now
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <select
+                  className="field"
+                  style={{ maxWidth: 240 }}
+                  value={who.teacherId}
+                  onChange={(e) => setWho({ ...who, teacherId: e.target.value })}
+                >
+                  <option value="">You</option>
+                  {specialists.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <button className="btn" onClick={saveWho}>
+                  Save
+                </button>
+                <button className="btn quiet" onClick={() => setWho(null)}>
+                  Cancel
+                </button>
+              </div>
+              <p className="muted" style={{ fontSize: "0.82rem", margin: "8px 0 0" }}>
+                Only this person can write the note for this session.
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -399,7 +418,7 @@ export default function DayCalendar({
               </label>
             )}
 
-            {specialists.length > 0 && add.kind !== "lesson" && (
+            {add.kind !== "lesson" && specialists.length > 0 && (
               <label className="inline muted">
                 Taught by
                 <select
