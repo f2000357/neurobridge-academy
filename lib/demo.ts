@@ -1,18 +1,24 @@
-// The passwordless account "Switch" is a demo/dev convenience: it lets you enter
-// any operator account without a password. That is fine locally, and it is what
-// makes a hosted demo easy to walk through — but on a real deployment holding
-// real children's data it would be an open door.
+// The passwordless account "Switch" lets you enter any operator account without
+// a password. That is a genuine convenience while building, and it is how the
+// early demos were walked through.
 //
-// So it is OPT-IN per deployment:
-//   • local dev (NODE_ENV !== production) → always on
-//   • hosted                              → only when DEMO_SWITCH=1 is set
+// It is now DEV-ONLY, and not configurable:
+//   • local dev (NODE_ENV !== production) → on
+//   • any production build                → off, always
 //
-// Turning a demo host back into a real one is an env-var change, not a code
-// change: unset DEMO_SWITCH and the switch disappears, leaving /login as the
-// only door.
-export const switchEnabled =
-  process.env.NODE_ENV !== "production" || process.env.DEMO_SWITCH === "1";
+// It used to be opt-in per deployment via DEMO_SWITCH=1, which is how it ended
+// up live on a production host that by then held a real child's IEP, photo,
+// home address and doctor. An env var is the wrong place for that decision: it
+// is invisible in review, survives redeploys, and nothing about adding real
+// data forces anyone to revisit it. So production no longer honours the flag at
+// all — DEMO_SWITCH can be set or unset and it changes nothing.
+//
+// To sign in on a deployed build, use /login.
+export const switchEnabled = process.env.NODE_ENV !== "production";
 
-/** True when the passwordless switch is live on a hosted (production) build. */
-export const demoSwitchOnHostedBuild =
-  process.env.NODE_ENV === "production" && process.env.DEMO_SWITCH === "1";
+/**
+ * True when the passwordless switch is live on a hosted build — now impossible
+ * by construction. Kept so callers that warn about it stay correct, and so the
+ * banner disappears rather than the import breaking.
+ */
+export const demoSwitchOnHostedBuild = false;

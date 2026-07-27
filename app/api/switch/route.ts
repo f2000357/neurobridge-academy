@@ -3,7 +3,7 @@ import { makeToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 import { switchEnabled } from "@/lib/demo";
 
 // Quick-login: become any operator without a password. On for local dev, and on
-// a hosted build ONLY when DEMO_SWITCH=1 (see lib/demo.ts) — otherwise /login is
+// local development only (see lib/demo.ts) — on a production build /login is
 // the only door. It mints a real signed session so the rest of the app behaves
 // exactly as it will in production.
 export async function GET(req: NextRequest) {
