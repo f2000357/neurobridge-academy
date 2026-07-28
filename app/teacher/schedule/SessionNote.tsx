@@ -62,6 +62,27 @@ export default function SessionNote({
     router.refresh();
   }
 
+  // Only ever your own note — the API checks `authorUserId` again, so this is a
+  // convenience, not the guard. Any photos or videos on it go with it.
+  async function remove() {
+    if (!target.noteId) return;
+    if (!confirm("Delete this note? Anything attached to it goes too, and it leaves the child's record.")) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/guide-note", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "deleteNote", noteId: target.noteId }),
+    });
+    const d = await res.json();
+    setBusy(false);
+    if (d.error) return setError(d.error);
+    onClose();
+    router.refresh();
+  }
+
   return (
     <div className="card" style={{ marginTop: 10 }}>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
@@ -121,13 +142,23 @@ export default function SessionNote({
         </p>
       )}
 
-      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+      <div className="row" style={{ gap: 8, marginTop: 12, alignItems: "center" }}>
         <button className="btn" onClick={save} disabled={busy || empty}>
           {busy ? "Saving…" : "Save note"}
         </button>
         <button className="btn quiet" onClick={onClose}>
           Cancel
         </button>
+        {target.noteId && (
+          <button
+            className="chip danger"
+            onClick={remove}
+            disabled={busy}
+            style={{ marginLeft: "auto" }}
+          >
+            Delete note
+          </button>
+        )}
       </div>
     </div>
   );

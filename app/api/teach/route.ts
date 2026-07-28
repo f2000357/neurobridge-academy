@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTeacherCode } from "@/lib/specialists";
 import { getCurrentTeacher, teacherCanSee, TEACHER_COOKIE } from "@/lib/teacherAuth";
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, putObject, storageConfigured } from "@/lib/storage";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, putObject, deleteObject, storageConfigured } from "@/lib/storage";
+
+// Said when a specialist reaches for something on a learner who is no longer
+// assigned to them. Their notes remain; they simply stop being theirs to change.
+const NOT_THEIRS_ANY_MORE =
+  "This learner isn't assigned to you any more, so their record is read-only for you.";
 
 // The visiting specialist's own API: sign in with a code, then read only what
 // their live assignments allow and write notes about it.
@@ -121,7 +126,42 @@ export async function POST(req: NextRequest) {
     if (!media || media.note.teacherId !== teacher.id) {
       return NextResponse.json({ error: "not yours" }, { status: 403 });
     }
+    // The learner is no longer theirs — the record is closed to them.
+    if (!(await teacherCanSee(teacher.id, media.note.childId))) {
+      return NextResponse.json({ error: NOT_THEIRS_ANY_MORE }, { status: 403 });
+    }
     await prisma.teacherMedia.delete({ where: { id: mediaId } });
+    // The row used to go without the object, leaving a paid-for orphan in the
+    // bucket that nothing referenced.
+    await deleteObject(media.path);
+    return NextResponse.json({ ok: true });
+  }
+
+  // A specialist removing a note they wrote.
+  //
+  // Only while the learner is still theirs. Once a family unassigns them the
+  // record is closed: notes stay because they are the child's record and the
+  // evidence behind a review, and someone on their way out must not be able to
+  // thin that out. `teacherCanSee` is the whole rule — it is false the moment
+  // the assignment is gone.
+  if (op === "deleteNote") {
+    const { noteId } = body as { noteId: string };
+    const own = await prisma.teacherNote.findFirst({
+      where: { id: noteId, teacherId: teacher.id },
+      select: { id: true, childId: true },
+    });
+    if (!own) return NextResponse.json({ error: "That note isn't yours." }, { status: 403 });
+    if (!(await teacherCanSee(teacher.id, own.childId))) {
+      return NextResponse.json({ error: NOT_THEIRS_ANY_MORE }, { status: 403 });
+    }
+    const files = await prisma.teacherMedia.findMany({
+      where: { noteId },
+      select: { path: true },
+    });
+    await prisma.teacherNote.delete({ where: { id: noteId } });
+    // Best-effort, as elsewhere: the row is gone either way, and an orphaned
+    // object is cheaper than a delete that fails halfway.
+    for (const f of files) await deleteObject(f.path);
     return NextResponse.json({ ok: true });
   }
 

@@ -101,6 +101,8 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     label:
       activityLabel(s.activity) ??
       (s.lessonPlan ? `${s.lessonPlan.subject} · ${s.lessonPlan.title}` : "Session"),
+    kind: s.kind,
+    subject: s.subject ?? "",
     lessonTitle: s.lessonPlan?.title ?? "",
     lessonGoal: s.lessonPlan?.goal ?? "",
     lessonTopic: s.lessonPlan?.topic ?? "",
@@ -144,11 +146,11 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
             {child.age != null ? ` · age ${child.age}` : ""}
           </p>
         </div>
-        {roster.length > 1 && (
-          <Link className="btn quiet" href="/teach">
-            My learners →
-          </Link>
-        )}
+        {/* Always a way back to their own page. With one learner this used to
+            be hidden, which sealed them inside that child's record. */}
+        <Link className="btn quiet" href="/teach?me=1">
+          {roster.length > 1 ? "My learners →" : "My details →"}
+        </Link>
       </div>
 
       <IntroCard

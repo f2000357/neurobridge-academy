@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { specialtyLabel } from "@/lib/specialists";
 import { fmtMin, weekdayShort } from "@/lib/time";
 
+// 100px per hour — the guide's schedule uses the same scale.
+const PX_PER_MIN = 100 / 60;
+
 // Written at 9pm on a phone, in the car, after the lesson. One required box,
 // three optional, and a camera button. Anything longer never gets filled in.
 
@@ -14,6 +17,9 @@ export type BlockRow = {
   startMin: number;
   endMin: number;
   label: string;
+  /** Block shape — drives the same colours the guide's calendar uses. */
+  kind: string;
+  subject: string;
   lessonTitle: string;
   lessonGoal: string;
   lessonTopic: string;
@@ -95,7 +101,29 @@ export default function TeachConsole({
   const unwritten = blocks.filter((b) => !b.noteId && b.canNote);
   // Every session that is theirs — the note list is a to-do, this is the record.
   const mine = blocks.filter((b) => b.canNote);
-  const context = blocks.filter((b) => !b.canNote);
+
+  // The day view below. `blocks` spans three weeks, so showing them all at once
+  // was a flat scroll of undated rows under a heading that said "day" — you
+  // could not tell where a session sat, or what came before it. One date at a
+  // time, whole day, gaps included, so the shape of it reads.
+  // `blocks` arrives date-desc, so this is newest first.
+  const dates = [...new Set(blocks.map((b) => b.date))];
+  const [dayDate, setDayDate] = useState(dates[0] ?? today);
+  const day = blocks
+    .filter((b) => b.date === dayDate)
+    .sort((a, b) => a.startMin - b.startMin);
+
+  // Same scale as the guide's schedule, so a therapist and a parent are looking
+  // at the day at the same size. The window covers 9–3 at minimum and stretches
+  // to whole hours around anything outside it.
+  const dayStarts = day.map((b) => b.startMin);
+  const dayEnds = day.map((b) => b.endMin);
+  const winStart = Math.floor(Math.min(9 * 60, ...(dayStarts.length ? dayStarts : [9 * 60])) / 60) * 60;
+  const winEnd = Math.ceil(Math.max(15 * 60, ...(dayEnds.length ? dayEnds : [15 * 60])) / 60) * 60;
+  const gridTop = (m: number) => (m - winStart) * PX_PER_MIN;
+  const dayHeight = (winEnd - winStart) * PX_PER_MIN;
+  const dayHours: number[] = [];
+  for (let m = winStart; m <= winEnd; m += 60) dayHours.push(m);
 
   // Points for a session they supervised. No provider score here — the adult who
   // was in the room says how it went. One award per session; awarding again
@@ -174,6 +202,48 @@ export default function TeachConsole({
     setDraft((d) => (d ? { ...d, noteId: data.noteId } : d));
     setNote("Saved. Add a photo or video below, or close this.");
     router.refresh();
+    return data.noteId as string;
+  }
+
+  // Media hangs off a saved note, so there is nothing to attach to until the
+  // note exists. That used to be expressed by disabling the button, with the
+  // reason in a `title` — which browsers do not show on a disabled control, so
+  // it simply read as broken. Save first, then open the picker.
+  // Yours to remove only while this learner is still assigned to you — the
+  // server decides that, and says so plainly if the answer is no.
+  async function removeNote(noteId: string) {
+    if (!confirm("Delete this note? Anything attached to it goes too, and it leaves the child's record.")) {
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    const res = await fetch("/api/teach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "deleteNote", noteId }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!data.ok) {
+      setNote(data.error ?? "Could not delete that note.");
+      return;
+    }
+    if (draft?.noteId === noteId) setDraft(null);
+    setNote("Deleted.");
+    router.refresh();
+  }
+
+  async function pickMedia() {
+    let target = mediaNoteId ?? draft?.noteId ?? null;
+    if (!target) {
+      if (!draft?.whatWeDid.trim()) {
+        setNote("Write what you did first — then the photo has something to attach to.");
+        return;
+      }
+      target = (await save()) ?? null;
+      if (!target) return;
+    }
+    fileRef.current?.click();
   }
 
   async function upload(files: FileList) {
@@ -290,23 +360,73 @@ export default function TeachConsole({
         </div>
       )}
 
-      {/* The rest of the child's day — context only, not yours to write up. */}
-      {context.length > 0 && (
+      {/* The child's whole day, one date at a time. Read-only: only their own
+          sessions are theirs to write up, and those are marked. */}
+      {dates.length > 0 && (
         <div className="card" style={{ marginTop: 18 }}>
-          <h2>The rest of {childName}&apos;s day</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
-            For context — how the day ran around your session. These aren&apos;t yours to write up.
-          </p>
-          <div className="stack" style={{ gap: 4, maxHeight: 300, overflowY: "auto" }}>
-            {context.map((b) => (
-              <div key={b.id} className="row" style={{ gap: 10, fontSize: "0.85rem", opacity: 0.85 }}>
-                <span className="muted" style={{ minWidth: 108, fontVariantNumeric: "tabular-nums" }}>
-                  {weekdayShort(b.date)} · {fmtMin(b.startMin)}
-                </span>
-                <span>{b.label}</span>
-              </div>
-            ))}
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <h2 style={{ margin: 0 }}>{childName}&apos;s day</h2>
+            <select
+              className="field short"
+              value={dayDate}
+              onChange={(e) => setDayDate(e.target.value)}
+              aria-label="Which day"
+            >
+              {dates.map((d) => (
+                <option key={d} value={d}>
+                  {weekdayShort(d)} {d}
+                </option>
+              ))}
+            </select>
           </div>
+          <p className="muted" style={{ marginTop: 6, fontSize: "0.85rem" }}>
+            The whole day, so you can see where your session sat in it. Only the blocks marked{" "}
+            <b>yours</b> are yours to write up.
+          </p>
+
+          {day.length === 0 ? (
+            <p className="muted" style={{ fontSize: "0.85rem" }}>Nothing was scheduled that day.</p>
+          ) : (
+            // The same grid the guide sees on their own schedule — one column
+            // instead of five, and nothing draggable. Gaps are real space here,
+            // so the shape of the day reads without having to be described.
+            <div className="wg-body" style={{ gridTemplateColumns: "56px 1fr", height: dayHeight }}>
+              <div className="wg-times">
+                {dayHours.map((m) => (
+                  <div key={m} className="wg-time" style={{ top: gridTop(m) }}>
+                    {fmtMin(m)}
+                  </div>
+                ))}
+              </div>
+              <div className="wg-col">
+                {dayHours.map((m) => (
+                  <div key={m} className="wg-hourline" style={{ top: gridTop(m) }} />
+                ))}
+                {day.map((b) => (
+                  <div
+                    key={b.id}
+                    className={`wg-block k-${b.kind}${b.subject ? ` subj-${b.subject}` : ""}`}
+                    style={{
+                      top: gridTop(b.startMin),
+                      height: (b.endMin - b.startMin) * PX_PER_MIN,
+                      cursor: "default",
+                      // Theirs stands out; the rest of the day recedes but stays legible.
+                      opacity: b.canNote ? 1 : 0.55,
+                      outline: b.canNote ? "2px solid var(--accent)" : "none",
+                    }}
+                    title={`${fmtMin(b.startMin)}–${fmtMin(b.endMin)} · ${b.label}`}
+                  >
+                    <span className="wg-btitle">{b.label}</span>
+                    <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>
+                      {fmtMin(b.startMin)}–{fmtMin(b.endMin)}
+                      {b.canNote ? " · yours" : ""}
+                      {b.canNote && b.noteId ? " · noted" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -382,14 +502,7 @@ export default function TeachConsole({
             <button className="btn" onClick={save} disabled={busy || !draft.whatWeDid.trim()}>
               {busy ? "Saving…" : draft.noteId ? "Save changes" : "Save note"}
             </button>
-            <button
-              className="btn quiet"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy || !(mediaNoteId ?? draft.noteId)}
-              title={
-                mediaNoteId ?? draft.noteId ? "Add a photo or video" : "Save the note first"
-              }
-            >
+            <button className="btn quiet" onClick={pickMedia} disabled={busy}>
               📷 Photo or video
             </button>
             {note && <span className="muted">{note}</span>}
@@ -398,7 +511,6 @@ export default function TeachConsole({
             ref={fileRef}
             type="file"
             accept="image/*,video/*"
-            capture="environment"
             multiple
             hidden
             onChange={(e) => e.target.files && upload(e.target.files)}
@@ -465,26 +577,35 @@ export default function TeachConsole({
                 </div>
               )}
               {n.authorId === teacherId && (
-                <button
-                  className="chip"
-                  style={{ marginTop: 8 }}
-                  onClick={() => {
-                    setDraft({
-                      noteId: n.id,
-                      slotId: n.slotId,
-                      date: n.date,
-                      whatWeDid: n.whatWeDid,
-                      wentWell: n.wentWell,
-                      struggledWith: n.struggledWith,
-                      nextTime: n.nextTime,
-                      focus: n.focus == null ? "" : String(n.focus),
-                    });
-                    setMediaNoteId(n.id);
-                    setNote(null);
-                  }}
-                >
-                  Edit
-                </button>
+                <div className="row" style={{ gap: 8, marginTop: 8, alignItems: "center" }}>
+                  <button
+                    className="chip"
+                    onClick={() => {
+                      setDraft({
+                        noteId: n.id,
+                        slotId: n.slotId,
+                        date: n.date,
+                        whatWeDid: n.whatWeDid,
+                        wentWell: n.wentWell,
+                        struggledWith: n.struggledWith,
+                        nextTime: n.nextTime,
+                        focus: n.focus == null ? "" : String(n.focus),
+                      });
+                      setMediaNoteId(n.id);
+                      setNote(null);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="chip danger"
+                    onClick={() => removeNote(n.id)}
+                    disabled={busy}
+                    style={{ marginLeft: "auto" }}
+                  >
+                    Delete
+                  </button>
+                </div>
               )}
             </div>
           ))}
