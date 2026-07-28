@@ -95,6 +95,47 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // A lesson pays out its BEST attempt, once.
+    //
+    // Points are handed out live, answer by answer, so by the time we get here
+    // the child has been paid for this attempt on top of anything an earlier
+    // attempt already earned. Left alone, replaying one easy lesson would print
+    // stars forever — and the only thing preventing that was a rule about WHEN
+    // a repeat was allowed, which is the wrong place to solve it.
+    //
+    // Correcting by min(paidBefore, thisAttempt) leaves the slot paid at
+    // max(paidBefore, thisAttempt): improve on your score and you collect the
+    // difference, repeat something you had already aced and you collect
+    // nothing. Crucially you can never LOSE stars by trying again — a retry
+    // that goes badly costs a child nothing, which is the only version of this
+    // worth shipping to someone who found it hard the first time.
+    const priorPaid = await prisma.pointEvent.aggregate({
+      where: {
+        childId: session.childId,
+        session: { slotId: session.slotId, state: "closed", id: { not: session.id } },
+      },
+      _sum: { points: true },
+    });
+    const paidBefore = priorPaid._sum.points ?? 0;
+    const correction = Math.min(paidBefore, session.pointsEarned);
+    if (correction > 0) {
+      await prisma.$transaction([
+        prisma.pointEvent.create({
+          data: {
+            childId: session.childId,
+            sessionId: session.id,
+            points: -correction,
+            kind: "repeat",
+            date: todayStr(),
+          },
+        }),
+        prisma.child.update({
+          where: { id: session.childId },
+          data: { points: { decrement: correction } },
+        }),
+      ]);
+    }
+
     // Turn the signal stream into the guide's plain-language report.
     const answers = session.signals.filter((s) => s.kind === "answer");
     const rights = answers.filter((s) => JSON.parse(s.payload).correct).length;

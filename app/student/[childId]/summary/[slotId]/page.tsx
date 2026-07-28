@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { fmtMin, nowMin, todayStr } from "@/lib/time";
+import { fmtMin } from "@/lib/time";
+import { subjectLabel } from "@/lib/subjects";
 
 export const dynamic = "force-dynamic";
 
 // A calm, kid-friendly recap of a finished lesson — viewable anytime.
-// "Do it again" is allowed in the lesson's own slot, flexible/free time, or after hours.
+// From here a child can go further in the same subject, or do this one again.
 export default async function SummaryPage({
   params,
 }: {
@@ -47,51 +48,55 @@ export default async function SummaryPage({
   const feeling = reflection ? (JSON.parse(reflection.payload).feeling as string) : null;
   const points = session.pointsEarned;
 
-  // Is redo allowed right now?
-  const daySlots = await prisma.scheduleSlot.findMany({
-    where: { childId, date: todayStr() },
-    select: { id: true, kind: true, startMin: true, endMin: true },
-  });
-  const now = nowMin();
-  const currentSlot = daySlots.find((s) => s.startMin <= now && now < s.endMin);
-  const isSameDay = slot.date === todayStr();
-  const redoAllowed =
-    !isSameDay || // a past day → after hours
-    !currentSlot || // between slots / after school
-    currentSlot.id === slot.id || // this lesson's own slot
-    currentSlot.kind === "flexible" ||
-    currentSlot.kind === "free_time";
+  // Redo is always allowed now.
+  //
+  // It used to be fenced to the lesson's own slot, flexible time or after
+  // hours, and that fence was really protecting the points: nothing stopped a
+  // repeat from paying out again, so the only defence was refusing to let it
+  // happen. That is backwards — it protected the stars by restricting the
+  // learning, and told a child who wanted to practise "not now".
+  //
+  // The points rule moved to where it belongs: a lesson pays its best attempt
+  // once (see /api/session, op "complete"), so a repeat can only ever earn the
+  // improvement. With no way to farm, there is no reason left to say no.
 
-  // What's next, if they want it.
+  // Where to go next, if they want it.
   //
-  // A child who finishes early used to have nowhere to go: their options were
-  // "do it again" or wait until tomorrow. Everything the product rewards —
-  // points for finished work, points for going further — stopped exactly where
-  // they were most willing to keep going.
-  //
-  // So: the next lesson that has content and hasn't been done, today or any day
-  // after. Doing it now completes that real block early, which means the plan
-  // already understands it — a finished session is skipped by regeneration, so
-  // nothing needs moving and tomorrow simply arrives lighter.
+  // Doing a later lesson now completes that real block early, which the plan
+  // already understands — a finished session is skipped by regeneration, so
+  // nothing needs moving and the week simply arrives lighter.
   //
   // Offered only when it went well. Pushing a child who just struggled straight
-  // into more work is the opposite of what this should feel like.
+  // into more work is the opposite of what this should feel like; for them the
+  // prominent option is "do it again", which can now only earn them more.
   const wentWell = answers.length === 0 || correct / answers.length >= 0.8;
-  const nextUp = wentWell
+
+  // Anything unfinished with real content, from this lesson onward.
+  const laterUnfinished = {
+    childId,
+    kind: "lesson",
+    lessonPlanId: { not: null },
+    id: { not: slot.id },
+    sessions: { none: { state: "closed" } },
+    OR: [
+      { date: { gt: slot.date } },
+      { date: slot.date, startMin: { gt: slot.startMin } },
+    ],
+  };
+
+  // Going further in the SUBJECT they just did, which is what a child on a roll
+  // actually wants. It used to offer only whatever came next on the clock, so
+  // finishing maths well pushed you into reading — there was no way to keep
+  // climbing in one subject. This looks anywhere ahead in the plan, not only at
+  // the block that happens to be next.
+  const moreOfSame = wentWell
     ? await prisma.scheduleSlot.findFirst({
-        where: {
-          childId,
-          kind: "lesson",
-          lessonPlanId: { not: null },
-          id: { not: slot.id },
-          sessions: { none: { state: "closed" } },
-          OR: [{ date: { gt: slot.date } }, { date: slot.date, startMin: { gt: slot.startMin } }],
-        },
+        where: { ...laterUnfinished, lessonPlan: { subject: slot.lessonPlan.subject } },
         include: { lessonPlan: { select: { title: true, subject: true } } },
         orderBy: [{ date: "asc" }, { startMin: "asc" }],
       })
     : null;
-  const nextIsLater = nextUp ? nextUp.date > slot.date : false;
+
 
   return (
     <>
@@ -132,31 +137,35 @@ export default async function SummaryPage({
             </p>
           </div>
 
-          {nextUp && (
+          {/* Going further in the same subject leads — that is what "I'm on a
+              roll with maths" wants, and it was the option that did not exist. */}
+          {moreOfSame && (
             <div className="keep-going">
               <p className="keep-going-eyebrow">Feeling good?</p>
               <p className="keep-going-what">
-                {nextIsLater ? "Tomorrow's" : "Your next"} {nextUp.lessonPlan?.subject || "lesson"} is
-                ready: <strong>{nextUp.lessonPlan?.title}</strong>
+                The next {subjectLabel(moreOfSame.lessonPlan?.subject || "")} is ready:{" "}
+                <strong>{moreOfSame.lessonPlan?.title}</strong>
               </p>
-              <Link className="btn big" href={`/student/${linkHandle}/session/${nextUp.id}`}>
-                Keep going →
+              <Link className="btn big" href={`/student/${linkHandle}/session/${moreOfSame.id}`}>
+                More {subjectLabel(moreOfSame.lessonPlan?.subject || "")} →
               </Link>
               <p className="keep-going-fine">
-                You&apos;ll earn points for it, and it&apos;s one less thing{" "}
-                {nextIsLater ? "tomorrow" : "later"}.
+                You&apos;ll earn points for it, and it&apos;s one less thing later.
               </p>
             </div>
           )}
 
-          {redoAllowed ? (
-            <Link className={`btn ${nextUp ? "quiet" : "big"}`} href={`/student/${linkHandle}/session/${slot.id}`}>
-              ↻ Do it again
-            </Link>
-          ) : (
-            <p className="muted" style={{ maxWidth: "40ch" }}>
-              You can do this one again during flexible time or after school. Right now, let&apos;s
-              stay with what&apos;s on your list. 🌱
+
+          <Link
+            className={`btn ${moreOfSame ? "quiet" : "big"}`}
+            href={`/student/${linkHandle}/session/${slot.id}`}
+          >
+            ↻ Do it again
+          </Link>
+          {points > 0 && (
+            <p className="muted" style={{ maxWidth: "42ch", fontSize: "0.85rem" }}>
+              You keep your {points} ⭐ whatever happens. Beat your score and you&apos;ll collect the
+              difference.
             </p>
           )}
 
