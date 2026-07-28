@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTeacherCode } from "@/lib/specialists";
 import { getCurrentTeacher, teacherCanSee, TEACHER_COOKIE } from "@/lib/teacherAuth";
+import { todayStr } from "@/lib/time";
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, putObject, deleteObject, storageConfigured } from "@/lib/storage";
 
 // Said when a specialist reaches for something on a learner who is no longer
@@ -60,6 +61,15 @@ export async function POST(req: NextRequest) {
     };
     if (!(await teacherCanSee(teacher.id, childId))) {
       return NextResponse.json({ error: "not your learner" }, { status: 403 });
+    }
+    // The console now shows a fortnight ahead so they know when they are next
+    // expected. Seeing a future session is not the same as being able to write
+    // it up, and only the date input was stopping that.
+    if (String(date ?? "") > todayStr()) {
+      return NextResponse.json(
+        { error: "That session hasn't happened yet." },
+        { status: 400 }
+      );
     }
     const grant = await prisma.teacherAssignment.findUnique({
       where: { teacherId_childId: { teacherId: teacher.id, childId } },

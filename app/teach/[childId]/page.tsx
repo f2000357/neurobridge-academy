@@ -58,12 +58,15 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
 
   const today = todayStr();
   const from = addDaysStr(today, -21);
+  // Two weeks ahead as well. Notes still only go on sessions that have happened
+  // — the server refuses a future date — but a visiting teacher has to be able
+  // to see when they are next expected, which is the whole point of a rota.
+  const until = addDaysStr(today, 14);
 
-  // The child's whole day, three weeks back up to today — never the future, since
-  // a note is written after a session, not before. Not filtered to "their" blocks:
-  // the therapist should see how the whole day ran.
+  // The child's whole day, three weeks back and a fortnight forward. Not
+  // filtered to "their" blocks: the therapist should see how the whole day ran.
   const slots = await prisma.scheduleSlot.findMany({
-    where: { childId, date: { gte: from, lte: today } },
+    where: { childId, date: { gte: from, lte: until } },
     include: { lessonPlan: { select: { title: true, subject: true, goal: true, topic: true } } },
     orderBy: [{ date: "desc" }, { startMin: "asc" }],
   });
@@ -103,6 +106,7 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
       (s.lessonPlan ? `${s.lessonPlan.subject} · ${s.lessonPlan.title}` : "Session"),
     kind: s.kind,
     subject: s.subject ?? "",
+    upcoming: s.date > today,
     lessonTitle: s.lessonPlan?.title ?? "",
     lessonGoal: s.lessonPlan?.goal ?? "",
     lessonTopic: s.lessonPlan?.topic ?? "",

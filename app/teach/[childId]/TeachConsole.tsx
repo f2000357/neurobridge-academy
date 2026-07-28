@@ -20,6 +20,9 @@ export type BlockRow = {
   /** Block shape — drives the same colours the guide's calendar uses. */
   kind: string;
   subject: string;
+  /** Later than today: visible so they know when they are next expected, but
+   *  never writable — a note is written after a session, not before. */
+  upcoming: boolean;
   lessonTitle: string;
   lessonGoal: string;
   lessonTopic: string;
@@ -98,9 +101,14 @@ export default function TeachConsole({
   // a chess coach should find the chess blocks without being wired to each one.
   // Only their own sessions are theirs to write up. The rest of the day is shown
   // below as read-only context.
-  const unwritten = blocks.filter((b) => !b.noteId && b.canNote);
+  // Only sessions that have actually happened can be written up or awarded.
+  const unwritten = blocks.filter((b) => !b.noteId && b.canNote && !b.upcoming);
   // Every session that is theirs — the note list is a to-do, this is the record.
-  const mine = blocks.filter((b) => b.canNote);
+  const mine = blocks.filter((b) => b.canNote && !b.upcoming);
+  // When they are next expected. Soonest first, unlike everything else here.
+  const nextUp = blocks
+    .filter((b) => b.canNote && b.upcoming)
+    .sort((a, b) => (a.date === b.date ? a.startMin - b.startMin : a.date < b.date ? -1 : 1));
 
   // The day view below. `blocks` spans three weeks, so showing them all at once
   // was a flat scroll of undated rows under a heading that said "day" — you
@@ -108,7 +116,14 @@ export default function TeachConsole({
   // time, whole day, gaps included, so the shape of it reads.
   // `blocks` arrives date-desc, so this is newest first.
   const dates = [...new Set(blocks.map((b) => b.date))];
-  const [dayDate, setDayDate] = useState(dates[0] ?? today);
+  // Open on today, or the most recent day that has anything — never on the
+  // furthest future date, which is what `dates[0]` became once the window
+  // started reaching forward.
+  const [dayDate, setDayDate] = useState(
+    dates.includes(today) ? today : dates.find((d) => d <= today) ?? dates[0] ?? today
+  );
+  // Context, not the task. Collapsed by default so the notes stay at the top.
+  const [dayOpen, setDayOpen] = useState(false);
   const day = blocks
     .filter((b) => b.date === dayDate)
     .sort((a, b) => a.startMin - b.startMin);
@@ -309,127 +324,6 @@ export default function TeachConsole({
         </button>
       </div>
 
-      {/* Points for the sessions they ran. */}
-      {mine.length > 0 && (
-        <div className="card" style={{ marginTop: 18 }}>
-          <h2>Points for your sessions</h2>
-          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
-            You were in the room, so you decide how it went. {childName} can spend these on the
-            prizes their family sets. One award per session — awarding again changes it.
-          </p>
-
-          <div className="stack" style={{ gap: 8 }}>
-            {mine.map((b) => (
-              <div key={b.id} className="award-row">
-                <span className="block-when">
-                  {weekdayShort(b.date)} · {fmtMin(b.startMin)}
-                </span>
-                <span className="block-what">{b.label}</span>
-
-                {awarding?.block.id === b.id ? (
-                  <span className="award-pick">
-                    <select
-                      className="field short"
-                      value={awarding.coins}
-                      onChange={(e) => setAwarding({ block: b, coins: Number(e.target.value) })}
-                    >
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                        <option key={n} value={n}>
-                          {n} {n === 1 ? "point" : "points"}
-                        </option>
-                      ))}
-                    </select>
-                    <button className="btn" disabled={awardBusy} onClick={giveCoins}>
-                      {awardBusy ? "…" : "Give"}
-                    </button>
-                    <button className="btn quiet" onClick={() => setAwarding(null)}>
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    className={`btn quiet ${b.coins != null ? "" : "award-cta"}`}
-                    onClick={() => setAwarding({ block: b, coins: b.coins ?? 8 })}
-                  >
-                    {b.coins != null ? `★ ${b.coins} given · change` : "Award points"}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* The child's whole day, one date at a time. Read-only: only their own
-          sessions are theirs to write up, and those are marked. */}
-      {dates.length > 0 && (
-        <div className="card" style={{ marginTop: 18 }}>
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <h2 style={{ margin: 0 }}>{childName}&apos;s day</h2>
-            <select
-              className="field short"
-              value={dayDate}
-              onChange={(e) => setDayDate(e.target.value)}
-              aria-label="Which day"
-            >
-              {dates.map((d) => (
-                <option key={d} value={d}>
-                  {weekdayShort(d)} {d}
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="muted" style={{ marginTop: 6, fontSize: "0.85rem" }}>
-            The whole day, so you can see where your session sat in it. Only the blocks marked{" "}
-            <b>yours</b> are yours to write up.
-          </p>
-
-          {day.length === 0 ? (
-            <p className="muted" style={{ fontSize: "0.85rem" }}>Nothing was scheduled that day.</p>
-          ) : (
-            // The same grid the guide sees on their own schedule — one column
-            // instead of five, and nothing draggable. Gaps are real space here,
-            // so the shape of the day reads without having to be described.
-            <div className="wg-body" style={{ gridTemplateColumns: "56px 1fr", height: dayHeight }}>
-              <div className="wg-times">
-                {dayHours.map((m) => (
-                  <div key={m} className="wg-time" style={{ top: gridTop(m) }}>
-                    {fmtMin(m)}
-                  </div>
-                ))}
-              </div>
-              <div className="wg-col">
-                {dayHours.map((m) => (
-                  <div key={m} className="wg-hourline" style={{ top: gridTop(m) }} />
-                ))}
-                {day.map((b) => (
-                  <div
-                    key={b.id}
-                    className={`wg-block k-${b.kind}${b.subject ? ` subj-${b.subject}` : ""}`}
-                    style={{
-                      top: gridTop(b.startMin),
-                      height: (b.endMin - b.startMin) * PX_PER_MIN,
-                      cursor: "default",
-                      // Theirs stands out; the rest of the day recedes but stays legible.
-                      opacity: b.canNote ? 1 : 0.55,
-                      outline: b.canNote ? "2px solid var(--accent)" : "none",
-                    }}
-                    title={`${fmtMin(b.startMin)}–${fmtMin(b.endMin)} · ${b.label}`}
-                  >
-                    <span className="wg-btitle">{b.label}</span>
-                    <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>
-                      {fmtMin(b.startMin)}–{fmtMin(b.endMin)}
-                      {b.canNote ? " · yours" : ""}
-                      {b.canNote && b.noteId ? " · noted" : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* The form */}
       {draft && (
         <div className="card note-form" style={{ marginTop: 16 }}>
@@ -518,6 +412,170 @@ export default function TeachConsole({
           <p className="muted" style={{ fontSize: "0.8rem", marginTop: 8 }}>
             Photos up to 8&nbsp;MB, video up to 60&nbsp;MB. The family sees these; {childName} does not.
           </p>
+        </div>
+      )}
+
+
+      {/* Points for the sessions they ran. */}
+      {mine.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <h2>Points for your sessions</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+            You were in the room, so you decide how it went. {childName} can spend these on the
+            prizes their family sets. One award per session — awarding again changes it.
+          </p>
+
+          <div className="stack" style={{ gap: 8 }}>
+            {mine.map((b) => (
+              <div key={b.id} className="award-row">
+                <span className="block-when">
+                  {weekdayShort(b.date)} · {fmtMin(b.startMin)}
+                </span>
+                <span className="block-what">{b.label}</span>
+
+                {awarding?.block.id === b.id ? (
+                  <span className="award-pick">
+                    <select
+                      className="field short"
+                      value={awarding.coins}
+                      onChange={(e) => setAwarding({ block: b, coins: Number(e.target.value) })}
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <option key={n} value={n}>
+                          {n} {n === 1 ? "point" : "points"}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn" disabled={awardBusy} onClick={giveCoins}>
+                      {awardBusy ? "…" : "Give"}
+                    </button>
+                    <button className="btn quiet" onClick={() => setAwarding(null)}>
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className={`btn quiet ${b.coins != null ? "" : "award-cta"}`}
+                    onClick={() => setAwarding({ block: b, coins: b.coins ?? 8 })}
+                  >
+                    {b.coins != null ? `★ ${b.coins} given · change` : "Award points"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* When they are next expected. Read-only by nature — there is nothing to
+          write up about a session that has not happened. */}
+      {nextUp.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <h2 style={{ marginTop: 0 }}>Coming up</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+            Your next sessions with {childName}. You can write these up once they have happened.
+          </p>
+          <div className="stack" style={{ gap: 4 }}>
+            {nextUp.map((b) => (
+              <div key={b.id} className="row" style={{ gap: 10, fontSize: "0.9rem", alignItems: "baseline" }}>
+                <span className="muted" style={{ minWidth: 150, fontVariantNumeric: "tabular-nums" }}>
+                  {weekdayShort(b.date)} {b.date}
+                </span>
+                <span className="muted" style={{ minWidth: 104, fontVariantNumeric: "tabular-nums" }}>
+                  {fmtMin(b.startMin)}–{fmtMin(b.endMin)}
+                </span>
+                <span style={{ flex: 1 }}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* The child's whole day, one date at a time. Read-only: only their own
+          sessions are theirs to write up, and those are marked. */}
+      {dates.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <button
+              className="linkish"
+              onClick={() => setDayOpen((o) => !o)}
+              aria-expanded={dayOpen}
+              style={{ font: "inherit", fontWeight: 600, fontSize: "1.15rem" }}
+            >
+              {dayOpen ? "▾" : "▸"} {childName}&apos;s day
+            </button>
+            {dayOpen && (
+              <select
+                className="field short"
+                value={dayDate}
+                onChange={(e) => setDayDate(e.target.value)}
+                aria-label="Which day"
+              >
+                {dates.map((d) => (
+                  <option key={d} value={d}>
+                    {weekdayShort(d)} {d}
+                    {d > today ? " — upcoming" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {!dayOpen ? (
+            <p className="muted" style={{ margin: "6px 0 0", fontSize: "0.85rem" }}>
+              {day.length} block{day.length === 1 ? "" : "s"} on {weekdayShort(dayDate)} {dayDate}.
+              Open it to see where your session sits in the day.
+            </p>
+          ) : (
+            <p className="muted" style={{ marginTop: 6, fontSize: "0.85rem" }}>
+              The whole day, so you can see where your session sat in it. Only the blocks marked{" "}
+              <b>yours</b> are yours to write up.
+            </p>
+          )}
+
+          {!dayOpen ? null : day.length === 0 ? (
+            <p className="muted" style={{ fontSize: "0.85rem" }}>Nothing was scheduled that day.</p>
+          ) : (
+            // The same grid the guide sees on their own schedule — one column
+            // instead of five, and nothing draggable. Gaps are real space here,
+            // so the shape of the day reads without having to be described.
+            <div className="wg-body" style={{ gridTemplateColumns: "56px 1fr", height: dayHeight }}>
+              <div className="wg-times">
+                {dayHours.map((m) => (
+                  <div key={m} className="wg-time" style={{ top: gridTop(m) }}>
+                    {fmtMin(m)}
+                  </div>
+                ))}
+              </div>
+              <div className="wg-col">
+                {dayHours.map((m) => (
+                  <div key={m} className="wg-hourline" style={{ top: gridTop(m) }} />
+                ))}
+                {day.map((b) => (
+                  <div
+                    key={b.id}
+                    className={`wg-block k-${b.kind}${b.subject ? ` subj-${b.subject}` : ""}`}
+                    style={{
+                      top: gridTop(b.startMin),
+                      height: (b.endMin - b.startMin) * PX_PER_MIN,
+                      cursor: "default",
+                      // Theirs stands out; the rest of the day recedes but stays legible.
+                      opacity: b.canNote ? 1 : 0.55,
+                      outline: b.canNote ? "2px solid var(--accent)" : "none",
+                    }}
+                    title={`${fmtMin(b.startMin)}–${fmtMin(b.endMin)} · ${b.label}`}
+                  >
+                    <span className="wg-btitle">{b.label}</span>
+                    <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>
+                      {fmtMin(b.startMin)}–{fmtMin(b.endMin)}
+                      {b.canNote ? " · yours" : ""}
+                      {b.upcoming ? " · upcoming" : b.canNote && b.noteId ? " · noted" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
