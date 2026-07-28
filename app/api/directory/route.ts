@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { currentOperator } from "@/lib/authz";
 import { getCurrentTeacher } from "@/lib/teacherAuth";
+import { SPECIALTIES } from "@/lib/specialists";
 
 // The therapist directory.
 //
@@ -110,6 +111,14 @@ export async function POST(req: NextRequest) {
         listedAskedAt: new Date(),
         ...(listed
           ? {
+              // What they are searched BY. It was being dropped here, so a
+              // listing kept whatever the parent guessed when they added the
+              // person — which the add form defaults to "misc". They would say
+              // "music", be filed under "misc", and never come back for a
+              // specialty search. Their own answer wins; theirs is the listing.
+              specialty: SPECIALTIES.some((s) => s.id === body.specialty)
+                ? String(body.specialty)
+                : me.specialty,
               town: clean("town", 80),
               region: clean("region", 40),
               telehealth: Boolean(body.telehealth),

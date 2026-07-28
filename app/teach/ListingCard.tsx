@@ -168,11 +168,13 @@ export default function ListingCard({ state }: { state: ListingState }) {
 
       <div className="row" style={{ gap: 10, marginTop: 10, flexWrap: "wrap" }}>
         <label className="inline muted" style={{ flex: "2 1 160px" }}>
-          Town
+          Town <span style={{ color: "var(--crit)" }}>*</span>
           <input
             className="field"
             value={f.town}
             placeholder="Somerset"
+            required
+            aria-required="true"
             onChange={(e) => set("town", e.target.value)}
           />
         </label>
@@ -246,8 +248,15 @@ export default function ListingCard({ state }: { state: ListingState }) {
       <div className="row" style={{ gap: 8, marginTop: 16, flexWrap: "wrap" }}>
         <button
           className="btn"
-          disabled={busy || !f.town.trim()}
+          disabled={busy}
           onClick={async () => {
+            // Town is genuinely required — families search by it, so a listing
+            // without one is never returned. This used to disable the button,
+            // which just made it look broken: you clicked and nothing happened.
+            if (!f.town.trim()) {
+              setError("Add your town first — families search by town, so a listing without one never comes up.");
+              return;
+            }
             if (await post({ op: "setListing", ...f, listed: true })) setOpen(false);
           }}
         >
