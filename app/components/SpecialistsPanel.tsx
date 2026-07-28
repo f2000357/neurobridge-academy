@@ -96,7 +96,18 @@ export default function SpecialistsPanel({
     // it hands back is the only way that teacher gets in.
     if (data.emailed) setNote("Assigned. We've emailed them a link to sign in.");
     else if (data.link) setNote(`Assigned, but the email didn't go out. Send them this link yourself: ${data.link}`);
-    else setNote("Assigned.");
+    // No email and no link means they were already on this learner, so nothing
+    // was sent. Saying only "Assigned" here is how someone ends up waiting for
+    // a message that was never going to arrive.
+    else setNote("Assigned — but nobody was emailed, because they already had this learner. Use “Send sign-in link” if they need a way in.");
+  }
+
+  async function sendLink(teacherId: string, name: string) {
+    const data = await call({ op: "sendLink", teacherId });
+    if (!data) return;
+    if (data.emailed) setNote(`Sent — ${name} has a fresh sign-in link, good for 7 days.`);
+    else if (data.link) setNote(`Couldn't email them (${data.reason ?? "no reason given"}). Send this yourself: ${data.link}`);
+    else setNote("Couldn't send that.");
   }
 
   async function unassign(teacherId: string, childId: string, childName: string) {
@@ -238,6 +249,9 @@ export default function SpecialistsPanel({
                     code held by NeuroBridge
                   </span>
                 )}
+                <button className="chip" onClick={() => sendLink(t.id, t.name)} disabled={busy}>
+                  Send sign-in link
+                </button>
                 <button className="chip" onClick={() => call({ op: "archive", teacherId: t.id, archived: true })}>
                   Archive
                 </button>

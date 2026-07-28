@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { newTeacherCode } from "@/lib/specialists";
 import { guardOperate } from "@/lib/authz";
+import { rosterChildIds } from "@/lib/access";
 import { randomUUID } from "node:crypto";
 import { send, teacherAdded, appUrl } from "@/lib/email";
 
@@ -106,6 +107,50 @@ export async function POST(req: NextRequest) {
       if (!res.sent) link = `/teach/link/${token}`;
     }
     return NextResponse.json({ ok: true, emailed, link });
+  }
+
+  // Send (or re-send) a specialist their way in.
+  //
+  // `assign` only mails on the FIRST assignment of a pair, so re-assigning
+  // someone already on the child notified nobody and there was no other way to
+  // reach them — a lost or never-sent invitation simply ended the relationship.
+  // This always mints a fresh link and always reports what happened.
+  if (op === "sendLink") {
+    const { teacherId } = body as { teacherId: string };
+    const teacher = await prisma.specialistTeacher.findUnique({ where: { id: teacherId } });
+    if (!teacher || teacher.archived) {
+      return NextResponse.json({ error: "teacher not found" }, { status: 404 });
+    }
+    // Yours to contact if you added them, or if they work with one of your
+    // learners. Not "anyone signed in can mail any therapist".
+    const mine = await rosterChildIds(user);
+    const shared = await prisma.teacherAssignment.findFirst({
+      where: { teacherId, childId: { in: mine } },
+      include: { child: { select: { name: true } } },
+    });
+    if (!shared && teacher.createdById !== user.id) {
+      return NextResponse.json({ error: "That teacher isn't one of yours." }, { status: 403 });
+    }
+
+    await prisma.specialistLoginToken.deleteMany({ where: { teacherId, usedAt: null } });
+    const token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
+    await prisma.specialistLoginToken.create({
+      data: { teacherId, token, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+    });
+    const url = appUrl(`/teach/link/${token}`);
+    const mail = teacherAdded({
+      teacherName: teacher.name,
+      childName: shared?.child.name ?? "a learner",
+      fromName: user.name,
+      url,
+    });
+    const res = await send({ to: teacher.email, ...mail });
+    return NextResponse.json({
+      ok: true,
+      emailed: res.sent,
+      reason: res.sent ? undefined : res.reason,
+      link: res.sent ? undefined : `/teach/link/${token}`,
+    });
   }
 
   // Removing the grant. Notes they wrote stay — those are the learner's record.
