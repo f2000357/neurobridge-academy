@@ -18,6 +18,9 @@ export type PlanLesson = {
   rationale: string;
   status: string;
   lessonPlanId: string | null;
+  /** The child actually finished a session on this lesson — including one they
+   *  pulled forward and did early, which the plan's own status never knows. */
+  done: boolean;
 };
 export type PlanData = { id: string; status: string; lessons: PlanLesson[] };
 
@@ -190,6 +193,19 @@ export default function WeekPlanReview({
                   {lessons.map((l, i) => {
                     const isPast = l.date < today;
                     const isApproved = l.status === "approved";
+                    // Finished work is a checked-off topic, not a proposal to
+                    // read. One line, no rationale, no preview links.
+                    if (l.done) {
+                      return (
+                        <div key={l.id} className="ramp-step" style={{ opacity: 0.6 }}>
+                          <div className="row" style={{ gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                            <span className="ramp-day">{weekdayShort(l.date)}</span>
+                            <strong style={{ fontWeight: 600 }}>{l.topic || l.title}</strong>
+                            <span className="pill good">done ✓</span>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                     <div key={l.id} className="ramp-step" style={isPast ? { opacity: 0.75 } : undefined}>
                       <div className="ramp-meta">
@@ -202,12 +218,17 @@ export default function WeekPlanReview({
                       <p className="muted ramp-why">{l.rationale}</p>
 
                       <div className="row" style={{ gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                        {isApproved ? (
+                        {/* Done wins over everything else: once he has actually
+                            sat and finished it, "scheduled" and "past" are
+                            beside the point. */}
+                        {l.done ? (
+                          <span className="pill good">done ✓</span>
+                        ) : isApproved ? (
                           <span className="pill good">scheduled ✓</span>
                         ) : (
                           <span className="pill warn">draft</span>
                         )}
-                        {isPast && <span className="pill">past</span>}
+                        {isPast && !l.done && <span className="pill">past</span>}
                       </div>
 
                       {l.lessonPlanId && (

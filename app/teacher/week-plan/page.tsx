@@ -42,6 +42,19 @@ export default async function WeekPlanPage({
     include: { lessons: { orderBy: [{ subject: "asc" }, { date: "asc" }, { order: "asc" }] } },
   });
 
+  // Which of these the child has actually finished. The plan's own status only
+  // knows whether a lesson was scheduled — not whether he sat and did it, and
+  // certainly not that he pulled Thursday's maths forward and finished it on
+  // Tuesday. A closed session on any slot using that lesson is the truth.
+  const planIds = (plan?.lessons ?? []).map((l) => l.lessonPlanId).filter(Boolean) as string[];
+  const doneSlots = planIds.length
+    ? await prisma.scheduleSlot.findMany({
+        where: { childId, lessonPlanId: { in: planIds }, sessions: { some: { state: "closed" } } },
+        select: { lessonPlanId: true },
+      })
+    : [];
+  const doneIds = new Set(doneSlots.map((s) => s.lessonPlanId));
+
   const initialPlan: PlanData | null = plan
     ? {
         id: plan.id,
@@ -59,6 +72,7 @@ export default async function WeekPlanPage({
           rationale: l.rationale,
           status: l.status,
           lessonPlanId: l.lessonPlanId,
+          done: Boolean(l.lessonPlanId && doneIds.has(l.lessonPlanId)),
         })),
       }
     : null;

@@ -51,11 +51,28 @@ type ChildRow = {
 // Practice URLs the child has already MASTERED (validated at >=90%). The planner
 // skips these so a fresh week advances instead of re-teaching mastered skills.
 async function masteredSkillUrls(childId: string): Promise<Set<string>> {
-  const rows = await prisma.providerCompletion.findMany({
-    where: { childId, status: "validated", accuracy: { gte: 90 }, practiceUrl: { not: "" } },
-    select: { practiceUrl: true },
-  });
-  return new Set(rows.map((r) => r.practiceUrl));
+  const [validated, inApp] = await Promise.all([
+    prisma.providerCompletion.findMany({
+      where: { childId, status: "validated", accuracy: { gte: 90 }, practiceUrl: { not: "" } },
+      select: { practiceUrl: true },
+    }),
+    // Lessons he sat and finished HERE, proficiently — including ones he pulled
+    // forward and did early. Only provider practice used to count, so a topic he
+    // had already worked through in the player could be planned at him again.
+    prisma.session.findMany({
+      where: {
+        childId,
+        state: "closed",
+        progressNote: { masteryLevel: "proficient" },
+        slot: { lessonPlan: { workUrl: { not: "" } } },
+      },
+      select: { slot: { select: { lessonPlan: { select: { workUrl: true } } } } },
+    }),
+  ]);
+  return new Set([
+    ...validated.map((r) => r.practiceUrl),
+    ...inApp.map((s) => s.slot.lessonPlan?.workUrl ?? "").filter(Boolean),
+  ]);
 }
 
 // Build the real, index-driven lesson for one weekly-lesson outline. No AI-
