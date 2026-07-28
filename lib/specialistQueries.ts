@@ -6,10 +6,18 @@ import type { TeacherRow } from "@/app/components/SpecialistsPanel";
 
 export async function specialistsForChildren(
   childIds: string[],
-  { includeCode = false }: { includeCode?: boolean } = {}
+  { includeCode = false, createdById }: { includeCode?: boolean; createdById?: string } = {}
 ): Promise<TeacherRow[]> {
   const teachers = await prisma.specialistTeacher.findMany({
-    where: { assignments: { some: { childId: { in: childIds } } } },
+    // Someone you added but have not given a learner to yet still has to be
+    // visible — otherwise they vanish the moment you create them, and the only
+    // screen that could assign them is the one hiding them.
+    where: {
+      OR: [
+        { assignments: { some: { childId: { in: childIds } } } },
+        ...(createdById ? [{ createdById }] : []),
+      ],
+    },
     include: {
       assignments: {
         where: { childId: { in: childIds } },

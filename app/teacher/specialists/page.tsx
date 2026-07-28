@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { rosterChildren } from "@/lib/access";
 import { specialistsForChildren } from "@/lib/specialistQueries";
 import SpecialistsPanel from "@/app/components/SpecialistsPanel";
 
@@ -12,12 +12,13 @@ export default async function GuideSpecialists() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const children = await prisma.child.findMany({
-    where: { teacherId: user.id, archived: false },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
+  // Every learner this guide works with. Assigning a visiting teacher is
+  // day-to-day work, so it belongs to all of a child's guides equally.
+  const roster = await rosterChildren(user);
+  const children = roster.map((c) => ({ id: c.id, name: c.name }));
+  const teachers = await specialistsForChildren(children.map((c) => c.id), {
+    createdById: user.id,
   });
-  const teachers = await specialistsForChildren(children.map((c) => c.id));
 
   return (
     <div>

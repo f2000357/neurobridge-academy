@@ -36,7 +36,7 @@ export default function SpecialistsPanel({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", specialty: "misc" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", specialty: "misc", childId: "" });
   // Which teacher's "assign a learner" row is open.
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pick, setPick] = useState<{ childId: string; subject: string }>({ childId: "", subject: "" });
@@ -61,22 +61,42 @@ export default function SpecialistsPanel({
   }
 
   async function addTeacher() {
-    const data = await call({ op: "create", ...form });
+    const { childId, ...details } = form;
+    const data = await call({ op: "create", ...details });
     if (!data) return;
+    const who = data.teacher.name;
+
+    // Adding and assigning are one action here on purpose. A teacher with no
+    // learner can sign in to nothing and is never emailed, so leaving the two
+    // steps separate strands them — which is exactly what used to happen.
+    let tail: string;
+    if (childId) {
+      const res = await call({ op: "assign", teacherId: data.teacher.id, childId, subject: details.specialty });
+      const child = children.find((c) => c.id === childId)?.name ?? "your learner";
+      if (!res) tail = `but adding them to ${child} failed — try from their card below.`;
+      else if (res.emailed) tail = `and emailed a sign-in link. They now see ${child}'s day.`;
+      else if (res.link) tail = `and added to ${child}, but the email didn't go out — send them this link: ${res.link}`;
+      else tail = `and added to ${child}.`;
+    } else {
+      tail = "but nobody has been contacted — give them a learner below and we'll email them their way in.";
+    }
+
     setAdding(false);
-    setForm({ name: "", email: "", phone: "", specialty: "misc" });
-    setNote(
-      data.existed
-        ? `${data.teacher.name} already has a NeuroBridge profile — assign them a learner below.`
-        : `${data.teacher.name} added. Their code goes to them directly; nobody here sees it.`
-    );
+    setForm({ name: "", email: "", phone: "", specialty: "misc", childId: "" });
+    setNote(`${who} ${data.existed ? "already had a profile" : "added"} — ${tail}`);
   }
 
   async function assign(teacherId: string) {
     if (!pick.childId) return;
-    await call({ op: "assign", teacherId, childId: pick.childId, subject: pick.subject });
+    const data = await call({ op: "assign", teacherId, childId: pick.childId, subject: pick.subject });
     setAssigning(null);
     setPick({ childId: "", subject: "" });
+    if (!data) return;
+    // Report what actually happened. A failed send is not silent, and the link
+    // it hands back is the only way that teacher gets in.
+    if (data.emailed) setNote("Assigned. We've emailed them a link to sign in.");
+    else if (data.link) setNote(`Assigned, but the email didn't go out. Send them this link yourself: ${data.link}`);
+    else setNote("Assigned.");
   }
 
   async function unassign(teacherId: string, childId: string, childName: string) {
@@ -154,9 +174,27 @@ export default function SpecialistsPanel({
               </select>
             </label>
           </div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <label className="inline muted" style={{ flex: 1 }}>
+              Which learner?
+              <select
+                className="field"
+                value={form.childId}
+                onChange={(e) => setForm({ ...form, childId: e.target.value })}
+              >
+                <option value="">Choose a learner…</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <p className="muted" style={{ fontSize: "0.82rem", marginTop: 10 }}>
             The email address is their identity. If they already teach elsewhere on NeuroBridge, this
-            adds them to your learner rather than making a second profile.
+            adds them to your learner rather than making a second profile. Choosing a learner emails
+            them a link to sign in — without one, they have nothing to see and hear nothing from us.
           </p>
           <button
             className="btn"
@@ -164,7 +202,7 @@ export default function SpecialistsPanel({
             onClick={addTeacher}
             disabled={busy || !form.name.trim() || !form.email.trim()}
           >
-            Add teacher
+            {form.childId ? "Add teacher & send their link" : "Add teacher"}
           </button>
         </div>
       )}
@@ -206,10 +244,9 @@ export default function SpecialistsPanel({
               </div>
             </div>
 
-            {!t.codeSent && (
+            {!t.codeSent && t.assignments.length === 0 && (
               <p className="pill warn" style={{ marginTop: 8 }}>
-                Code not sent yet — email and text delivery isn&apos;t built, so NeuroBridge passes it on by
-                hand.
+                Not contacted yet — assign them a learner below and we&apos;ll email them a link to sign in.
               </p>
             )}
 
