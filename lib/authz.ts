@@ -114,6 +114,41 @@ export async function guardEditIntro(childId: string): Promise<NextResponse | nu
   );
 }
 
+/**
+ * May the current operator edit this lesson?
+ *
+ * Authorship is not the whole answer. A lesson attached to a child is often
+ * authored by nobody in particular — the planner writes `teacherId:
+ * child.teacherId` when it generates one — so treating the author field as a
+ * permission locks every other guide out of their own learner's lessons. The
+ * schema says as much: a private lesson is for "author + the child's current
+ * guide". So: the author, anyone who may manage the child it belongs to, or a
+ * NeuroBridge admin.
+ *
+ * Sharing a lesson outward (visibility, submit-for-global) is deliberately NOT
+ * covered here — that is an authorship decision and stays with the author.
+ */
+export async function canEditPlan(plan: {
+  teacherId: string;
+  childId: string | null;
+}): Promise<boolean> {
+  const user = await currentOperator();
+  if (!user) return false;
+  if (user.role === "neurable_admin") return true;
+  if (plan.teacherId === user.id) return true;
+  return plan.childId ? canOperateChild(plan.childId) : false;
+}
+
+/** For a route: 403 unless the operator may edit this lesson. */
+export async function guardEditPlan(plan: {
+  teacherId: string;
+  childId: string | null;
+}): Promise<NextResponse | null> {
+  return (await canEditPlan(plan))
+    ? null
+    : NextResponse.json({ error: "That lesson isn't yours to edit." }, { status: 403 });
+}
+
 /** The child themselves, signed in with their access code on their own device. */
 async function childIsSignedIn(childId: string): Promise<boolean> {
   const child = await prisma.child.findUnique({ where: { id: childId }, select: { accessCode: true } });

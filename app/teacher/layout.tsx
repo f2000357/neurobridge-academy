@@ -3,6 +3,7 @@ import { switchEnabled } from "@/lib/demo";
 import { redirect } from "next/navigation";
 import { getCurrentUser, homeForRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { rosterChildIds } from "@/lib/access";
 import SideNav from "./SideNav";
 import AccountMenu from "@/app/components/AccountMenu";
 
@@ -17,11 +18,9 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   // How many items are waiting on the guide's approval (badge on "Today").
   let approvals = 0;
   if (user) {
-    const kids = await prisma.child.findMany({
-      where: { teacherId: user.id, archived: false },
-      select: { id: true },
-    });
-    const kidIds = kids.map((k) => k.id);
+    // The whole roster, not only the learners this guide is primary for —
+    // otherwise a second guide never sees that work is waiting on them.
+    const kidIds = await rosterChildIds(user);
     if (kidIds.length) {
       const [lessons, weeks] = await Promise.all([
         prisma.proposedLesson.count({ where: { status: "pending", proposal: { childId: { in: kidIds } } } }),

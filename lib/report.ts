@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { coverageFromNotes, mode, type CoverageNote, type SubjectCoverage } from "./coverage";
 import { getStandards } from "./standards";
 import { withAuthor, noteAuthor } from "./noteAuthor";
+import { roleOnChild } from "./access";
 
 export type SubjectReport = {
   subject: string;
@@ -213,12 +214,14 @@ export async function childIsAuthed(childId: string, accessCode: string): Promis
 // Authorization: who may view/generate a report for this child.
 export async function canReport(
   me: { id: string; role: string; centerId: string | null } | null,
-  child: { teacherId: string; centerId: string | null }
+  child: { id: string; centerId: string | null }
 ): Promise<boolean> {
   if (!me) return false;
   if (me.role === "neurable_admin") return true;
   // Centre membership grants access, and does not remove what they hold as a
   // guide — the same person is often both.
   if (me.role === "center_admin" && Boolean(me.centerId) && me.centerId === child.centerId) return true;
-  return me.id === child.teacherId;
+  // Every guide on the child, not just the primary one. A report is the thing a
+  // second guide most needs to read.
+  return (await roleOnChild(me.id, child.id)) !== null;
 }

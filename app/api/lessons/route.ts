@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { guardEditPlan } from "@/lib/authz";
 import { tutorText } from "@/lib/ai";
 import { putObject, MAX_IMAGE_BYTES, storageConfigured } from "@/lib/storage";
 import { subjectKey } from "@/lib/subjects";
@@ -24,9 +25,8 @@ export async function POST(req: NextRequest) {
     const { planId, index, chunk } = body as { planId: string; index: number; chunk: unknown };
     const plan = await prisma.lessonPlan.findUnique({ where: { id: planId } });
     if (!plan) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
-    if (plan.teacherId !== me.id && me.role !== "neurable_admin") {
-      return NextResponse.json({ error: "not your lesson" }, { status: 403 });
-    }
+    const denied = await guardEditPlan(plan);
+    if (denied) return denied;
     let chunks: unknown[] = [];
     try {
       chunks = JSON.parse(plan.chunks);
@@ -182,9 +182,8 @@ async function handleAssetUpload(req: NextRequest) {
 
   const plan = await prisma.lessonPlan.findUnique({ where: { id: planId } });
   if (!plan) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
-  if (plan.teacherId !== me.id && me.role !== "neurable_admin") {
-    return NextResponse.json({ error: "not your lesson" }, { status: 403 });
-  }
+  const denied = await guardEditPlan(plan);
+  if (denied) return denied;
   if (!file.type.startsWith("image/")) {
     return NextResponse.json({ error: "Images only for lesson steps." }, { status: 400 });
   }

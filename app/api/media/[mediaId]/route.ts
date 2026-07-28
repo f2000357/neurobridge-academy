@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { can } from "@/lib/authz";
 import { getCurrentTeacher, teacherCanSee } from "@/lib/teacherAuth";
 import { signedUrl, storageConfigured } from "@/lib/storage";
 
@@ -44,19 +44,7 @@ async function canRead(childId: string): Promise<boolean> {
   const teacher = await getCurrentTeacher();
   if (teacher) return teacherCanSee(teacher.id, childId);
 
-  const user = await getCurrentUser({ select: { id: true, role: true, centerId: true } });
-  if (user) {
-    if (user.role === "neurable_admin") return true;
-    const child = await prisma.child.findUnique({
-      where: { id: childId },
-      select: { teacherId: true, centerId: true },
-    });
-    if (!child) return false;
-    // Centre membership grants access on top of anything held as a guide.
-    if (user.role === "center_admin" && Boolean(child.centerId) && child.centerId === user.centerId) {
-      return true;
-    }
-    return child.teacherId === user.id; // the guide
-  }
-  return false;
+  // Every operator who may view the child — which is every guide on them, not
+  // only the one Child.teacherId happens to point at.
+  return can(childId, "view");
 }

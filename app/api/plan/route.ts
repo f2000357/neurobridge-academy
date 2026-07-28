@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getStandards, DEFAULT_STANDARDS } from "@/lib/standards";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
-import { guardOperate, guardOperatorPresent } from "@/lib/authz";
+import { guardOperate, guardOperatorPresent, guardEditPlan } from "@/lib/authz";
 
 // The teacher's lesson builder backend: draft a plan with AI, then persist it.
 
@@ -115,14 +115,19 @@ export async function POST(req: NextRequest) {
     const teacher = await getCurrentUser();
     if (!teacher) return NextResponse.json({ error: "no teacher" }, { status: 400 });
 
-    // Editing an existing plan: it must be yours (or you're NeuroBridge admin) —
-    // otherwise the update below would silently reassign it to you.
+    // Editing an existing plan: yours to edit, or attached to a learner you
+    // manage. Keep whoever authored it as the author — the update below would
+    // otherwise silently reassign the lesson to whichever guide touched it last.
+    let author = teacher.id;
     if (id) {
-      const existing = await prisma.lessonPlan.findUnique({ where: { id }, select: { teacherId: true } });
+      const existing = await prisma.lessonPlan.findUnique({
+        where: { id },
+        select: { teacherId: true, childId: true },
+      });
       if (!existing) return NextResponse.json({ error: "lesson not found" }, { status: 404 });
-      if (existing.teacherId !== teacher.id && teacher.role !== "neurable_admin") {
-        return NextResponse.json({ error: "not your lesson" }, { status: 403 });
-      }
+      const denied = await guardEditPlan(existing);
+      if (denied) return denied;
+      author = existing.teacherId;
     }
     // A child-specific lesson must be for a learner you manage.
     if (childId) {
@@ -137,7 +142,7 @@ export async function POST(req: NextRequest) {
     const vis = allowed.includes(visibility) ? visibility : "private";
 
     const data = {
-      teacherId: teacher.id,
+      teacherId: author,
       centerId: teacher.centerId,
       visibility: vis,
       childId: childId || null,

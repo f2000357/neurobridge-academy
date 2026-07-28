@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { planInterestBlocks } from "@/lib/interestBlocks";
-import { guardOperate } from "@/lib/authz";
+import { guardOperate, currentOperator } from "@/lib/authz";
+import { rosterChildIds } from "@/lib/access";
 import { addDaysStr } from "@/lib/time";
 import { buildDayTemplate, normalizeStart } from "@/lib/dayTemplate";
 
@@ -334,7 +335,7 @@ export async function POST(req: NextRequest) {
 
   if (op === "copyToAll") {
     const { childId, date } = body;
-    const source = await prisma.child.findUnique({ where: { id: childId } });
+    const source = await prisma.child.findUnique({ where: { id: childId }, select: { id: true } });
     if (!source) return NextResponse.json({ error: "child not found" }, { status: 404 });
 
     const sourceSlots = await prisma.scheduleSlot.findMany({
@@ -345,9 +346,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "This day is empty — nothing to copy." }, { status: 400 });
     }
 
-    const others = await prisma.child.findMany({
-      where: { teacherId: source.teacherId, id: { not: childId } },
-    });
+    // "All" means all the learners the CALLER works with — never everyone who
+    // happens to hang off the source child's primary guide. Read the other way
+    // round, a second guide on one child could write a day into that primary's
+    // whole family, none of whom they have any access to.
+    const me = await currentOperator();
+    if (!me) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    const rosterIds = (await rosterChildIds(me)).filter((id) => id !== childId);
+    const others = rosterIds.length
+      ? await prisma.child.findMany({ where: { id: { in: rosterIds }, archived: false } })
+      : [];
 
     const results: { name: string; added: number; skipped: number }[] = [];
     for (const child of others) {

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const me = await getCurrentUser();
   const child = await prisma.child.findUnique({
     where: { id: childId },
-    select: { teacherId: true, centerId: true, accessCode: true },
+    select: { id: true, centerId: true, accessCode: true },
   });
   if (!child) return NextResponse.json({ error: "not found" }, { status: 404 });
   const allowed = (await canReport(me, child)) || (await childIsAuthed(childId, child.accessCode));

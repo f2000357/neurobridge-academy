@@ -16,8 +16,13 @@ export default async function LibraryPage() {
     );
   }
 
+  // What this guide authored, plus anything written for a learner on their
+  // roster — a lesson the planner generated for a co-guided child is attributed
+  // to the primary guide, and would otherwise be invisible to everyone else.
   const plans = await prisma.lessonPlan.findMany({
-    where: { teacherId: teacher.id },
+    where: {
+      OR: [{ teacherId: teacher.id }, { childId: { in: kids.map((c) => c.id) } }],
+    },
     orderBy: [{ subject: "asc" }, { title: "asc" }],
   });
 
