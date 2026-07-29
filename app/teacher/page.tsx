@@ -63,6 +63,7 @@ export default async function TeacherDashboard() {
     title: c.title,
     provider: c.provider,
     practiceUrl: c.practiceUrl,
+    accuracy: c.accuracy,
   }));
 
   // Upcoming empty Flex blocks (within the 2-week horizon), per child — the guide
@@ -151,7 +152,7 @@ export default async function TeacherDashboard() {
           <section style={{ marginTop: 28 }}>
             <h2 style={{ margin: "0 0 4px" }}>Waiting for your check ({checkItems.length})</h2>
             <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
-              Open the child&apos;s work, enter the score (or mark it abandoned). Coins = accuracy ÷ 10.
+              Open the child&apos;s work, check the SmartScore (or mark it abandoned). Coins = score ÷ 10.
               Below 90% isn&apos;t mastered — drop a repeat into a Flex block.
             </p>
             <ValidationList items={checkItems} flexByChild={flexByChild} />

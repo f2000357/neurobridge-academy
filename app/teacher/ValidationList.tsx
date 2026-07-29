@@ -12,11 +12,14 @@ export type CheckItem = {
   title: string;
   provider: string;
   practiceUrl: string;
+  /** Read off a photo of the child's screen when they pressed done, if they
+   *  took one — so the guide arrives at a filled box, not an empty one. */
+  accuracy?: number | null;
 };
 export type FlexSlot = { id: string; label: string };
 
 const providerLabel = providerName;
-const MASTERY = 90;
+const MASTERY = 100;
 const coinsFor = (acc: string) => {
   const n = Number(acc);
   if (!Number.isFinite(n) || acc === "") return null;
@@ -24,8 +27,9 @@ const coinsFor = (acc: string) => {
 };
 
 // The guide opens the child's work and records the SmartScore (or marks it
-// abandoned). Coins = floor(score/10). Below 90 — IXL's "excellent" — or
-// abandoned, the skill isn't mastered and can be repeated in a Flex block.
+// abandoned). Coins = floor(score/10). IXL keeps serving questions until 100,
+// so anything short of it means they stopped early: not mastered, and worth a
+// repeat in a Flex block.
 export default function ValidationList({
   items,
   flexByChild = {},
@@ -34,7 +38,10 @@ export default function ValidationList({
   flexByChild?: Record<string, FlexSlot[]>;
 }) {
   const router = useRouter();
-  const [acc, setAcc] = useState<Record<string, string>>({});
+  // Seed from whatever the camera already read at "I'm done".
+  const [acc, setAcc] = useState<Record<string, string>>(() =>
+    Object.fromEntries(items.filter((i) => i.accuracy != null).map((i) => [i.id, String(i.accuracy)]))
+  );
   const [abandoned, setAbandoned] = useState<Record<string, boolean>>({});
   const [repeatSlot, setRepeatSlot] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -50,9 +57,8 @@ export default function ValidationList({
   // typing a number they cannot see.
   //
   // IXL shows SmartScore, questions answered and time, and no correct-answer
-  // count at all, so SmartScore is the score. On IXL's scale 80 is proficient,
-  // 90 excellent, 100 mastered — which is why the 90 here still means what it
-  // did when this box held a hand-typed number.
+  // count at all, so SmartScore is the score. 100 means the skill is finished;
+  // less means they left partway.
   async function readFromShot(file: File, it: CheckItem) {
     setReading(it.id);
     setReadOut((m) => ({ ...m, [it.id]: "" }));

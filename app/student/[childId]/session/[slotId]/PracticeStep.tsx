@@ -61,6 +61,9 @@ export default function PracticeStep({
   const [timeUp, setTimeUp] = useState(false);
   const [muted, setMuted] = useState(false);
   const [sent, setSent] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [readOut, setReadOut] = useState<string | null>(null);
+  const shotRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const rang = useRef(false);
 
@@ -105,6 +108,41 @@ export default function PracticeStep({
     setSent(true);
   }
 
+  // The score lives on IXL's own screen, which is open right there. Rather than
+  // ask a child to read a number off it, or a guide to type one they have no
+  // account to see, we photograph the skill summary and read it here. It lands
+  // on the pending row, so the guide's check becomes one tap.
+  async function readScore(file: File) {
+    setReading(true);
+    setReadOut(null);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const d = await fetch("/api/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        op: "readScore",
+        childId,
+        slotId,
+        mimeType: file.type || "image/jpeg",
+        imageBase64: btoa(bin),
+      }),
+    })
+      .then((r) => r.json())
+      .catch(() => null);
+    setReading(false);
+    if (!d?.ok || !d.read) {
+      setReadOut(d?.reason ?? "I couldn't read that one — your guide can check it instead.");
+      return;
+    }
+    setReadOut(
+      d.smartScore >= 100
+        ? `SmartScore ${d.smartScore} — you finished it! 🎉`
+        : `SmartScore ${d.smartScore}. Saved for your guide to look at.`
+    );
+  }
+
   return (
     <div className="practice-step">
       <div className={`practice-timer ${timeUp ? "up" : ""}`}>
@@ -143,7 +181,35 @@ export default function PracticeStep({
           <p className="muted" style={{ marginTop: 0 }}>
             Your guide will check your work and add your coins. ⭐
           </p>
-          <button className="btn" onClick={onNext}>Next →</button>
+          {!preview && (
+            <>
+              <button
+                className="btn quiet"
+                style={{ marginTop: 4 }}
+                onClick={() => shotRef.current?.click()}
+                disabled={reading}
+              >
+                {reading ? "Looking…" : "📷 Show your score"}
+              </button>
+              <input
+                ref={shotRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void readScore(f);
+                  e.target.value = "";
+                }}
+              />
+              {readOut && (
+                <p className="muted" style={{ fontSize: "0.85rem", marginTop: 8 }}>
+                  {readOut}
+                </p>
+              )}
+            </>
+          )}
+          <button className="btn" style={{ marginTop: 8 }} onClick={onNext}>Next →</button>
         </div>
       ) : (
         <>

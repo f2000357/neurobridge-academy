@@ -48,12 +48,13 @@ type ChildRow = {
   providers: string;
 };
 
-// Practice URLs the child has already MASTERED (validated at >=90%). The planner
-// skips these so a fresh week advances instead of re-teaching mastered skills.
+// Practice URLs the child has already MASTERED (SmartScore 100 — IXL only gets
+// there when the skill is finished). The planner skips these so a fresh week
+// advances instead of re-teaching what is done.
 async function masteredSkillUrls(childId: string): Promise<Set<string>> {
   const [validated, inApp] = await Promise.all([
     prisma.providerCompletion.findMany({
-      where: { childId, status: "validated", accuracy: { gte: 90 }, practiceUrl: { not: "" } },
+      where: { childId, status: "validated", accuracy: { gte: 100 }, practiceUrl: { not: "" } },
       select: { practiceUrl: true },
     }),
     // Lessons he sat and finished HERE, proficiently — including ones he pulled

@@ -12,7 +12,7 @@ import { planJsonFromDocs, aiEnabled } from "@/lib/ai";
 
 // Below this accuracy (or if the child abandoned it), the skill isn't mastered
 // and should be repeated — the guide can drop the repeat into a Flex block.
-export const MASTERY = 90;
+export const MASTERY = 100;
 
 export function coinsForAccuracy(accuracy: number): number {
   if (!Number.isFinite(accuracy)) return 0;
@@ -84,12 +84,15 @@ export async function POST(req: NextRequest) {
   // This only READS. Nothing is scored until an adult confirms the number, which
   // matters because this awards points and vision misreads.
   if (op === "readScore") {
-    const { childId, imageBase64, mimeType } = body as {
+    const { childId, slotId, imageBase64, mimeType } = body as {
       childId: string;
+      slotId?: string;
       imageBase64: string;
       mimeType: string;
     };
-    const denied = await guardOperate(childId);
+    // The child is the one pressing "I'm done", with the guide beside them, so
+    // this is a session-level action rather than an operator-only one.
+    const denied = await guardSession(childId);
     if (denied) return denied;
     if (!imageBase64) return NextResponse.json({ error: "No image received." }, { status: 400 });
     if (!aiEnabled) {
@@ -130,6 +133,16 @@ export async function POST(req: NextRequest) {
     // scale, where IXL means 80 proficient, 90 excellent, 100 mastered. That
     // happens to line up with the 90 already used here for mastery.
     const score = Math.max(0, Math.min(100, Math.round(read.smartScore)));
+
+    // Park it on the pending row so the guide arrives to a filled-in number
+    // rather than an empty box. Still `pending` — reading is not validating.
+    if (slotId) {
+      const open = await prisma.providerCompletion.findFirst({
+        where: { childId, slotId, status: "pending" },
+        select: { id: true },
+      });
+      if (open) await prisma.providerCompletion.update({ where: { id: open.id }, data: { accuracy: score } });
+    }
     // 25 questions in a minute is not 25 questions' worth of thinking. Worth
     // saying out loud rather than scoring it silently.
     const rushed =
