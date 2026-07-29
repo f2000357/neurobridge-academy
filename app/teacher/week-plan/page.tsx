@@ -50,10 +50,27 @@ export default async function WeekPlanPage({
   const doneSlots = planIds.length
     ? await prisma.scheduleSlot.findMany({
         where: { childId, lessonPlanId: { in: planIds }, sessions: { some: { state: "closed" } } },
-        select: { lessonPlanId: true },
+        select: { id: true, lessonPlanId: true },
       })
     : [];
-  const doneIds = new Set(doneSlots.map((s) => s.lessonPlanId));
+  // The child pressing "I did it" is a claim, not a verdict. Where an adult has
+  // since said abandoned or not-done, that wins — otherwise work the guide
+  // explicitly rejected kept reading as finished, which is worse than showing
+  // nothing at all.
+  const ruledOut = doneSlots.length
+    ? await prisma.providerCompletion.findMany({
+        where: {
+          childId,
+          slotId: { in: doneSlots.map((s) => s.id) },
+          status: { in: ["abandoned", "rejected"] },
+        },
+        select: { slotId: true },
+      })
+    : [];
+  const ruledOutSlots = new Set(ruledOut.map((c) => c.slotId));
+  const doneIds = new Set(
+    doneSlots.filter((s) => !ruledOutSlots.has(s.id)).map((s) => s.lessonPlanId)
+  );
 
   const initialPlan: PlanData | null = plan
     ? {

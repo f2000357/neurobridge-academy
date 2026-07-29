@@ -160,6 +160,67 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Read a whole IXL skill list in one go.
+  //
+  // Per-skill screenshots do not scale: a week is a dozen skills across several
+  // subjects, and nobody is photographing them one at a time. The skill-tree
+  // page (e.g. ixl.com/ela/grade-3) already shows every SmartScore in brackets
+  // beside the skill name, so ONE picture of it carries the lot.
+  //
+  // Matched by skill name against what is waiting to be checked. A skill with no
+  // bracket has never been attempted and is left alone.
+  if (op === "readScoreSheet") {
+    const { childId, imageBase64, mimeType } = body as {
+      childId: string;
+      imageBase64: string;
+      mimeType: string;
+    };
+    const denied = await guardOperate(childId);
+    if (denied) return denied;
+    if (!imageBase64) return NextResponse.json({ error: "No image received." }, { status: 400 });
+    if (!aiEnabled) {
+      return NextResponse.json({ error: "Reading scores needs AI, which isn't switched on." }, { status: 503 });
+    }
+
+    const read = await planJsonFromDocs<{ skills: { name: string; score: number | null }[] }>(
+      "You read a screenshot of an IXL skill list and report every skill on it. " +
+        "The number in brackets after a skill name is its SmartScore. A skill with no " +
+        "bracketed number has not been attempted — report its score as null. " +
+        "Never invent a skill or a number.",
+      'List every skill you can see. JSON: {"skills": [{"name": "the skill name without its ' +
+        'number or leading index", "score": the bracketed number, or null if there is none}]}',
+      [{ mimeType: mimeType || "image/jpeg", data: imageBase64, filename: "skills.jpg" }],
+      1500
+    );
+    const found = (read?.skills ?? []).filter((s) => s && s.name);
+    if (found.length === 0) {
+      return NextResponse.json({ ok: true, read: false, reason: "I couldn't find any skills in that picture." });
+    }
+
+    // Loose match: IXL and our titles agree on wording but not always on case,
+    // punctuation or a trailing "set 2".
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    const pending = await prisma.providerCompletion.findMany({
+      where: { childId, status: "pending" },
+      select: { id: true, title: true },
+    });
+    const matched: { title: string; score: number }[] = [];
+    for (const p of pending) {
+      const hit = found.find((f) => f.score != null && norm(f.name) === norm(p.title));
+      if (!hit) continue;
+      const score = Math.max(0, Math.min(100, Math.round(hit.score as number)));
+      await prisma.providerCompletion.update({ where: { id: p.id }, data: { accuracy: score } });
+      matched.push({ title: p.title, score });
+    }
+    return NextResponse.json({
+      ok: true,
+      read: true,
+      seen: found.length,
+      matched,
+      unmatched: pending.filter((p) => !matched.some((m) => m.title === p.title)).map((p) => p.title),
+    });
+  }
+
   // Guide checked the work: enter the actual score, or mark it abandoned. Coins
   // = floor(accuracy/10). Below 90% (or abandoned) the skill isn't mastered and
   // needs a repeat, which the guide can drop into a Flex block (scheduleRepeat).

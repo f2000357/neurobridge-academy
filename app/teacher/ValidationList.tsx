@@ -50,6 +50,9 @@ export default function ValidationList({
   const [readOut, setReadOut] = useState<Record<string, string>>({});
   const shotRef = useRef<HTMLInputElement>(null);
   const [shotFor, setShotFor] = useState<CheckItem | null>(null);
+  const sheetRef = useRef<HTMLInputElement>(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetOut, setSheetOut] = useState<string | null>(null);
 
   // A photo of the child's own IXL skill summary. The guide is not on the
   // family's IXL account and never should be, but they are sitting next to the
@@ -93,6 +96,39 @@ export default function ValidationList({
     }));
   }
 
+  // One picture of the IXL skill list (e.g. ixl.com/ela/grade-3) carries every
+  // SmartScore in brackets, so a whole week can be filled from a single
+  // screenshot instead of one per skill.
+  async function readSheet(file: File) {
+    const child = items[0]?.childId;
+    if (!child) return;
+    setSheetBusy(true);
+    setSheetOut(null);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const d = await post({ op: "readScoreSheet", childId: child, mimeType: file.type || "image/jpeg", imageBase64: btoa(bin) });
+    setSheetBusy(false);
+    if (!d?.ok || !d.read) {
+      setSheetOut(d?.reason ?? d?.error ?? "Couldn't read that picture.");
+      return;
+    }
+    setAcc((a) => {
+      const next = { ...a };
+      for (const m of d.matched as { title: string; score: number }[]) {
+        const row = items.find((i) => i.title === m.title);
+        if (row) next[row.id] = String(m.score);
+      }
+      return next;
+    });
+    setSheetOut(
+      d.matched.length === 0
+        ? `Read ${d.seen} skills but none matched what's waiting here.`
+        : `Filled ${d.matched.length} of ${items.length} from ${d.seen} skills on screen.` +
+          (d.unmatched.length ? ` Still to do by hand: ${d.unmatched.join(", ")}.` : "")
+    );
+  }
+
   const post = (body: unknown) =>
     fetch("/api/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
 
@@ -117,6 +153,28 @@ export default function ValidationList({
 
   return (
     <div className="stack" style={{ gap: 10 }}>
+      <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button className="btn quiet" disabled={sheetBusy} onClick={() => sheetRef.current?.click()}>
+          {sheetBusy ? "Reading…" : "📷 Read all scores from one IXL page"}
+        </button>
+        <span className="muted" style={{ fontSize: "0.82rem" }}>
+          Screenshot his subject page (the list with scores in brackets) and every row below fills in.
+        </span>
+      </div>
+      <input
+        ref={sheetRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void readSheet(f);
+          e.target.value = "";
+        }}
+      />
+      {sheetOut && (
+        <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>{sheetOut}</p>
+      )}
       {items.map((it) => {
         const ab = abandoned[it.id] ?? false;
         const coins = ab ? 0 : coinsFor(acc[it.id] ?? "");
