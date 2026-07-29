@@ -23,9 +23,9 @@ const coinsFor = (acc: string) => {
   return Math.max(0, Math.min(10, Math.floor(n / 10)));
 };
 
-// The guide opens the child's work, enters the score (or marks it abandoned).
-// Coins = floor(accuracy/10). Below 90% (or abandoned) the skill isn't mastered
-// and can be repeated in a chosen Flex block.
+// The guide opens the child's work and records the SmartScore (or marks it
+// abandoned). Coins = floor(score/10). Below 90 — IXL's "excellent" — or
+// abandoned, the skill isn't mastered and can be repeated in a Flex block.
 export default function ValidationList({
   items,
   flexByChild = {},
@@ -44,11 +44,15 @@ export default function ValidationList({
   const shotRef = useRef<HTMLInputElement>(null);
   const [shotFor, setShotFor] = useState<CheckItem | null>(null);
 
-  // A photo of the child's own IXL detail view. The guide is not on the family's
-  // IXL account and never should be, but they are sitting next to the screen —
-  // so they photograph what is already in front of them rather than typing a
-  // number they cannot see. Questions answered vs correct is a real percentage;
-  // SmartScore is not, and is deliberately ignored.
+  // A photo of the child's own IXL skill summary. The guide is not on the
+  // family's IXL account and never should be, but they are sitting next to the
+  // screen — so they photograph what is already in front of them rather than
+  // typing a number they cannot see.
+  //
+  // IXL shows SmartScore, questions answered and time, and no correct-answer
+  // count at all, so SmartScore is the score. On IXL's scale 80 is proficient,
+  // 90 excellent, 100 mastered — which is why the 90 here still means what it
+  // did when this box held a hand-typed number.
   async function readFromShot(file: File, it: CheckItem) {
     setReading(it.id);
     setReadOut((m) => ({ ...m, [it.id]: "" }));
@@ -68,10 +72,18 @@ export default function ValidationList({
       return;
     }
     // Fill the box, don't submit. An adult still says yes.
-    setAcc((a) => ({ ...a, [it.id]: String(d.accuracy) }));
+    setAcc((a) => ({ ...a, [it.id]: String(d.smartScore) }));
+    const bits = [
+      `SmartScore ${d.smartScore}`,
+      d.answered != null ? `${d.answered} questions` : null,
+      d.minutes != null ? `${d.minutes} min` : null,
+      d.skill || null,
+    ].filter(Boolean);
     setReadOut((m) => ({
       ...m,
-      [it.id]: `Read ${d.correct}/${d.answered} correct → ${d.accuracy}%${d.skill ? ` · ${d.skill}` : ""}. Check it, then confirm.`,
+      [it.id]:
+        `Read ${bits.join(" · ")}. Check it, then confirm.` +
+        (d.rushed ? " ⚠ That's a lot of questions for the time — worth a look before you score it." : ""),
     }));
   }
 
@@ -122,7 +134,7 @@ export default function ValidationList({
             <input
               className="field v-acc"
               inputMode="numeric"
-              placeholder="score %"
+              placeholder="SmartScore"
               aria-label={`Score for ${it.childName}`}
               disabled={ab}
               value={acc[it.id] ?? ""}

@@ -74,9 +74,12 @@ export async function POST(req: NextRequest) {
   //
   // The guide is usually not on the family's IXL account and the password is not
   // theirs to have, so the number they are asked to type is one they cannot see.
-  // They can see the screen, though — they are sitting next to him. A photo of
-  // the skill's DETAIL view carries questions answered and answered correctly,
-  // which is a real percentage, unlike SmartScore.
+  // They can see the screen, though — they are sitting next to him.
+  //
+  // What that screen actually shows is SmartScore, questions answered and time.
+  // There is no correct-answer count anywhere in IXL: wrong answers appear only
+  // as dips in the SmartScore graph. So we stopped trying to derive a percentage
+  // and keep SmartScore for what it is.
   //
   // This only READS. Nothing is scored until an adult confirms the number, which
   // matters because this awards points and vision misreads.
@@ -95,36 +98,51 @@ export async function POST(req: NextRequest) {
 
     const read = await planJsonFromDocs<{
       skill: string | null;
+      smartScore: number | null;
       answered: number | null;
-      correct: number | null;
+      minutes: number | null;
       note: string | null;
     }>(
-      "You read a screenshot of an IXL skill's detail view and report what it says. " +
+      "You read a screenshot of an IXL 'Questions log' / skill summary and report the numbers on it. " +
         "Never guess: if a number is not clearly legible, return null for it. " +
-        "SmartScore is NOT a percentage — ignore it entirely.",
-      'Find the number of questions ANSWERED and how many were answered CORRECTLY, plus the skill name. ' +
-        'JSON: {"skill": "the skill name or null", "answered": number or null, "correct": number or null, ' +
+        "Read only the printed figures — never infer anything from the graph.",
+      'Read the Skill summary panel. JSON: {"skill": "the skill name beside SKILL:, or null", ' +
+        '"smartScore": the CURRENT SMARTSCORE number or null, ' +
+        '"answered": the QUESTIONS ANSWERED number or null, ' +
+        '"minutes": the TIME SPENT in whole minutes or null, ' +
         '"note": "one short sentence on anything unclear, or null"}',
       [{ mimeType: mimeType || "image/jpeg", data: imageBase64, filename: "score.jpg" }],
       400
     );
 
-    if (!read || read.answered == null || read.correct == null || read.answered <= 0) {
+    if (!read || read.smartScore == null) {
       return NextResponse.json({
         ok: true,
         read: false,
-        reason: read?.note ?? "Couldn't read a score from that picture — try the detail view, or type it in.",
+        reason:
+          read?.note ??
+          "Couldn't find a SmartScore in that picture — capture the Skill summary panel, or type it in.",
       });
     }
-    // Percent correct, which is what `accuracy` has always meant here.
-    const accuracy = Math.max(0, Math.min(100, Math.round((read.correct / read.answered) * 100)));
+    // IXL does not publish a correct-answer count anywhere: the skill summary
+    // carries SmartScore, questions answered and time, and wrong answers show up
+    // only as dips in a graph. So SmartScore IS the score we keep — on its own
+    // scale, where IXL means 80 proficient, 90 excellent, 100 mastered. That
+    // happens to line up with the 90 already used here for mastery.
+    const score = Math.max(0, Math.min(100, Math.round(read.smartScore)));
+    // 25 questions in a minute is not 25 questions' worth of thinking. Worth
+    // saying out loud rather than scoring it silently.
+    const rushed =
+      read.answered != null && read.minutes != null && read.minutes > 0 && read.answered / read.minutes >= 12;
     return NextResponse.json({
       ok: true,
       read: true,
       skill: read.skill,
+      smartScore: score,
       answered: read.answered,
-      correct: read.correct,
-      accuracy,
+      minutes: read.minutes,
+      accuracy: score,
+      rushed,
       note: read.note,
     });
   }
