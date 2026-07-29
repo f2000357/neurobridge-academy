@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { guardSession, guardOperate, canOperateChild } from "@/lib/authz";
 import { getCurrentTeacher } from "@/lib/teacherAuth";
 import { todayStr } from "@/lib/time";
+import { planJsonFromDocs, aiEnabled } from "@/lib/ai";
 
 // Guide validation of provider (IXL) work done off-platform.
 // The child marks a provider lesson done; the guide opens the work, reads the
@@ -67,6 +68,65 @@ export async function POST(req: NextRequest) {
       },
     });
     return NextResponse.json({ ok: true, id: c.id, pending: true });
+  }
+
+  // Read the score off a photo of the child's own screen.
+  //
+  // The guide is usually not on the family's IXL account and the password is not
+  // theirs to have, so the number they are asked to type is one they cannot see.
+  // They can see the screen, though — they are sitting next to him. A photo of
+  // the skill's DETAIL view carries questions answered and answered correctly,
+  // which is a real percentage, unlike SmartScore.
+  //
+  // This only READS. Nothing is scored until an adult confirms the number, which
+  // matters because this awards points and vision misreads.
+  if (op === "readScore") {
+    const { childId, imageBase64, mimeType } = body as {
+      childId: string;
+      imageBase64: string;
+      mimeType: string;
+    };
+    const denied = await guardOperate(childId);
+    if (denied) return denied;
+    if (!imageBase64) return NextResponse.json({ error: "No image received." }, { status: 400 });
+    if (!aiEnabled) {
+      return NextResponse.json({ error: "Reading scores needs AI, which isn't switched on." }, { status: 503 });
+    }
+
+    const read = await planJsonFromDocs<{
+      skill: string | null;
+      answered: number | null;
+      correct: number | null;
+      note: string | null;
+    }>(
+      "You read a screenshot of an IXL skill's detail view and report what it says. " +
+        "Never guess: if a number is not clearly legible, return null for it. " +
+        "SmartScore is NOT a percentage — ignore it entirely.",
+      'Find the number of questions ANSWERED and how many were answered CORRECTLY, plus the skill name. ' +
+        'JSON: {"skill": "the skill name or null", "answered": number or null, "correct": number or null, ' +
+        '"note": "one short sentence on anything unclear, or null"}',
+      [{ mimeType: mimeType || "image/jpeg", data: imageBase64, filename: "score.jpg" }],
+      400
+    );
+
+    if (!read || read.answered == null || read.correct == null || read.answered <= 0) {
+      return NextResponse.json({
+        ok: true,
+        read: false,
+        reason: read?.note ?? "Couldn't read a score from that picture — try the detail view, or type it in.",
+      });
+    }
+    // Percent correct, which is what `accuracy` has always meant here.
+    const accuracy = Math.max(0, Math.min(100, Math.round((read.correct / read.answered) * 100)));
+    return NextResponse.json({
+      ok: true,
+      read: true,
+      skill: read.skill,
+      answered: read.answered,
+      correct: read.correct,
+      accuracy,
+      note: read.note,
+    });
   }
 
   // Guide checked the work: enter the actual score, or mark it abandoned. Coins

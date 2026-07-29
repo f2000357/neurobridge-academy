@@ -2,7 +2,7 @@
 
 import { providerName } from "@/lib/providers";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export type CheckItem = {
@@ -38,6 +38,42 @@ export default function ValidationList({
   const [abandoned, setAbandoned] = useState<Record<string, boolean>>({});
   const [repeatSlot, setRepeatSlot] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  // What the camera read, per row — shown for confirmation, never applied blind.
+  const [reading, setReading] = useState<string | null>(null);
+  const [readOut, setReadOut] = useState<Record<string, string>>({});
+  const shotRef = useRef<HTMLInputElement>(null);
+  const [shotFor, setShotFor] = useState<CheckItem | null>(null);
+
+  // A photo of the child's own IXL detail view. The guide is not on the family's
+  // IXL account and never should be, but they are sitting next to the screen —
+  // so they photograph what is already in front of them rather than typing a
+  // number they cannot see. Questions answered vs correct is a real percentage;
+  // SmartScore is not, and is deliberately ignored.
+  async function readFromShot(file: File, it: CheckItem) {
+    setReading(it.id);
+    setReadOut((m) => ({ ...m, [it.id]: "" }));
+    const buf = await file.arrayBuffer();
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const d = await post({
+      op: "readScore",
+      childId: it.childId,
+      mimeType: file.type || "image/jpeg",
+      imageBase64: btoa(bin),
+    });
+    setReading(null);
+    if (!d?.ok || !d.read) {
+      setReadOut((m) => ({ ...m, [it.id]: d?.reason ?? d?.error ?? "Couldn't read that." }));
+      return;
+    }
+    // Fill the box, don't submit. An adult still says yes.
+    setAcc((a) => ({ ...a, [it.id]: String(d.accuracy) }));
+    setReadOut((m) => ({
+      ...m,
+      [it.id]: `Read ${d.correct}/${d.answered} correct → ${d.accuracy}%${d.skill ? ` · ${d.skill}` : ""}. Check it, then confirm.`,
+    }));
+  }
 
   const post = (body: unknown) =>
     fetch("/api/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
@@ -93,6 +129,17 @@ export default function ValidationList({
               onChange={(e) => setAcc((a) => ({ ...a, [it.id]: e.target.value.replace(/\D/g, "").slice(0, 3) }))}
             />
             <button
+              className="chip"
+              disabled={ab || reading === it.id}
+              onClick={() => {
+                setShotFor(it);
+                shotRef.current?.click();
+              }}
+              title="Photograph the skill's detail view on his screen"
+            >
+              {reading === it.id ? "Reading…" : "📷 Read the score"}
+            </button>
+            <button
               className={`chip ${ab ? "on" : ""}`}
               aria-pressed={ab}
               onClick={() => setAbandoned((m) => ({ ...m, [it.id]: !m[it.id] }))}
@@ -134,9 +181,27 @@ export default function ValidationList({
             <button className="chip danger" disabled={busy === it.id} onClick={() => reject(it.id)}>
               Not done
             </button>
+            {readOut[it.id] && (
+              <p className="muted" style={{ width: "100%", margin: "4px 0 0", fontSize: "0.82rem" }}>
+                {readOut[it.id]}
+              </p>
+            )}
           </div>
         );
       })}
+
+      {/* One picker for every row; `shotFor` says which row asked. */}
+      <input
+        ref={shotRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f && shotFor) void readFromShot(f, shotFor);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
