@@ -108,16 +108,65 @@ export default function PracticeStep({
     setSent(true);
   }
 
-  // The score lives on IXL's own screen, which is open right there. Rather than
-  // ask a child to read a number off it, or a guide to type one they have no
-  // account to see, we photograph the skill summary and read it here. It lands
-  // on the pending row, so the guide's check becomes one tap.
-  async function readScore(file: File) {
-    setReading(true);
+  // Grab the score off IXL itself, rather than asking anyone to read or
+  // photograph it.
+  //
+  // We cannot screenshot another site's tab from here — no browser permits
+  // that, at any privilege level. What we can do is open IXL and ask the
+  // browser to share that tab with us: the child picks it once in the browser's
+  // own picker, we take a single frame, and we stop. The picker cannot be
+  // skipped, and should not be.
+  async function grabFromIxl() {
     setReadOut(null);
+    // Open his subject page first, so there is something to point at. The skill
+    // list shows every SmartScore in brackets.
+    if (chunk.practiceUrl) window.open(chunk.practiceUrl, "_blank", "noopener");
+
+    const media = navigator.mediaDevices as MediaDevices & {
+      getDisplayMedia?: (c: MediaStreamConstraints) => Promise<MediaStream>;
+    };
+    if (!media?.getDisplayMedia) {
+      setReadOut("This browser can't share a tab — your guide can check it instead.");
+      return;
+    }
+    let stream: MediaStream | null = null;
+    try {
+      stream = await media.getDisplayMedia({ video: true });
+      // One frame is all we want. Painting a <video> is the portable way to get
+      // it — ImageCapture is Chromium-only.
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      await video.play();
+      await new Promise((r) => setTimeout(r, 400)); // let the tab actually paint
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      if (!canvas.width || !canvas.height) throw new Error("nothing to capture");
+      canvas.getContext("2d")?.drawImage(video, 0, 0);
+      video.pause();
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      await sendShot(dataUrl.split(",")[1], "image/jpeg");
+    } catch {
+      setReadOut("No problem — your guide can check your score instead.");
+    } finally {
+      stream?.getTracks().forEach((t) => t.stop());
+    }
+  }
+
+  async function readScore(file: File) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     let bin = "";
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    await sendShot(btoa(bin), file.type || "image/jpeg");
+  }
+
+  // The score lives on IXL's own screen. However the picture arrives — shared
+  // tab or a photo — it is read here and parked on the pending row, so the
+  // guide's check becomes one tap.
+  async function sendShot(imageBase64: string, mimeType: string) {
+    setReading(true);
+    setReadOut(null);
     const d = await fetch("/api/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -125,8 +174,8 @@ export default function PracticeStep({
         op: "readScore",
         childId,
         slotId,
-        mimeType: file.type || "image/jpeg",
-        imageBase64: btoa(bin),
+        mimeType,
+        imageBase64,
       }),
     })
       .then((r) => r.json())
@@ -186,10 +235,21 @@ export default function PracticeStep({
               <button
                 className="btn quiet"
                 style={{ marginTop: 4 }}
+                onClick={grabFromIxl}
+                disabled={reading}
+              >
+                {reading ? "Looking…" : "✨ Get my score from IXL"}
+              </button>
+              <p className="muted" style={{ fontSize: "0.8rem", margin: "6px 0 0" }}>
+                Your score page opens, then choose that tab when your browser asks.
+              </p>
+              <button
+                className="chip"
+                style={{ marginTop: 6 }}
                 onClick={() => shotRef.current?.click()}
                 disabled={reading}
               >
-                {reading ? "Looking…" : "📷 Show your score"}
+                or send a picture
               </button>
               <input
                 ref={shotRef}
