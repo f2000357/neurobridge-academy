@@ -69,18 +69,38 @@ export default async function SummaryPage({
   // Offered only when it went well. Pushing a child who just struggled straight
   // into more work is the opposite of what this should feel like; for them the
   // prominent option is "do it again", which can now only earn them more.
-  const wentWell = answers.length === 0 || correct / answers.length >= 0.8;
 
-  // Anything unfinished with real content, from this lesson onward.
+  // Work a grown-up has sent back. A closed session says he pressed done; a
+  // rejected or abandoned check says it did not count. The second is the
+  // verdict, so these slots are NOT finished — he should be offered them again
+  // rather than marched past them.
+  const sentBack = await prisma.providerCompletion.findMany({
+    where: { childId, status: { in: ["rejected", "abandoned"] }, slotId: { not: null } },
+    select: { slotId: true },
+  });
+  const sentBackIds = sentBack.map((c) => c.slotId as string);
+  const thisOneSentBack = sentBackIds.includes(slot.id);
+
+  // Sent-back work is not a springboard. Whatever the score said, an adult has
+  // asked for this one again, so "go further" is the wrong offer — redo is.
+  const wentWell =
+    !thisOneSentBack && (answers.length === 0 || correct / answers.length >= 0.8);
+
+  // Anything unfinished with real content, from this lesson onward — counting
+  // sent-back work as unfinished, which is the whole point of sending it back.
   const laterUnfinished = {
     childId,
     kind: "lesson",
     lessonPlanId: { not: null },
     id: { not: slot.id },
-    sessions: { none: { state: "closed" } },
-    OR: [
-      { date: { gt: slot.date } },
-      { date: slot.date, startMin: { gt: slot.startMin } },
+    AND: [
+      { OR: [{ sessions: { none: { state: "closed" } } }, { id: { in: sentBackIds } }] },
+      {
+        OR: [
+          { date: { gt: slot.date } },
+          { date: slot.date, startMin: { gt: slot.startMin } },
+        ],
+      },
     ],
   };
 
@@ -114,7 +134,17 @@ export default async function SummaryPage({
       <main className="page wrap" style={{ maxWidth: 560 }}>
         <section className="phase center">
           <p className="eyebrow">How you did</p>
-          <h1>You finished {slot.lessonPlan.title}! 🎉</h1>
+          {thisOneSentBack ? (
+            <>
+              <h1>Let&apos;s have another go at {slot.lessonPlan.title}</h1>
+              <p className="muted" style={{ maxWidth: "38ch", margin: "0 auto" }}>
+                Your guide had a look and thought this one deserves another try. Nothing lost — you
+                keep the ⭐ you already have.
+              </p>
+            </>
+          ) : (
+            <h1>You finished {slot.lessonPlan.title}! 🎉</h1>
+          )}
 
           <div className="card lift summary-card">
             {answers.length > 0 && (

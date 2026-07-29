@@ -246,7 +246,19 @@ export async function POST(req: NextRequest) {
     // Only plan UPCOMING sessions — today or later, not already completed. Past
     // and finished lessons are history and stay exactly as they are.
     const today = todayStr();
-    const isDone = (s: (typeof allSlots)[number]) => s.sessions.some((x) => x.state === "closed");
+    // Work an adult sent back is NOT done, whatever the child's session says.
+    // Without this a rejected lesson counted as lived, so regeneration stepped
+    // over it and the skill quietly disappeared from the plan.
+    const sentBack = new Set(
+      (
+        await prisma.providerCompletion.findMany({
+          where: { childId, status: { in: ["rejected", "abandoned"] }, slotId: { not: null } },
+          select: { slotId: true },
+        })
+      ).map((c) => c.slotId as string)
+    );
+    const isDone = (s: (typeof allSlots)[number]) =>
+      s.sessions.some((x) => x.state === "closed") && !sentBack.has(s.id);
 
     // Upcoming blocks that still need content.
     //
