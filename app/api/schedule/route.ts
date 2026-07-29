@@ -322,7 +322,20 @@ export async function POST(req: NextRequest) {
             childId,
             date: targetDate,
             kind: s.kind,
-            lessonPlanId: s.lessonPlanId,
+            // The SHAPE of the week repeats; the lessons in it do not.
+            //
+            // This used to carry lessonPlanId, so copying a week forward
+            // stamped that week's actual lessons onto every future week. The
+            // planner then found every block already full and correctly
+            // declined to overwrite them — which read as "generate does
+            // nothing for next week", when what it was really doing was
+            // refusing to throw away content someone had put there.
+            //
+            // Subject and activity ARE shape: a Monday-morning maths block is
+            // still maths next week. Dropping them left the generator guessing
+            // from an empty subject.
+            subject: s.subject,
+            activity: s.activity,
             startMin: s.startMin,
             endMin: s.endMin,
           },
