@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import PlanAssistant from "./PlanAssistant";
 import { addDaysStr, weekdayShort, todayStr } from "@/lib/time";
 
 type Child = { id: string; name: string };
@@ -143,6 +144,13 @@ export default function WeekPlanReview({
         <strong> Preview or edit any of them any time.</strong> Unapprove an upcoming lesson to take it
         off the schedule and change it; past days are locked.
       </p>
+
+      <PlanAssistant
+        childId={childId}
+        childName={childrenList.find((c) => c.id === childId)?.name ?? "this learner"}
+        weekStart={weekStart}
+        hasPlan={Boolean(plan)}
+      />
 
       <div className="card" style={{ marginTop: 12 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>

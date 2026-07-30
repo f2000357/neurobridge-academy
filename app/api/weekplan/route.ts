@@ -120,18 +120,33 @@ async function materializeWeeklyLesson(
     // grade rather than repeating a lesson he has already sat.
     if (pool.length === 0) {
       const gradeHint = providerLinks[0]?.gradeLevel || "";
-      const wider = await prisma.contentItem.findMany({
-        where: {
-          framework,
-          provider,
-          subject: subjKey,
-          active: true,
-          ...(gradeHint ? { gradeLevel: gradeHint } : {}),
-          practiceUrl: { notIn: [...doneUrls, ...used].filter(Boolean) },
-        },
-        orderBy: [{ skillCode: "asc" }, { practiceUrl: "asc" }],
-        take: 60,
-      });
+      // Stay in the same DOMAIN first — "3.OA.B.6" widens to other 3.OA skills,
+      // not to geometry. Widening on subject alone put "Draw squares,
+      // rectangles, rhombuses" into a division week, still tagged 3.OA.B.6.
+      const domain = wl.standardCode.split(".").slice(0, 2).join(".");
+      const base = {
+        framework,
+        provider,
+        subject: subjKey,
+        active: true,
+        ...(gradeHint ? { gradeLevel: gradeHint } : {}),
+        practiceUrl: { notIn: [...doneUrls, ...used].filter(Boolean) },
+      };
+      let wider = domain
+        ? await prisma.contentItem.findMany({
+            where: { ...base, standardCode: { startsWith: `${domain}.` } },
+            orderBy: [{ skillCode: "asc" }, { practiceUrl: "asc" }],
+            take: 60,
+          })
+        : [];
+      // Only leave the domain when it has nothing left to give.
+      if (wider.length === 0) {
+        wider = await prisma.contentItem.findMany({
+          where: base,
+          orderBy: [{ skillCode: "asc" }, { practiceUrl: "asc" }],
+          take: 60,
+        });
+      }
       pool = wider.map((w) => ({
         provider: w.provider,
         skillName: w.skillName,
@@ -157,6 +172,9 @@ async function materializeWeeklyLesson(
     }
 
     const grade = best?.gradeLevel || "";
+    // If widening moved us to another standard, say so — a block claiming a
+    // code it does not teach is worse than one with no code at all.
+    const realStandard = best?.standardCode || wl.standardCode;
     const skillName = best?.skillName || skillHint || wl.topic || wl.title;
     const videoUrl = best?.videoUrl || "";
     const practiceUrl = best?.practiceUrl || providerBrowseUrl(provider, subjKey, grade);
@@ -183,7 +201,7 @@ async function materializeWeeklyLesson(
         subject: wl.subject,
         gradeLevel: grade,
         topic: skillName,
-        standardCode: wl.standardCode,
+        standardCode: realStandard,
         standardText: "",
         goal: `Practice: ${skillName}`,
         whyItMatters: "",
@@ -200,7 +218,7 @@ async function materializeWeeklyLesson(
     // (lessonPlanId + status are set by the shared update below.)
     await prisma.weeklyLesson.update({
       where: { id: wl.id },
-      data: { title: lessonTitle, topic: skillName },
+      data: { title: lessonTitle, topic: skillName, standardCode: realStandard },
     });
   } else if (opts.publish) {
     // Existing draft (maybe guide-edited) — just flip it live.
