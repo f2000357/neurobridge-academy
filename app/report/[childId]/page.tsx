@@ -79,6 +79,9 @@ export default async function ReportPage({
           <h1 style={{ margin: "6px 0 4px" }}>{data.child.name}</h1>
           <p className="muted" style={{ margin: 0 }}>
             {data.child.grade ? `Grade ${data.child.grade}` : "Grade —"}
+            {data.child.workingGrade && data.child.workingGrade !== data.child.grade
+              ? ` · working at grade ${data.child.workingGrade}`
+              : ""}
             {data.child.age != null ? ` · Age ${data.child.age}` : ""} · Guide {data.child.guide} ·{" "}
             {data.child.center}
           </p>
@@ -119,7 +122,10 @@ export default async function ReportPage({
         const all = data.coverage.flatMap((c) => c.strands);
         const covered = all.filter((s) => s.status !== "not-started").length;
         const focus = all.filter((s) => s.status === "needs-work" || s.status === "not-started");
-        const gradeLabel = data.child.grade ? `Grade ${data.child.grade}` : "this grade";
+        // Coverage is computed where he is WORKING, so it must say so — under a
+        // grade-5 heading these grade-3 strands would read as year-5 gaps.
+        const cg = data.child.workingGrade || data.child.grade;
+        const gradeLabel = cg ? `Grade ${cg}` : "this grade";
         return (
           <>
             <h2 className="report-h2">

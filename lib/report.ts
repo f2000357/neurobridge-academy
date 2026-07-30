@@ -18,7 +18,8 @@ export type ChildReport = {
     id: string;
     name: string;
     age: number | null;
-    grade: string;
+    grade: string; // the grade they are ENROLLED in — the target
+    workingGrade: string; // where their lessons actually sit today
     guide: string;
     center: string;
     readingLevel: string;
@@ -151,12 +152,21 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
     if (n.stuckOn?.trim() && struggles.length < 6) struggles.push(n.stuckOn.trim());
   }
 
-  // What this grade is expected to cover, and where the evidence sits.
-  const childGrade = mode(grades);
+  // Two different numbers, and the report used to conflate them.
+  //
+  // `workingGrade` is the mode of the grades his lessons actually carry — where
+  // he is. `grade` is what the guide set in Setup — where he is enrolled, and
+  // the target. Showing the working grade under the word "Grade" told a parent
+  // their year-5 child was in year 3, which is not what the field says and not
+  // what they would bring to a review.
+  const workingGrade = mode(grades);
+  const childGrade = child.gradeLevel || workingGrade;
   const standards = getStandards(child.standardsCode);
+  // Coverage is measured where he is working, not where he is enrolled —
+  // otherwise every grade-3 strand reads as a grade-5 gap.
   const coverage: SubjectCoverage[] = coverageFromNotes(
     notes as unknown as CoverageNote[],
-    childGrade,
+    workingGrade,
     standards.code
   );
 
@@ -172,6 +182,7 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
       name: child.name,
       age: child.age ?? null,
       grade: childGrade,
+      workingGrade,
       guide: child.teacher.name,
       center: child.center?.name ?? "Homeschool",
       readingLevel: child.profile?.readingLevel ?? "",
