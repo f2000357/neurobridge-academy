@@ -87,9 +87,12 @@ async function masteredSkillUrls(childId: string): Promise<Set<string>> {
 async function materializeWeeklyLesson(
   wl: WLRow,
   child: ChildRow,
-  opts: { publish: boolean; schedule: boolean; doneUrls?: Set<string> }
+  opts: { publish: boolean; schedule: boolean; doneUrls?: Set<string>; used?: Set<string> }
 ) {
   const doneUrls = opts.doneUrls ?? new Set<string>();
+  // Skills already handed out in THIS generation. Without it a standard with
+  // one skill left gave every block of the week the same lesson.
+  const used = opts.used ?? new Set<string>();
   const framework = getStandards(child.standardsCode).code;
   const providers = childProviders(child.providers);
   const subjKey = subjectKey(wl.subject);
@@ -107,11 +110,43 @@ async function materializeWeeklyLesson(
     // The child's preferred platform that actually has skills for this standard.
     const provider = order.find((p) => links.some((l) => l.provider === p)) ?? order[0] ?? "ixl";
     const providerLinks = links.filter((l) => l.provider === provider); // skillCode-ordered
-    // Skip skills the child has already MASTERED, so the ramp advances instead of
-    // re-assigning them. If they've mastered everything, fall back to the full set.
-    const fresh = providerLinks.filter((l) => !doneUrls.has(l.practiceUrl));
-    const pool = fresh.length ? fresh : providerLinks;
+    // Skip skills the child has already MASTERED, and anything this generation
+    // has already used, so a week ramps through DIFFERENT skills.
+    let pool = providerLinks.filter((l) => !doneUrls.has(l.practiceUrl) && !used.has(l.practiceUrl));
+
+    // A standard can simply run out. 3.OA.B.6 indexes three skills; once two are
+    // mastered there is one left, and `order % 1` handed it to every block of
+    // the week. When that happens, widen to the rest of the subject at the same
+    // grade rather than repeating a lesson he has already sat.
+    if (pool.length === 0) {
+      const gradeHint = providerLinks[0]?.gradeLevel || "";
+      const wider = await prisma.contentItem.findMany({
+        where: {
+          framework,
+          provider,
+          subject: subjKey,
+          active: true,
+          ...(gradeHint ? { gradeLevel: gradeHint } : {}),
+          practiceUrl: { notIn: [...doneUrls, ...used].filter(Boolean) },
+        },
+        orderBy: [{ skillCode: "asc" }, { practiceUrl: "asc" }],
+        take: 60,
+      });
+      pool = wider.map((w) => ({
+        provider: w.provider,
+        skillName: w.skillName,
+        practiceUrl: w.practiceUrl,
+        videoUrl: w.videoUrl,
+        gradeLevel: w.gradeLevel,
+        standardCode: w.standardCode,
+        subject: w.subject,
+      }));
+    }
+    // Last resorts, in order: anything unused, then anything at all.
+    if (pool.length === 0) pool = providerLinks.filter((l) => !used.has(l.practiceUrl));
+    if (pool.length === 0) pool = providerLinks;
     const best = pool.length ? pool[wl.order % pool.length] : undefined;
+    if (best?.practiceUrl) used.add(best.practiceUrl);
 
     // Nothing indexed for this standard on the child's platform? Fall back to a
     // canonical skill name so the lesson still reads sensibly.
@@ -529,6 +564,8 @@ export async function POST(req: NextRequest) {
     // Skip skills already mastered AND skills already scheduled on this week's
     // kept (past) lessons, so the upcoming ramp advances instead of repeating.
     const doneUrls = await masteredSkillUrls(childId);
+    // Shared across the whole pass, so no two blocks get the same skill.
+    const used = new Set<string>();
     const keptSlots = await prisma.scheduleSlot.findMany({
       where: { childId, date: { in: dates }, kind: "lesson", id: { notIn: upcomingSlotIds }, lessonPlanId: { not: null } },
       include: { lessonPlan: { select: { workUrl: true } } },
@@ -540,7 +577,7 @@ export async function POST(req: NextRequest) {
     const created = await prisma.weeklyLesson.findMany({ where: { planId, slotId: { in: upcomingSlotIds } } });
     let built = 0;
     for (const wl of created) {
-      await materializeWeeklyLesson(wl, child, { publish: false, schedule: false, doneUrls });
+      await materializeWeeklyLesson(wl, child, { publish: false, schedule: false, doneUrls, used });
       built++;
     }
 
@@ -577,8 +614,10 @@ export async function POST(req: NextRequest) {
     });
     if (!wp) return NextResponse.json({ error: "plan not found" }, { status: 404 });
     const doneUrls = await masteredSkillUrls(wp.child.id);
+    // Shared across the whole pass, so no two blocks get the same skill.
+    const used = new Set<string>();
     for (const wl of wp.lessons) {
-      await materializeWeeklyLesson(wl, wp.child, { publish: true, schedule: true, doneUrls });
+      await materializeWeeklyLesson(wl, wp.child, { publish: true, schedule: true, doneUrls, used });
     }
     await prisma.weeklyPlan.update({ where: { id: body.planId }, data: { status: "approved" } });
     return NextResponse.json({ ok: true, scheduled: wp.lessons.length });
@@ -592,7 +631,7 @@ export async function POST(req: NextRequest) {
     });
     if (!wl) return NextResponse.json({ error: "not found" }, { status: 404 });
     const doneUrls = await masteredSkillUrls(wl.plan.childId);
-    await materializeWeeklyLesson(wl, wl.plan.child, { publish: true, schedule: true, doneUrls });
+    await materializeWeeklyLesson(wl, wl.plan.child, { publish: true, schedule: true, doneUrls, used: new Set<string>() });
     return NextResponse.json({ ok: true });
   }
 
