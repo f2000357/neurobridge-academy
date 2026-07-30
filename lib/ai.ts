@@ -53,6 +53,13 @@ export async function tutorText(
       system,
       messages: [{ role: "user", content: user }],
     });
+    // Running out of room mid-answer produces text that looks fine and parses
+    // as nothing. Say so, or every caller reports the same useless "try again".
+    if (msg.stop_reason === "max_tokens") {
+      console.error(
+        `Claude call hit max_tokens (${maxTokens}) on ${modelFor(kind)} — the answer was cut off.`
+      );
+    }
     const block = msg.content.find((b) => b.type === "text");
     return block?.type === "text" ? block.text.trim() : null;
   } catch (err) {

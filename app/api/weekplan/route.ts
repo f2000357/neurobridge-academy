@@ -468,7 +468,10 @@ export async function POST(req: NextRequest) {
         `Return a "lessons" array with exactly one lesson per block, in order, difficulty rising. ` +
         `Each lesson: {"title","topic" (the strand),"level" (1..N rising),"rationale" (one SHORT sentence saying which gap it closes)}. Keep rationales short so the JSON stays compact. ` +
         `JSON: {"subjects": [{"subject","focus","standardCode","lessons":[...]}]}`,
-      5000,
+      // 21 blocks across four subjects, each with a title, topic and rationale,
+      // does not fit in 5000 — the answer was being cut off mid-JSON, which
+      // parses as nothing and surfaced as "try again" forever.
+      16000,
       "plan"
     );
 
