@@ -4,7 +4,7 @@ import { guardOperate } from "@/lib/authz";
 import { tutorJson, aiEnabled } from "@/lib/ai";
 import { gatherReport } from "@/lib/report";
 import { gatherCoverage, gapSummary } from "@/lib/coverage";
-import { availableStandards } from "@/lib/contentIndex";
+import { availableStandards, gradeSpan } from "@/lib/contentIndex";
 import { getStandards } from "@/lib/standards";
 import { subjectKey } from "@/lib/subjects";
 
@@ -65,12 +65,18 @@ export async function POST(req: NextRequest) {
     // What it is allowed to choose from. Offering a standard we have no real
     // practice link for would produce a lesson that goes nowhere.
     const framework = getStandards(child?.standardsCode).code;
+    // The same band the planner works in: from just below where he is working
+    // up to the grade he is enrolled in. Offering only the enrolled grade let
+    // it propose grade-5 swaps into a grade-3 week and nothing to remediate
+    // with; offering only the working grade would never stretch him.
+    const target = child?.gradeLevel || report?.child.workingGrade || "3";
+    const band = gradeSpan(report?.child.workingGrade || target, target);
     const subjects = [...new Set(plan.lessons.map((l) => l.subject))];
     const choosable: Record<string, unknown> = {};
     for (const s of subjects) {
       choosable[s] = await availableStandards({
         subject: subjectKey(s),
-        grades: [child?.gradeLevel || "3"],
+        grades: band.length ? band : [target],
         framework,
         cap: 40,
       });
@@ -108,18 +114,26 @@ export async function POST(req: NextRequest) {
           neverDo: child?.profile?.neverDo ?? "",
           interests: child?.profile?.interests ?? "",
         })}\n` +
-        `STANDARDS YOU MAY CHOOSE FROM, per subject (code and skill name — anything else has no practice link): ${JSON.stringify(choosable)}\n\n` +
+        `He is enrolled in grade ${target} and working at grade ${report?.child.workingGrade || "?"}; keep moving him toward ${target} without skipping a prerequisite he genuinely lacks.\n` +
+        `STANDARDS YOU MAY CHOOSE FROM, per subject (code, grade and skill name — anything else has no practice link): ${JSON.stringify(choosable)}\n\n` +
         `Answer the guide. If you propose changes, each one is either ` +
         `{"kind":"replaceLesson","lessonId","topic","standardCode","title","why"} ` +
         `or {"kind":"changeFocus","subject","topic","standardCode","why"}. ` +
         `standardCode MUST come from the list above for that subject. ` +
         `JSON: {"reply": "your answer in plain sentences", "proposals": [ ... ]}`,
-      2000,
+      // A reply plus proposals does not fit in 2000 — it was being cut off
+      // mid-JSON, which parses as nothing and surfaced as "couldn't answer".
+      // The same ceiling broke week generation; see lib/ai.ts, which now logs
+      // when a call runs out of room.
+      8000,
       "plan"
     );
 
     if (!result?.reply) {
-      return NextResponse.json({ error: "I couldn't answer that one. Try asking it differently." }, { status: 502 });
+      return NextResponse.json(
+        { error: "That answer didn't come back in one piece. Try a shorter or more specific question." },
+        { status: 502 }
+      );
     }
     // Drop anything pointing at a lesson that isn't in this week, or a standard
     // we cannot actually link to — a proposal has to be applicable.
