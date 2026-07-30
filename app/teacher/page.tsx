@@ -172,33 +172,6 @@ export default async function TeacherDashboard() {
         </section>
 
         <section style={{ marginTop: 28 }}>
-          <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-            <h2 style={{ margin: 0 }}>Today&apos;s schedule</h2>
-            <span className="row">
-              <Link href="/teacher/week" className="btn quiet">
-                Week view →
-              </Link>
-              <Link href="/teacher/schedule" className="btn quiet">
-                Schedule →
-              </Link>
-            </span>
-          </div>
-          <TodayCalendar
-            kids={kids.map((c) => ({ id: c.id, name: c.name }))}
-            slots={slots.map((s) => ({
-              id: s.id,
-              childId: s.childId,
-              kind: s.kind,
-              activity: s.activity,
-              startMin: s.startMin,
-              endMin: s.endMin,
-              lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,
-              done: s.sessions.some((x) => x.state === "closed"),
-            }))}
-          />
-        </section>
-
-        <section style={{ marginTop: 36 }}>
           <h2>My children</h2>
           <div className="grid2">
             {kids.map((child) => (
@@ -232,6 +205,34 @@ export default async function TeacherDashboard() {
             Launching a child opens their locked learning space. Getting back here needs your PIN.
           </p>
         </section>
+
+        <section style={{ marginTop: 28 }}>
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
+            <h2 style={{ margin: 0 }}>Today&apos;s schedule</h2>
+            <span className="row">
+              <Link href="/teacher/week" className="btn quiet">
+                Week view →
+              </Link>
+              <Link href="/teacher/schedule" className="btn quiet">
+                Schedule →
+              </Link>
+            </span>
+          </div>
+          <TodayCalendar
+            kids={kids.map((c) => ({ id: c.id, name: c.name }))}
+            slots={slots.map((s) => ({
+              id: s.id,
+              childId: s.childId,
+              kind: s.kind,
+              activity: s.activity,
+              startMin: s.startMin,
+              endMin: s.endMin,
+              lessonPlan: s.lessonPlan ? { title: s.lessonPlan.title, subject: s.lessonPlan.subject } : null,
+              done: s.sessions.some((x) => x.state === "closed"),
+            }))}
+          />
+        </section>
+
     </main>
   );
 }
