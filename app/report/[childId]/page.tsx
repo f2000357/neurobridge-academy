@@ -129,18 +129,41 @@ export default async function ReportPage({
         return (
           <>
             <h2 className="report-h2">
-              {data.standardsState} standards coverage · {gradeLabel}
+              What {data.child.name.split(" ")[0]} has covered · {gradeLabel} {data.standardsState}
             </h2>
             <p className="muted" style={{ marginTop: -6 }}>
-              {covered} of {all.length} grade-level areas have assessed work.
+              {covered > 0 ? (
+                <>
+                  Work assessed in <strong>{covered}</strong> of {all.length} areas.{" "}
+                  {all.length - covered} not started yet — normal early on, and the plan works
+                  through them.
+                </>
+              ) : (
+                <>
+                  Nothing assessed yet in these areas. Practice he has done on a provider counts
+                  here once you check it on Today.
+                </>
+              )}
             </p>
 
             <div className="cov-grid">
-              {data.coverage.map((c) => (
+              {data.coverage.map((c) => {
+                // Lead with what he has actually done. Listing eighteen
+                // untouched strands above two real ones made a child with 22
+                // finished lessons and 8 mastered skills read as having done
+                // nothing at all.
+                const started = c.strands.filter((s) => s.status !== "not-started");
+                const untouched = c.strands.filter((s) => s.status === "not-started");
+                return (
                 <div key={c.subject} className="cov-card">
                   <h3 className="report-h3">{c.subject}</h3>
+                  {started.length === 0 && (
+                    <p className="muted" style={{ margin: "0 0 6px", fontSize: "0.82rem" }}>
+                      Not started yet.
+                    </p>
+                  )}
                   <ul className="cov-list">
-                    {c.strands.map((s) => (
+                    {started.map((s) => (
                       <li key={s.strand} className={`cov-row st-${s.status}`}>
                         <span className="cov-dot" aria-hidden="true" />
                         <span className="cov-name">{s.strand}</span>
@@ -152,8 +175,25 @@ export default async function ReportPage({
                       </li>
                     ))}
                   </ul>
+                  {untouched.length > 0 && (
+                    <details style={{ marginTop: 4 }}>
+                      <summary className="muted" style={{ fontSize: "0.8rem", cursor: "pointer" }}>
+                        {untouched.length} not started yet
+                      </summary>
+                      <ul className="cov-list" style={{ marginTop: 4 }}>
+                        {untouched.map((s) => (
+                          <li key={s.strand} className="cov-row st-not-started">
+                            <span className="cov-dot" aria-hidden="true" />
+                            <span className="cov-name">{s.strand}</span>
+                            <span className="cov-meta">not started</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {focus.length > 0 && (

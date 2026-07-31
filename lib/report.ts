@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
-import { coverageFromNotes, mode, type CoverageNote, type SubjectCoverage } from "./coverage";
+import { gatherCoverage, type SubjectCoverage } from "./coverage";
 import { getStandards } from "./standards";
 import { withAuthor, noteAuthor } from "./noteAuthor";
 import { roleOnChild } from "./access";
@@ -154,21 +154,16 @@ export async function gatherReport(childId: string, since?: Date): Promise<Child
 
   // Two different numbers, and the report used to conflate them.
   //
-  // `workingGrade` is the mode of the grades his lessons actually carry — where
-  // he is. `grade` is what the guide set in Setup — where he is enrolled, and
-  // the target. Showing the working grade under the word "Grade" told a parent
-  // their year-5 child was in year 3, which is not what the field says and not
-  // what they would bring to a review.
-  const workingGrade = mode(grades);
+  // `grade` is what the guide set in Setup — enrolled, and the target.
+  // `workingGrade` is where he has actually secured a footing. Showing the
+  // second under the word "Grade" told a parent their year-5 child was in
+  // year 3, which is not what the field says.
+  //
+  // Both come from gatherCoverage, shared with the planner, so the report and
+  // the plan can never disagree — and so the provider practice he has done
+  // counts as coverage instead of reading "not started" across the board.
+  const { grade: workingGrade, coverage, standards } = await gatherCoverage(childId);
   const childGrade = child.gradeLevel || workingGrade;
-  const standards = getStandards(child.standardsCode);
-  // Coverage is measured where he is working, not where he is enrolled —
-  // otherwise every grade-3 strand reads as a grade-5 gap.
-  const coverage: SubjectCoverage[] = coverageFromNotes(
-    notes as unknown as CoverageNote[],
-    workingGrade,
-    standards.code
-  );
 
   const subjects: SubjectReport[] = [...bySubject.entries()].map(([subject, b]) => {
     const avg = b.scores.length ? Math.round(b.scores.reduce((x, y) => x + y, 0) / b.scores.length) : null;

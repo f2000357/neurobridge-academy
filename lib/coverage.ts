@@ -31,6 +31,8 @@ export const COVERAGE_SUBJECTS = [
 ];
 
 // The shape we need off a ProgressNote to judge coverage.
+const GRADE_ORDER = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+
 export type CoverageNote = {
   score: number | null;
   session: {
@@ -39,6 +41,43 @@ export type CoverageNote = {
     };
   };
 };
+
+
+// Which strand a standard code belongs to.
+//
+// Coverage is keyed by strand name, and a ProviderCompletion only carries a
+// code like "3.OA.B.6". Without this, work done on IXL cannot be matched to a
+// strand and the report says "not started" about a child who has mastered eight
+// skills — which is what it was doing.
+const STRAND_BY_CODE: Record<string, string> = {
+  CC: "Counting & Cardinality",
+  OA: "Operations & Algebraic Thinking",
+  NBT: "Number & Operations in Base Ten",
+  NF: "Fractions",
+  MD: "Measurement & Data",
+  G: "Geometry",
+  RP: "Ratios & Proportional Relationships",
+  NS: "The Number System",
+  EE: "Expressions & Equations",
+  SP: "Statistics & Probability",
+  F: "Functions",
+  RF: "Reading: Foundational Skills",
+  RL: "Reading: Literature",
+  RI: "Reading: Informational Text",
+  W: "Writing: Text Types & Purposes",
+  L: "Language: Conventions",
+  SL: "Speaking & Listening",
+};
+
+export function strandForCode(code: string): string {
+  // "3.OA.B.6" -> OA ; "RF.3.4" -> RF
+  const parts = (code || "").split(".").filter(Boolean);
+  for (const part of parts) {
+    const key = part.toUpperCase();
+    if (STRAND_BY_CODE[key]) return STRAND_BY_CODE[key];
+  }
+  return "";
+}
 
 export function mode(arr: string[]): string {
   if (arr.length === 0) return "";
@@ -110,12 +149,75 @@ export async function gatherCoverage(
       },
     },
   });
-  const grade = mode(
-    notes.map((n) => n.session.slot.lessonPlan?.gradeLevel ?? "").filter(Boolean) as string[]
+  // Practice the child actually did on a provider, scored by the guide.
+  //
+  // Coverage used to read ONLY in-app progress notes. Every one of Prithvi's
+  // carries score: null, because his lessons are IXL deep links with no
+  // in-app assessment — so the report said "not started" about all 18 areas
+  // while he had eight validated skills, and the planner believed he had never
+  // begun. Provider work is the evidence; it belongs in here.
+  const completions = await prisma.providerCompletion.findMany({
+    where: { childId, status: "validated", accuracy: { not: null }, practiceUrl: { not: "" } },
+    select: { accuracy: true, practiceUrl: true },
+  });
+  const items = completions.length
+    ? await prisma.contentItem.findMany({
+        where: { practiceUrl: { in: completions.map((c) => c.practiceUrl) } },
+        select: { practiceUrl: true, subject: true, standardCode: true, gradeLevel: true },
+      })
+    : [];
+  const byUrl = new Map(items.map((i) => [i.practiceUrl, i]));
+  const providerNotes: CoverageNote[] = [];
+  for (const c of completions) {
+    const item = byUrl.get(c.practiceUrl);
+    const strand = item ? strandForCode(item.standardCode) : "";
+    if (!item || !strand) continue;
+    providerNotes.push({
+      score: c.accuracy,
+      session: {
+        slot: {
+          lessonPlan: {
+            subject: item.subject,
+            topic: strand,
+            standardCode: item.standardCode,
+            gradeLevel: item.gradeLevel,
+          },
+        },
+      },
+    });
+  }
+
+  const all = [...(notes as CoverageNote[]), ...providerNotes];
+
+  // Where he is WORKING, from evidence rather than from lesson history.
+  //
+  // It used to be the mode of the grades his lessons carried — which the
+  // planner sets, so planning grade-3 lessons kept the working grade at 3 and
+  // the working grade kept the planner at grade 3. A closed loop that could
+  // never climb however well he did.
+  //
+  // Now it is the highest grade he has genuinely secured a footing in: at least
+  // MASTERY_FOOTING skills mastered there. Master enough of grade 3 and the
+  // whole band moves to 4, and the gap to his enrolled grade closes on its own.
+  const MASTERY_FOOTING = 3;
+  const masteredByGrade = new Map<string, number>();
+  for (const n of providerNotes) {
+    if ((n.score ?? 0) < 100) continue;
+    const g = n.session.slot.lessonPlan!.gradeLevel;
+    if (g) masteredByGrade.set(g, (masteredByGrade.get(g) ?? 0) + 1);
+  }
+  const secured = [...masteredByGrade.entries()]
+    .filter(([, n]) => n >= MASTERY_FOOTING)
+    .map(([g]) => g)
+    .sort((a, b) => GRADE_ORDER.indexOf(a) - GRADE_ORDER.indexOf(b));
+  const attempted = mode(
+    all.map((n) => n.session.slot.lessonPlan?.gradeLevel ?? "").filter(Boolean) as string[]
   );
+  const grade = secured.length ? secured[secured.length - 1] : attempted;
+
   return {
     grade,
-    coverage: coverageFromNotes(notes as CoverageNote[], grade, standards.code),
+    coverage: coverageFromNotes(all, grade, standards.code),
     standards,
   };
 }
