@@ -3800,3 +3800,19 @@ textarea.field {
 .plan-banner-line { margin: 0; font-size: 0.94rem; line-height: 1.55; }
 .plan-banner-line + .plan-banner-line { margin-top: 8px; font-size: 0.88rem; }
 .plan-banner-line a { font-weight: 650; }
+
+/* Section headings in the guide's sidebar. The nav carries three different
+   kinds of thing — the day's work, the child's record, the people around them
+   — and read as one flat list of nine before this. */
+.console-navhead {
+  margin: 14px 0 4px;
+  padding: 0 12px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  list-style: none;
+}
+.console-nav + .console-nav { margin-top: 2px; }
+.console-nav:first-child .console-navhead { margin-top: 4px; }

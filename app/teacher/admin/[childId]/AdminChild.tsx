@@ -114,6 +114,7 @@ export default function AdminChild({
   learningProfile = null,
   contact = EMPTY_CONTACT,
   centre,
+  initialTab,
 }: {
   initial: ChildForm;
   documents: DocMeta[];
@@ -133,13 +134,20 @@ export default function AdminChild({
   learningProfile?: ProfileData | null;
   contact?: ContactData;
   centre: CentreState;
+  /** Land on a section directly, from the nav. */
+  initialTab?: string;
 }) {
   const REVIEW_CAP = 3;
   const router = useRouter();
   const [form, setForm] = useState<ChildForm>(initial);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"profile" | "standing" | "setup" | "iep" | "tests">("profile");
+  // Openable straight to a section. The IEP review and "where they stand" are
+  // recurring work, not configuration, so they have their own nav entries and
+  // land here with the right tab already showing.
+  const [tab, setTab] = useState<"profile" | "standing" | "setup" | "iep" | "tests">(
+    (initialTab as "profile" | "standing" | "setup" | "iep" | "tests") || "profile"
+  );
   const [uploadKind, setUploadKind] = useState("iep");
   const [review, setReview] = useState<IepReviewData>(iepReview);
   const [iepBusy, setIepBusy] = useState(false);

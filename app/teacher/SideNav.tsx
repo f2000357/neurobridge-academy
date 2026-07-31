@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 type Item = { href: string; label: string; match: (p: string) => boolean; icon: React.ReactNode };
+type Group = { heading: string; items: Item[] };
 
 const icon = (d: string) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -64,6 +65,24 @@ const items: Item[] = [
     icon: icon("M20 12v9H4v-9|M2 7h20v5H2z|M12 22V7|M12 7S9 2 6.5 3.5 8 7 12 7z|M12 7s3-5 5.5-3.5S16 7 12 7z"),
   },
   {
+    href: "/teacher/iep",
+    label: "IEP support",
+    match: (p) => p.startsWith("/teacher/iep"),
+    icon: icon("M4 19.5A2.5 2.5 0 0 1 6.5 17H20|M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"),
+  },
+  {
+    href: "/teacher/standing",
+    label: "Where they stand",
+    match: (p) => p.startsWith("/teacher/standing"),
+    icon: icon("M3 3v18h18|M7 15l4-4 3 3 5-6"),
+  },
+  {
+    href: "/teacher/tests",
+    label: "Check-ins",
+    match: (p) => p.startsWith("/teacher/tests"),
+    icon: icon("M9 11l3 3 8-8|M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"),
+  },
+  {
     href: "/teacher/settings",
     label: "Settings",
     match: (p) => p.startsWith("/teacher/settings"),
@@ -71,12 +90,39 @@ const items: Item[] = [
   },
 ];
 
+// Three kinds of thing, and they were all one undifferentiated list.
+//
+// "The child" holds the work you come back to — the IEP review is what a parent
+// carries into a meeting, not a setting. It used to be a chip inside a screen
+// called Setup.
+const byHref = (h: string) => {
+  const found = items.find((i) => i.href === h);
+  if (!found) throw new Error(`SideNav: no item for ${h}`);
+  return found;
+};
+const groups: Group[] = [
+  {
+    heading: "Day to day",
+    items: ["/teacher", "/teacher/schedule", "/teacher/week-plan", "/teacher/rewards"].map(byHref),
+  },
+  {
+    heading: "The child",
+    items: ["/teacher/admin", "/teacher/iep", "/teacher/standing", "/teacher/tests", "/teacher/performance"].map(byHref),
+  },
+  {
+    heading: "Around them",
+    items: ["/teacher/specialists", "/teacher/find", "/teacher/settings"].map(byHref),
+  },
+];
+
 export default function SideNav({ approvals = 0 }: { approvals?: number }) {
   const pathname = usePathname();
   return (
     <nav className="console-side" aria-label="Guide portal">
-      <ul className="console-nav">
-        {items.map((it) => (
+      {groups.map((g) => (
+      <ul className="console-nav" key={g.heading}>
+        <li className="console-navhead" aria-hidden="true">{g.heading}</li>
+        {g.items.map((it) => (
           <li key={it.href}>
             <Link
               href={it.href}
@@ -96,6 +142,7 @@ export default function SideNav({ approvals = 0 }: { approvals?: number }) {
           </li>
         ))}
       </ul>
+      ))}
     </nav>
   );
 }

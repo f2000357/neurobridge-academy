@@ -15,10 +15,13 @@ export const dynamic = "force-dynamic";
 
 export default async function ChildAdminPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ childId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { childId } = await params;
+  const { tab } = await searchParams;
   const child = await prisma.child.findUnique({
     where: { id: childId },
     include: {
@@ -194,6 +197,7 @@ export default async function ChildAdminPage({
 
   return (
     <AdminChild
+      initialTab={tab}
       initial={form}
       documents={documents}
       homework={homework}
