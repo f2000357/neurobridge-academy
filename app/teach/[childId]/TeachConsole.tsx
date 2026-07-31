@@ -96,6 +96,11 @@ export default function TeachConsole({
   const fileRef = useRef<HTMLInputElement>(null);
   // The note we're attaching media to — set once the draft has been saved.
   const [mediaNoteId, setMediaNoteId] = useState<string | null>(null);
+  // Moments during a long block — a camp morning, not a write-up.
+  const momentRef = useRef<HTMLInputElement>(null);
+  const [momentFor, setMomentFor] = useState<BlockRow | null>(null);
+  const [momentCaption, setMomentCaption] = useState("");
+  const [momentBusy, setMomentBusy] = useState(false);
 
   // Blocks the guide gave them, plus any block in the subject they teach —
   // a chess coach should find the chess blocks without being wired to each one.
@@ -245,6 +250,29 @@ export default function TeachConsole({
     }
     if (draft?.noteId === noteId) setDraft(null);
     setNote("Deleted.");
+    router.refresh();
+  }
+
+  // One photo or clip with a line about it, added while the day is happening.
+  // The block's note is found or opened server-side, so nobody has to write a
+  // note first just to keep a picture.
+  async function addMoment(file: File, block: BlockRow) {
+    setMomentBusy(true);
+    setNote(null);
+    const form = new FormData();
+    form.append("slotId", block.id);
+    form.append("childId", childId);
+    form.append("caption", momentCaption.trim());
+    form.append("file", file);
+    const res = await fetch("/api/teach", { method: "POST", body: form });
+    const data = await res.json();
+    setMomentBusy(false);
+    if (!data.ok) {
+      setNote(data.error ?? "That didn't save.");
+      return;
+    }
+    setMomentCaption("");
+    setNote("Added to his day.");
     router.refresh();
   }
 
@@ -415,6 +443,52 @@ export default function TeachConsole({
         </div>
       )}
 
+
+      {/* Moments through a long block — added as the day happens. */}
+      {mine.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <h2 style={{ marginTop: 0 }}>Keep a moment</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
+            A photo or a short clip with one line about it. {childName.split(" ")[0]} can play the
+            day back afterwards, in order — so add them as they happen rather than saving it all up.
+          </p>
+          <input
+            className="field"
+            placeholder="What's happening? e.g. Built the tallest tower at camp"
+            value={momentCaption}
+            onChange={(e) => setMomentCaption(e.target.value)}
+          />
+          <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {mine.map((b) => (
+              <button
+                key={b.id}
+                className="chip"
+                disabled={momentBusy}
+                onClick={() => {
+                  setMomentFor(b);
+                  momentRef.current?.click();
+                }}
+              >
+                {momentBusy && momentFor?.id === b.id ? "Saving…" : `📷 ${b.label}`}
+              </button>
+            ))}
+          </div>
+          <input
+            ref={momentRef}
+            type="file"
+            accept="image/*,video/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f && momentFor) void addMoment(f, momentFor);
+              e.target.value = "";
+            }}
+          />
+          <p className="muted" style={{ fontSize: "0.78rem", marginTop: 8 }}>
+            The family sees these. {childName.split(" ")[0]} sees them too, as his day.
+          </p>
+        </div>
+      )}
 
       {/* Points for the sessions they ran. */}
       {mine.length > 0 && (

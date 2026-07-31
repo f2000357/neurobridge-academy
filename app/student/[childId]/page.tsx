@@ -85,6 +85,15 @@ export default async function StudentToday({
   });
 
   const homeworkDue = await prisma.homework.count({ where: { childId, status: "assigned" } });
+  // Days with photos or clips to look back on — most recent first.
+  const storyDays = await prisma.teacherNote.findMany({
+    where: { childId, media: { some: {} } },
+    select: { date: true },
+    orderBy: { date: "desc" },
+    take: 40,
+  });
+  const storyDates = [...new Set(storyDays.map((n) => n.date))];
+  const latestStory = storyDates[0] ?? "";
 
   const isClosed = (s: (typeof slots)[number]) =>
     s.sessions.some((sess) => sess.state === "closed");
@@ -153,6 +162,24 @@ export default async function StudentToday({
         </p>
 
         <DayStrip slots={daySlots} linkHandle={linkHandle} />
+
+        {latestStory && (
+          <Link
+            href={`/student/${linkHandle}/story/${latestStory}`}
+            className="card lift"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, color: "inherit" }}
+          >
+            <span>
+              <strong>📸 What I did</strong>
+              <div className="muted" style={{ fontSize: "0.88rem" }}>
+                {latestStory === todayStr()
+                  ? "Photos and clips from today — play them back"
+                  : `Your last day with photos · ${latestStory}`}
+              </div>
+            </span>
+            <span className="badge next">{storyDates.length}</span>
+          </Link>
+        )}
 
         <Link
           href={`/student/${linkHandle}/homework`}

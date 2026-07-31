@@ -118,6 +118,14 @@ export default async function ReportPage({
 
       <ReportNarrative key={range ?? "all"} childId={child.id} childName={data.child.name} range={range} />
 
+      {/* The days themselves, as he saw them. A photo of him mid-thing says
+          something the numbers above cannot. */}
+      <p className="muted" style={{ marginTop: 14 }}>
+        <Link href={`/student/${child.username ?? child.id}/story`}>
+          📸 Look through {data.child.name.split(" ")[0]}&apos;s days →
+        </Link>
+      </p>
+
       {(() => {
         const all = data.coverage.flatMap((c) => c.strands);
         const covered = all.filter((s) => s.status !== "not-started").length;

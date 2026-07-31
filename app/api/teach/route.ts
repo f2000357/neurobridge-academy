@@ -197,7 +197,41 @@ async function handleUpload(req: NextRequest) {
     return NextResponse.json({ error: "No file received." }, { status: 400 });
   }
 
-  const note = await prisma.teacherNote.findFirst({ where: { id: noteId, teacherId: teacher.id } });
+  // A moment during a long block.
+  //
+  // A six-hour summer-camp block is not one write-up at the end — it is a
+  // morning of small things worth keeping, added as they happen. Rather than
+  // make an adult save a note first and attach to it, a moment names the BLOCK
+  // and we find or open that block's note ourselves.
+  const slotId = String(form.get("slotId") ?? "");
+  const childId = String(form.get("childId") ?? "");
+  let note = noteId
+    ? await prisma.teacherNote.findFirst({ where: { id: noteId, teacherId: teacher.id } })
+    : null;
+  if (!note && slotId && childId) {
+    if (!(await teacherCanSee(teacher.id, childId))) {
+      return NextResponse.json({ error: "not your learner" }, { status: 403 });
+    }
+    const slot = await prisma.scheduleSlot.findUnique({
+      where: { id: slotId },
+      select: { childId: true, teacherId: true, date: true, subject: true, activity: true },
+    });
+    if (!slot || slot.childId !== childId || slot.teacherId !== teacher.id) {
+      return NextResponse.json({ error: "That block isn't yours." }, { status: 403 });
+    }
+    note =
+      (await prisma.teacherNote.findFirst({ where: { slotId, teacherId: teacher.id } })) ??
+      (await prisma.teacherNote.create({
+        data: {
+          childId,
+          slotId,
+          teacherId: teacher.id,
+          date: slot.date,
+          subject: slot.subject || slot.activity || "",
+          whatWeDid: "",
+        },
+      }));
+  }
   if (!note) return NextResponse.json({ error: "not your note" }, { status: 403 });
 
 
