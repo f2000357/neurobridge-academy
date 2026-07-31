@@ -138,6 +138,7 @@ export default function AdminChild({
   initialTab?: string;
 }) {
   const REVIEW_CAP = 3;
+  const [used, setUsed] = useState(reviewsUsed);
   const router = useRouter();
   const [form, setForm] = useState<ChildForm>(initial);
   const [note, setNote] = useState<string | null>(null);
@@ -270,6 +271,10 @@ export default function AdminChild({
       return;
     }
     setReview({ createdAt: data.createdAt, docCount: data.docCount, ...data.review });
+    // The allowance is a server prop, so it still read "1 of 3" straight after
+    // spending the second one. Count it here and let the server confirm.
+    setUsed((n) => n + 1);
+    router.refresh();
   }
 
   async function archiveReviews() {
@@ -287,6 +292,7 @@ export default function AdminChild({
       return;
     }
     setNote(`Archived ${data.archived} review(s). The parent can generate a fresh one.`);
+    setUsed(0); // archiving frees the whole allowance
     router.refresh();
   }
 
@@ -657,9 +663,10 @@ export default function AdminChild({
             </button>
           )}
           <span className="muted" style={{ fontSize: "0.8rem" }}>
-            {reviewsUsed} of {REVIEW_CAP} used
+            {selectedDocs.length} document{selectedDocs.length === 1 ? "" : "s"} selected ·{" "}
+            {used} of {REVIEW_CAP} reviews used
           </span>
-          {isAdmin && reviewsUsed > 0 && (
+          {isAdmin && used > 0 && (
             <button className="chip danger" onClick={archiveReviews} disabled={iepBusy}>
               Archive (admin)
             </button>
