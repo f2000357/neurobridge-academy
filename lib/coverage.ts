@@ -50,33 +50,58 @@ export type CoverageNote = {
 // strand and the report says "not started" about a child who has mastered eight
 // skills — which is what it was doing.
 const STRAND_BY_CODE: Record<string, string> = {
+  // Maths
   CC: "Counting & Cardinality",
   OA: "Operations & Algebraic Thinking",
   NBT: "Number & Operations in Base Ten",
   NF: "Fractions",
   MD: "Measurement & Data",
-  G: "Geometry",
   RP: "Ratios & Proportional Relationships",
   NS: "The Number System",
   EE: "Expressions & Equations",
   SP: "Statistics & Probability",
-  F: "Functions",
+  // ELA — NJ codes look like "L.RF.3.3", where the leading L is literacy, not
+  // Language. Reading RF/RL/RI/VL/VI first is what keeps rhyming out of the
+  // writing card.
   RF: "Reading: Foundational Skills",
   RL: "Reading: Literature",
   RI: "Reading: Informational Text",
+  VL: "Language: Vocabulary",
+  VI: "Reading: Informational Text",
   W: "Writing: Text Types & Purposes",
-  L: "Language: Conventions",
   SL: "Speaking & Listening",
+  // Science uses NGSS shapes — "3-PS2-1" — with hyphens and no dots at all.
+  PS: "Physical Science",
+  LS: "Life Science",
+  ESS: "Earth & Space Science",
+  ETS: "Engineering Design",
+  // Ambiguous single letters last: see AMBIGUOUS below.
+  G: "Geometry",
+  F: "Functions",
+  L: "Language: Conventions",
 };
 
+// "L" and "G" are real strands on their own, but they are also prefixes inside
+// longer codes. Never let them win over a more specific part of the same code.
+const AMBIGUOUS = new Set(["L", "G", "F"]);
+
 export function strandForCode(code: string): string {
-  // "3.OA.B.6" -> OA ; "RF.3.4" -> RF
-  const parts = (code || "").split(".").filter(Boolean);
-  for (const part of parts) {
-    const key = part.toUpperCase();
-    if (STRAND_BY_CODE[key]) return STRAND_BY_CODE[key];
+  // Split on BOTH separators: "3.OA.B.6" and "3-PS2-1" are both real.
+  const parts = (code || "").split(/[.\-]/).filter(Boolean);
+  let fallback = "";
+  for (const raw of parts) {
+    // "PS2" -> PS, "ESS2" -> ESS: NGSS glues the strand to its number.
+    const letters = raw.replace(/[^A-Za-z]/g, "").toUpperCase();
+    if (!letters) continue;
+    const hit = STRAND_BY_CODE[letters];
+    if (!hit) continue;
+    if (AMBIGUOUS.has(letters)) {
+      if (!fallback) fallback = hit;
+      continue;
+    }
+    return hit;
   }
-  return "";
+  return fallback;
 }
 
 export function mode(arr: string[]): string {
