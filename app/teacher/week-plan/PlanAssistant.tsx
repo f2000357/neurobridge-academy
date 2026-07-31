@@ -11,19 +11,17 @@ import { useRouter } from "next/navigation";
 // why this again, is this too much, what did his OT say about handwriting.
 
 export type Proposal = {
-  kind: "replaceLesson" | "changeFocus";
-  lessonId?: string;
-  subject?: string;
-  topic?: string;
-  standardCode?: string;
-  title?: string;
+  kind: "replanSubject";
+  subject: string;
+  focus: string;
+  standardCode: string;
   why: string;
 };
 
 type Turn = { role: "user" | "assistant"; text: string; proposals?: Proposal[] };
 
 const STARTERS = [
-  "Why does maths keep coming back to the same topic?",
+  "In maths, start fractions instead of more multiplication",
   "Is this week too heavy for him?",
   "What does the team's notes say I should watch this week?",
 ];
@@ -83,9 +81,12 @@ export default function PlanAssistant({
       setError(d?.error ?? "Couldn't apply that.");
       return;
     }
+    const built = (d.rebuilt ?? []) as { date: string; title: string }[];
     setApplied((a) => ({
       ...a,
-      [key]: `Changed ${d.changed} lesson${d.changed === 1 ? "" : "s"} — approve the week to build it.`,
+      [key]:
+        `Rebuilt ${d.changed} lesson${d.changed === 1 ? "" : "s"} as a ramp — approve the week to put them on his days.` +
+        (built.length ? ` ${built.map((b) => b.title).join(" → ")}` : ""),
     }));
     router.refresh();
   }
@@ -138,12 +139,8 @@ export default function PlanAssistant({
                   return (
                     <div key={key} className="card" style={{ marginTop: 8, padding: 10 }}>
                       <p style={{ margin: 0, fontSize: "0.9rem" }}>
-                        <strong>
-                          {p.kind === "changeFocus"
-                            ? `Change the ${p.subject} focus`
-                            : `Swap a lesson`}
-                        </strong>
-                        {p.topic ? ` → ${p.topic}` : ""}
+                        <strong>Re-plan {p.subject} for this week</strong>
+                        {p.focus ? ` → ${p.focus}` : ""}
                         {p.standardCode ? ` (${p.standardCode})` : ""}
                       </p>
                       <p className="muted" style={{ margin: "4px 0 8px", fontSize: "0.85rem" }}>

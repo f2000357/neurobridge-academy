@@ -7,6 +7,7 @@ import { gatherCoverage, gapSummary } from "@/lib/coverage";
 import { availableStandards, gradeSpan } from "@/lib/contentIndex";
 import { getStandards } from "@/lib/standards";
 import { subjectKey } from "@/lib/subjects";
+import { materializeWeeklyLesson } from "@/lib/weekLessons";
 
 // A guide asking questions about the week they are looking at — and, when they
 // want, telling it what to change.
@@ -21,13 +22,20 @@ import { subjectKey } from "@/lib/subjects";
 // lesson clashes with something the child's OT wrote, not just read the plan
 // back.
 
+// One shape only: re-plan a whole subject for the week.
+//
+// It used to offer per-lesson swaps, and that was the wrong unit. Asked to
+// "start fractions", it returned 3.NF.A.3, 4.NF.A.1, 4.NF.B.4 and 4.NF.C.6 —
+// four standards across two grades, dropped into a week with no relation to
+// each other. A week of lessons is a RAMP: one standard, its skills in
+// curriculum order, difficulty rising. That is exactly what the generator
+// builds, so the assistant now asks for the same thing rather than inventing
+// its own arrangement.
 type Proposal = {
-  kind: "replaceLesson" | "changeFocus";
-  lessonId?: string; // replaceLesson
-  subject?: string; // changeFocus
-  topic?: string;
-  standardCode?: string;
-  title?: string;
+  kind: "replanSubject";
+  subject: string;
+  focus: string;
+  standardCode: string;
   why: string;
 };
 
@@ -116,10 +124,16 @@ export async function POST(req: NextRequest) {
         })}\n` +
         `He is enrolled in grade ${target} and working at grade ${report?.child.workingGrade || "?"}; keep moving him toward ${target} without skipping a prerequisite he genuinely lacks.\n` +
         `STANDARDS YOU MAY CHOOSE FROM, per subject (code, grade and skill name — anything else has no practice link): ${JSON.stringify(choosable)}\n\n` +
-        `Answer the guide. If you propose changes, each one is either ` +
-        `{"kind":"replaceLesson","lessonId","topic","standardCode","title","why"} ` +
-        `or {"kind":"changeFocus","subject","topic","standardCode","why"}. ` +
-        `standardCode MUST come from the list above for that subject. ` +
+        `Answer the guide.\n\n` +
+        `If they want the week's work changed, propose it as ONE re-plan per subject: ` +
+        `{"kind":"replanSubject","subject","focus","standardCode","why"}. ` +
+        `NEVER more than one proposal for the same subject, and never a mix of standards inside a subject.\n` +
+        `A subject's week is a RAMP: one standard, its skills taken in curriculum order, difficulty rising ` +
+        `across the days. Choosing several standards for one subject produces disconnected lessons and is wrong, ` +
+        `even when they are all about the topic asked for. Pick the ONE standard that starts that topic where ` +
+        `this child can begin, and say in "why" what the ramp will cover and what comes after it.\n` +
+        `standardCode MUST be copied exactly from the list above for that subject. ` +
+        `Prefer the lowest grade in that topic the child has not secured — build up, do not start midway.\n` +
         `JSON: {"reply": "your answer in plain sentences", "proposals": [ ... ]}`,
       // A reply plus proposals does not fit in 2000 — it was being cut off
       // mid-JSON, which parses as nothing and surfaced as "couldn't answer".
@@ -137,18 +151,18 @@ export async function POST(req: NextRequest) {
     }
     // Drop anything pointing at a lesson that isn't in this week, or a standard
     // we cannot actually link to — a proposal has to be applicable.
-    const ids = new Set(plan.lessons.map((l) => l.id));
     const codesFor = (subject: string) =>
       new Set(((choosable[subject] as { standardCode: string }[]) ?? []).map((c) => c.standardCode));
+    const subjectsInWeek = new Set(plan.lessons.map((l) => l.subject));
+    const seen = new Set<string>();
     const proposals = (result.proposals ?? []).filter((p) => {
-      if (p.kind === "replaceLesson") {
-        const l = plan.lessons.find((x) => x.id === p.lessonId);
-        return Boolean(l) && ids.has(p.lessonId!) && (!p.standardCode || codesFor(l!.subject).has(p.standardCode));
-      }
-      if (p.kind === "changeFocus") {
-        return Boolean(p.subject) && (!p.standardCode || codesFor(p.subject!).has(p.standardCode));
-      }
-      return false;
+      if (p.kind !== "replanSubject") return false;
+      if (!subjectsInWeek.has(p.subject) || !codesFor(p.subject).has(p.standardCode)) return false;
+      // One per subject, whatever it returned — two re-plans of the same subject
+      // is the incoherence this shape exists to prevent.
+      if (seen.has(p.subject)) return false;
+      seen.add(p.subject);
+      return true;
     });
 
     return NextResponse.json({ ok: true, reply: result.reply, proposals });
@@ -173,37 +187,67 @@ export async function POST(req: NextRequest) {
     });
     if (!plan) return NextResponse.json({ error: "There's no plan for that week." }, { status: 404 });
 
-    if (proposal.kind === "replaceLesson") {
-      const lesson = plan.lessons.find((l) => l.id === proposal.lessonId);
-      if (!lesson) return NextResponse.json({ error: "That lesson isn't in this week." }, { status: 404 });
-      await prisma.weeklyLesson.update({
-        where: { id: lesson.id },
-        data: {
-          topic: proposal.topic || lesson.topic,
-          standardCode: proposal.standardCode || lesson.standardCode,
-          title: proposal.title || proposal.topic || lesson.title,
-          rationale: proposal.why || lesson.rationale,
+    if (proposal.kind !== "replanSubject") {
+      return NextResponse.json({ error: "unknown proposal" }, { status: 400 });
+    }
+
+    // Re-plan the subject's whole week, exactly as the generator would: point
+    // every unfinished block of that subject at the one standard, clear the
+    // drafts, then rebuild them in order. materializeWeeklyLesson picks a
+    // DISTINCT skill per block in curriculum order, so the week comes out as a
+    // ramp rather than four unrelated lessons.
+    //
+    // Blocks he has already sat are left alone. Re-planning a week is not a
+    // licence to rewrite what he did on Monday.
+    const child = await prisma.child.findUnique({
+      where: { id: childId },
+      select: { id: true, teacherId: true, standardsCode: true, providers: true },
+    });
+    if (!child) return NextResponse.json({ error: "child not found" }, { status: 404 });
+
+    const affected = plan.lessons
+      .filter((l) => l.subject === proposal.subject && l.status !== "approved")
+      .sort((a, b) => (a.date === b.date ? a.startMin - b.startMin : a.date < b.date ? -1 : 1));
+    if (affected.length === 0) {
+      return NextResponse.json({ error: "Every block in that subject is already on the schedule." }, { status: 400 });
+    }
+
+    await prisma.weeklyLesson.updateMany({
+      where: { id: { in: affected.map((l) => l.id) } },
+      data: {
+        focus: proposal.focus || proposal.standardCode,
+        standardCode: proposal.standardCode,
+        rationale: proposal.why,
+        lessonPlanId: null,
+        status: "pending",
+      },
+    });
+
+    const used = new Set<string>();
+    for (const [i, l] of affected.entries()) {
+      await materializeWeeklyLesson(
+        {
+          id: l.id,
+          slotId: l.slotId,
+          subject: l.subject,
+          topic: "",
+          standardCode: proposal.standardCode,
+          title: l.title,
+          // Position in the ramp, renumbered — the old order came from a
+          // different standard and would pick skills out of sequence.
+          order: i,
           lessonPlanId: null,
-          status: "pending",
         },
-      });
-      return NextResponse.json({ ok: true, changed: 1 });
+        child,
+        { publish: false, schedule: false, used }
+      );
     }
-
-    if (proposal.kind === "changeFocus") {
-      const affected = plan.lessons.filter((l) => l.subject === proposal.subject && !l.lessonPlanId);
-      await prisma.weeklyLesson.updateMany({
-        where: { id: { in: affected.map((l) => l.id) } },
-        data: {
-          focus: proposal.topic || "",
-          ...(proposal.standardCode ? { standardCode: proposal.standardCode } : {}),
-          status: "pending",
-        },
-      });
-      return NextResponse.json({ ok: true, changed: affected.length });
-    }
-
-    return NextResponse.json({ error: "unknown proposal" }, { status: 400 });
+    const rebuilt = await prisma.weeklyLesson.findMany({
+      where: { id: { in: affected.map((l) => l.id) } },
+      orderBy: [{ date: "asc" }, { startMin: "asc" }],
+      select: { date: true, title: true },
+    });
+    return NextResponse.json({ ok: true, changed: affected.length, rebuilt });
   }
 
   return NextResponse.json({ error: "unknown op" }, { status: 400 });
