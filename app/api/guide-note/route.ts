@@ -119,11 +119,47 @@ async function handleUpload(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "No file received." }, { status: 400 });
   }
 
-  // Only onto your own note — the same rule as editing one.
-  const note = await prisma.teacherNote.findFirst({
-    where: { id: noteId, authorUserId: me.id },
-    select: { id: true, childId: true },
-  });
+  // A moment during a block, the same way a specialist adds one.
+  //
+  // This used to demand a note you had already written, so a guide running a
+  // six-hour camp day had to compose a write-up before they could keep a
+  // photograph. Naming the BLOCK is enough; the note is found or opened here.
+  const slotId = String(form.get("slotId") ?? "");
+  const childId = String(form.get("childId") ?? "");
+  let note = noteId
+    ? await prisma.teacherNote.findFirst({
+        where: { id: noteId, authorUserId: me.id },
+        select: { id: true, childId: true },
+      })
+    : null;
+  if (!note && slotId && childId) {
+    const denied = await guardOperate(childId);
+    if (denied) return denied;
+    const slot = await prisma.scheduleSlot.findUnique({
+      where: { id: slotId },
+      select: { childId: true, date: true, subject: true, activity: true },
+    });
+    if (!slot || slot.childId !== childId) {
+      return NextResponse.json({ error: "That block isn't on this learner's day." }, { status: 404 });
+    }
+    note =
+      (await prisma.teacherNote.findFirst({
+        where: { slotId, authorUserId: me.id },
+        select: { id: true, childId: true },
+      })) ??
+      (await prisma.teacherNote.create({
+        data: {
+          childId,
+          slotId,
+          authorUserId: me.id,
+          teacherId: null,
+          date: slot.date,
+          subject: slot.subject || slot.activity || "",
+          whatWeDid: "",
+        },
+        select: { id: true, childId: true },
+      }));
+  }
   if (!note) return NextResponse.json({ error: "That note isn't yours." }, { status: 403 });
 
   const isVideo = file.type.startsWith("video/");

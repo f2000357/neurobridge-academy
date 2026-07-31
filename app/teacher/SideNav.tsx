@@ -65,6 +65,12 @@ const items: Item[] = [
     icon: icon("M20 12v9H4v-9|M2 7h20v5H2z|M12 22V7|M12 7S9 2 6.5 3.5 8 7 12 7z|M12 7s3-5 5.5-3.5S16 7 12 7z"),
   },
   {
+    href: "/teacher/day",
+    label: "Review the day",
+    match: (p) => p.startsWith("/teacher/day"),
+    icon: icon("M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z|M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"),
+  },
+  {
     href: "/teacher/iep",
     label: "IEP support",
     match: (p) => p.startsWith("/teacher/iep"),
@@ -107,7 +113,7 @@ const groups: Group[] = [
   },
   {
     heading: "The child",
-    items: ["/teacher/admin", "/teacher/iep", "/teacher/standing", "/teacher/tests", "/teacher/performance"].map(byHref),
+    items: ["/teacher/admin", "/teacher/day", "/teacher/iep", "/teacher/standing", "/teacher/tests", "/teacher/performance"].map(byHref),
   },
   {
     heading: "Around them",
