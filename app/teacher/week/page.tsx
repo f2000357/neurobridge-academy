@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { addDaysStr, planningWeekStart, todayStr } from "@/lib/time";
 import WeekGrid from "./WeekGrid";
+import DiagnosticCard from "./DiagnosticCard";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
 
@@ -53,7 +54,22 @@ export default async function WeekPage({
     orderBy: { name: "asc" },
   });
 
+  // Has a diagnostic already been recorded for this learner?
+  const diag = await prisma.assessmentImport.findFirst({
+    where: { childId, provider: "ixl-diagnostic" },
+    orderBy: { createdAt: "desc" },
+    select: { summary: true },
+  });
+
   return (
+    <>
+      <DiagnosticCard
+        childId={childId}
+        childName={kids.find((c) => c.id === childId)?.name ?? "this learner"}
+        from={todayStr()}
+        hasResult={Boolean(diag)}
+        resultSummary={diag?.summary}
+      />
       <WeekGrid
         childrenList={kids.map((c) => ({ id: c.id, name: c.name }))}
         initialChildId={childId}
@@ -84,5 +100,6 @@ export default async function WeekPage({
           sessions: s.sessions.map((x) => ({ state: x.state })),
         }))}
       />
+    </>
   );
 }
