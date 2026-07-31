@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/authz";
+import { canAccessChildSession } from "@/lib/authz";
 import { getCurrentTeacher, teacherCanSee } from "@/lib/teacherAuth";
 import { signedUrl, storageConfigured } from "@/lib/storage";
 
@@ -44,7 +44,9 @@ async function canRead(childId: string): Promise<boolean> {
   const teacher = await getCurrentTeacher();
   if (teacher) return teacherCanSee(teacher.id, childId);
 
-  // Every operator who may view the child — which is every guide on them, not
-  // only the one Child.teacherId happens to point at.
-  return can(childId, "view");
+  // Every operator who may view this child — every guide on them, not only the
+  // one Child.teacherId points at — AND the child themselves, signed in on
+  // their own device. Without the second, a child opening their own day saw
+  // broken images where their photographs should be.
+  return canAccessChildSession(childId);
 }

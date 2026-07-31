@@ -126,35 +126,63 @@ async function handleUpload(req: NextRequest): Promise<NextResponse> {
   // photograph. Naming the BLOCK is enough; the note is found or opened here.
   const slotId = String(form.get("slotId") ?? "");
   const childId = String(form.get("childId") ?? "");
+  const caption = String(form.get("caption") ?? "").trim();
+  const date = String(form.get("date") ?? "");
+
+  // A moment without a line under it is a photo in a folder. He is meant to
+  // look at this and remember the day, and a picture alone will not do that —
+  // so the description is required, not optional.
+  if (!caption) {
+    return NextResponse.json(
+      { error: "Add a line about what this is — he'll read it back later." },
+      { status: 400 }
+    );
+  }
   let note = noteId
     ? await prisma.teacherNote.findFirst({
         where: { id: noteId, authorUserId: me.id },
         select: { id: true, childId: true },
       })
     : null;
-  if (!note && slotId && childId) {
+  if (!note && childId) {
+    // Only a guide OF THIS CHILD. guardOperate reads ChildAccess, so another
+    // family's guide, a centre outside theirs, and any signed-in stranger are
+    // all refused here rather than at the view.
     const denied = await guardOperate(childId);
     if (denied) return denied;
-    const slot = await prisma.scheduleSlot.findUnique({
-      where: { id: slotId },
-      select: { childId: true, date: true, subject: true, activity: true },
-    });
-    if (!slot || slot.childId !== childId) {
-      return NextResponse.json({ error: "That block isn't on this learner's day." }, { status: 404 });
+
+    // A block is optional. Choosing one made no sense to the person actually
+    // holding the phone at a six-hour camp — they know it is Monday, they do
+    // not care which timetable row it lands on. If a slot IS named we hang the
+    // moment on it; otherwise it belongs to the day.
+    let day = date;
+    let subject = "";
+    if (slotId) {
+      const slot = await prisma.scheduleSlot.findUnique({
+        where: { id: slotId },
+        select: { childId: true, date: true, subject: true, activity: true },
+      });
+      if (!slot || slot.childId !== childId) {
+        return NextResponse.json({ error: "That block isn't on this learner's day." }, { status: 404 });
+      }
+      day = slot.date;
+      subject = slot.subject || slot.activity || "";
     }
+    if (!day) return NextResponse.json({ error: "Which day is this from?" }, { status: 400 });
+
     note =
       (await prisma.teacherNote.findFirst({
-        where: { slotId, authorUserId: me.id },
+        where: { childId, date: day, slotId: slotId || null, authorUserId: me.id },
         select: { id: true, childId: true },
       })) ??
       (await prisma.teacherNote.create({
         data: {
           childId,
-          slotId,
+          slotId: slotId || null,
           authorUserId: me.id,
           teacherId: null,
-          date: slot.date,
-          subject: slot.subject || slot.activity || "",
+          date: day,
+          subject,
           whatWeDid: "",
         },
         select: { id: true, childId: true },

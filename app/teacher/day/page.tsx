@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
-import { fmtMin, todayStr, weekdayShort, addDaysStr } from "@/lib/time";
+import { todayStr, weekdayShort, addDaysStr } from "@/lib/time";
 import { noteAuthor } from "@/lib/noteAuthor";
 import { withAuthor } from "@/lib/noteAuthor";
-import DayMoments, { type DayBlock, type DayMoment } from "./DayMoments";
+import DayMoments, { type DayMoment } from "./DayMoments";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +29,7 @@ export default async function ReviewDayPage({
   const child = kids.find((k) => k.id === sp.childId) ?? kids[0];
   const date = sp.date || todayStr();
 
-  const [slots, notes] = await Promise.all([
-    prisma.scheduleSlot.findMany({
-      where: { childId: child.id, date },
-      orderBy: { startMin: "asc" },
-      include: { lessonPlan: { select: { title: true } } },
-    }),
+  const [notes] = await Promise.all([
     prisma.teacherNote.findMany({
       where: { childId: child.id, date, media: { some: {} } },
       include: { ...withAuthor, media: { orderBy: { createdAt: "asc" } } },
@@ -42,11 +37,6 @@ export default async function ReviewDayPage({
     }),
   ]);
 
-  const blocks: DayBlock[] = slots.map((s) => ({
-    id: s.id,
-    when: fmtMin(s.startMin),
-    label: s.lessonPlan?.title || s.activity || s.subject || s.kind,
-  }));
   const moments: DayMoment[] = notes
     .flatMap((n) =>
       n.media.map((m) => ({
@@ -106,7 +96,6 @@ export default async function ReviewDayPage({
         childFirstName={child.name.split(" ")[0]}
         storyHref={`/student/${handle}/story/${date}`}
         date={date}
-        blocks={blocks}
         moments={moments}
       />
 

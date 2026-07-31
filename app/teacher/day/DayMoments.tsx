@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation";
 // keeping a moment cannot require composing a write-up first. One line, one
 // tap, back to the child.
 
-export type DayBlock = { id: string; label: string; when: string };
 export type DayMoment = { id: string; kind: string; caption: string; when: string; who: string };
 
 export default function DayMoments({
@@ -18,29 +17,26 @@ export default function DayMoments({
   childFirstName,
   storyHref,
   date,
-  blocks,
   moments,
 }: {
   childId: string;
   childFirstName: string;
   storyHref: string;
   date: string;
-  blocks: DayBlock[];
   moments: DayMoment[];
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [forBlock, setForBlock] = useState<DayBlock | null>(null);
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  async function add(file: File, block: DayBlock) {
+  async function add(file: File) {
     setBusy(true);
     setNote(null);
     const form = new FormData();
-    form.append("slotId", block.id);
     form.append("childId", childId);
+    form.append("date", date);
     form.append("caption", caption.trim());
     form.append("file", file);
     const res = await fetch("/api/guide-note", { method: "POST", body: form });
@@ -63,41 +59,40 @@ export default function DayMoments({
           A photo or a short clip with one line about it. {childFirstName} plays the day back in
           order afterwards, so add them as they happen.
         </p>
-        <input
-          className="field"
-          placeholder="What's happening? e.g. Built the tallest tower at camp"
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-        />
-        {blocks.length === 0 ? (
-          <p className="muted" style={{ fontSize: "0.82rem", marginTop: 8 }}>
-            Nothing on his timetable for {date}.
+        <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            className="field"
+            style={{ flex: 1, minWidth: 240 }}
+            placeholder="What's happening? e.g. Built the tallest tower at camp"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && caption.trim()) fileRef.current?.click();
+            }}
+          />
+          <button
+            className="btn"
+            disabled={busy || !caption.trim()}
+            onClick={() => fileRef.current?.click()}
+            title={caption.trim() ? "Choose a photo or video" : "Write a line first"}
+          >
+            {busy ? "Saving…" : "🖼 Add"}
+          </button>
+        </div>
+        {!caption.trim() && (
+          <p className="muted" style={{ margin: "6px 0 0", fontSize: "0.8rem" }}>
+            Write the line first — that is what he reads back. A photo on its own tells him nothing.
           </p>
-        ) : (
-          <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-            {blocks.map((b) => (
-              <button
-                key={b.id}
-                className="chip"
-                disabled={busy}
-                onClick={() => {
-                  setForBlock(b);
-                  fileRef.current?.click();
-                }}
-              >
-                {busy && forBlock?.id === b.id ? "Saving…" : `📷 ${b.when} ${b.label}`}
-              </button>
-            ))}
-          </div>
         )}
         <input
           ref={fileRef}
           type="file"
           accept="image/*,video/*"
+          capture="environment"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f && forBlock) void add(f, forBlock);
+            if (f) void add(f);
             e.target.value = "";
           }}
         />
@@ -114,8 +109,8 @@ export default function DayMoments({
             {moments.length} moment{moments.length === 1 ? "" : "s"} on {date}
           </h2>
           {moments.length > 0 && (
-            <Link className="btn quiet" href={storyHref}>
-              ▶ Play it back
+            <Link className="btn big" href={storyHref}>
+              ▶ Play the day back
             </Link>
           )}
         </div>
