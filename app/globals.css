@@ -593,6 +593,10 @@ main.page {
   line-height: 1.25;
 }
 .ramp-why {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-size: 0.8rem;
   margin: 0;
 }

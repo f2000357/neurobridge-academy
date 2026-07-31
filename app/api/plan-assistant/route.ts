@@ -217,7 +217,11 @@ export async function POST(req: NextRequest) {
       data: {
         focus: proposal.focus || proposal.standardCode,
         standardCode: proposal.standardCode,
-        rationale: proposal.why,
+        // NOT the "why" — that explains the whole ramp, and writing it to every
+        // lesson printed the same paragraph five times down the week. The
+        // reasoning belongs once, in the conversation that produced it; each
+        // card is named by the real skill it links to, which says enough.
+        rationale: "",
         lessonPlanId: null,
         status: "pending",
       },
