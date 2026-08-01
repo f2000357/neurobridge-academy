@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 type Item = { href: string; label: string; match: (p: string) => boolean; icon: React.ReactNode };
 type Group = { heading: string; items: Item[] };
@@ -66,8 +67,9 @@ const items: Item[] = [
   },
   {
     href: "/teacher/day",
-    label: "Review the day",
+    label: "Capture moments",
     match: (p) => p.startsWith("/teacher/day"),
+    // A camera, because on a phone this is the button you are reaching for.
     icon: icon("M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z|M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"),
   },
   {
@@ -121,9 +123,17 @@ const groups: Group[] = [
   },
 ];
 
+// On a phone the sidebar became a wrapping row of twelve links above the
+// content — and worse once it had group headings, which wrapped in among them.
+// A bottom bar is right here: this app's phone moment is capturing a photo
+// between activities, one-handed, and the bottom is where the thumb is.
+const BAR = ["/teacher", "/teacher/day", "/teacher/schedule", "/teacher/week-plan"];
+
 export default function SideNav({ approvals = 0 }: { approvals?: number }) {
   const pathname = usePathname();
+  const [more, setMore] = useState(false);
   return (
+    <>
     <nav className="console-side" aria-label="Guide portal">
       {groups.map((g) => (
       <ul className="console-nav" key={g.heading}>
@@ -150,5 +160,55 @@ export default function SideNav({ approvals = 0 }: { approvals?: number }) {
       </ul>
       ))}
     </nav>
+
+      {/* Phone only — see .console-bar in globals.css. */}
+      <nav className="console-bar" aria-label="Guide portal">
+        {BAR.map(byHref).map((it) => (
+          <Link
+            key={it.href}
+            href={it.href}
+            className={`console-baritem ${it.match(pathname) ? "active" : ""}`}
+            aria-current={it.match(pathname) ? "page" : undefined}
+          >
+            <span aria-hidden="true">{it.icon}</span>
+            <span>{it.label.split(" ")[0]}</span>
+            {it.href === "/teacher" && approvals > 0 && <span className="nav-badge">{approvals}</span>}
+          </Link>
+        ))}
+        <button
+          className={`console-baritem ${more ? "active" : ""}`}
+          onClick={() => setMore((m) => !m)}
+          aria-expanded={more}
+        >
+          <span aria-hidden="true">{icon("M4 6h16|M4 12h16|M4 18h16")}</span>
+          <span>More</span>
+        </button>
+      </nav>
+
+      {more && (
+        <div className="console-sheet" onClick={() => setMore(false)}>
+          <div className="console-sheetinner" onClick={(e) => e.stopPropagation()}>
+            {groups.map((g) => (
+              <div key={g.heading}>
+                <p className="console-navhead">{g.heading}</p>
+                {g.items.map((it) => (
+                  <Link
+                    key={it.href}
+                    href={it.href}
+                    className={`console-navlink ${it.match(pathname) ? "active" : ""}`}
+                    onClick={() => setMore(false)}
+                  >
+                    <span className="console-navicon" aria-hidden="true">
+                      {it.icon}
+                    </span>
+                    {it.label}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
