@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDaysStr, fmtMin, hhmmToMin, minToHhmm, weekdayShort } from "@/lib/time";
 import { subjectKey, subjectLabel } from "@/lib/subjects";
 import { activityLabel, optionsForKind } from "@/lib/activities";
@@ -47,11 +47,17 @@ type AddDraft = {
 };
 
 // The visible school-day window and grid scale.
-const DAY_START = 8 * 60; // 8:00 am
-const DAY_END = 17 * 60; // 5:00 pm
+// The window the grid ALWAYS shows. It stretches past these when a day has
+// something outside them — a 7:30pm block used to exist and simply not be
+// drawn, which looked like the app had lost it.
+const DAY_START_MIN = 8 * 60; // 8:00 am
+const DAY_END_MIN = 17 * 60; // 5:00 pm
 const PX_PER_MIN = 104 / 60; // ~52px per 30-min block — fits the full lesson name
 const SNAP = 15; // minutes
-const DAYS = 5; // Mon–Fri
+// Seven. A weekend block is a real thing — catching up on Saturday, a camp on
+// Sunday — and there was no column to put one in, nor any way to drag a block
+// there.
+const DAYS = 7;
 
 const KIND_LABEL: Record<string, string> = {
   lesson: "Lesson",
@@ -62,10 +68,6 @@ const KIND_LABEL: Record<string, string> = {
   break: "Break",
   free_time: "Free time",
 };
-
-function gridTop(min: number) {
-  return (min - DAY_START) * PX_PER_MIN;
-}
 
 export default function WeekGrid({
   childrenList,
@@ -120,6 +122,17 @@ export default function WeekGrid({
     void refetch(childId, dates);
   }, [childId, monday, refetch]);
 
+  // The visible window: the standard day, widened to hold anything outside it.
+  const dayStart = useMemo(() => {
+    const earliest = Math.min(DAY_START_MIN, ...slots.map((s) => s.startMin));
+    return Math.floor(earliest / 60) * 60;
+  }, [slots]);
+  const dayEnd = useMemo(() => {
+    const latest = Math.max(DAY_END_MIN, ...slots.map((s) => s.endMin));
+    return Math.ceil(latest / 60) * 60;
+  }, [slots]);
+  const gridTop = useCallback((min: number) => (min - dayStart) * PX_PER_MIN, [dayStart]);
+
   // Given a pointer position, which column and snapped start-minute?
   const posToTarget = useCallback((clientX: number, clientY: number, grabOffset: number, duration: number) => {
     const grid = gridRef.current;
@@ -130,10 +143,10 @@ export default function WeekGrid({
     let col = Math.floor((clientX - rect.left - labelW) / colW);
     col = Math.max(0, Math.min(DAYS - 1, col));
     const yInCol = clientY - rect.top - grabOffset;
-    let start = DAY_START + Math.round(yInCol / PX_PER_MIN / SNAP) * SNAP;
-    start = Math.max(DAY_START, Math.min(DAY_END - duration, start));
+    let start = dayStart + Math.round(yInCol / PX_PER_MIN / SNAP) * SNAP;
+    start = Math.max(dayStart, Math.min(dayEnd - duration, start));
     return { col, start };
-  }, []);
+  }, [dayStart, dayEnd]);
 
   function onPointerDownBlock(e: React.PointerEvent, s: Slot) {
     // Don't start a drag from the delete or preview controls.
@@ -220,8 +233,8 @@ export default function WeekGrid({
     if ((e.target as HTMLElement).closest(".wg-block")) return; // clicked a block
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const y = e.clientY - rect.top;
-    let start = DAY_START + Math.round(y / PX_PER_MIN / 30) * 30;
-    start = Math.max(DAY_START, Math.min(DAY_END - 30, start));
+    let start = dayStart + Math.round(y / PX_PER_MIN / 30) * 30;
+    start = Math.max(dayStart, Math.min(dayEnd - 30, start));
     setNote(null);
     setAdd({ date, startMin: start, duration: 30, kind: "lesson", subject: "math", activity: "", planId: "", teacherId: "" });
   }
@@ -326,8 +339,8 @@ export default function WeekGrid({
   }
 
   const hours: number[] = [];
-  for (let m = DAY_START; m <= DAY_END; m += 60) hours.push(m);
-  const gridHeight = (DAY_END - DAY_START) * PX_PER_MIN;
+  for (let m = dayStart; m <= dayEnd; m += 60) hours.push(m);
+  const gridHeight = (dayEnd - dayStart) * PX_PER_MIN;
 
   return (
     <main className="page wrap" style={{ maxWidth: 980 }}>
@@ -435,7 +448,7 @@ export default function WeekGrid({
         style={{ marginTop: 16 }}
       >
         {/* Day headers */}
-        <div className="wg-head">
+        <div className="wg-head" data-days={DAYS}>
           <div className="wg-corner" />
           {weekDates.map((d) => (
             <div key={d} className="wg-dayhead">
@@ -445,7 +458,7 @@ export default function WeekGrid({
         </div>
 
         {/* Body: time labels + day columns */}
-        <div className="wg-body" style={{ height: gridHeight }}>
+        <div className="wg-body" data-days={DAYS} style={{ height: gridHeight }}>
           <div className="wg-times">
             {hours.map((m) => (
               <div key={m} className="wg-time" style={{ top: gridTop(m) }}>

@@ -35,7 +35,8 @@ export default async function WeekPage({
   const sp = await searchParams;
   const childId = kids.some((c) => c.id === sp.childId) ? sp.childId! : kids[0].id;
   const monday = sp.monday || planningWeekStart(todayStr());
-  const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(monday, i));
+  // Seven: a block can live on a Saturday, so the week has to fetch one.
+  const dates = Array.from({ length: 7 }, (_, i) => addDaysStr(monday, i));
 
   const slots = await prisma.scheduleSlot.findMany({
     where: { childId, date: { in: dates } },

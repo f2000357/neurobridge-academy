@@ -90,7 +90,10 @@ export async function POST(req: NextRequest) {
     const child = await prisma.child.findUnique({ where: { id: childId }, include: { profile: true } });
     if (!child) return NextResponse.json({ error: "child not found" }, { status: 404 });
 
-    const dates = Array.from({ length: 5 }, (_, i) => addDaysStr(weekStart, i));
+    // Seven, not five. A guide who puts maths on a Saturday — to catch up on
+    // work the week ran out of time for, or to get a head start — had those
+    // blocks ignored entirely by the planner, so they stayed empty for ever.
+    const dates = Array.from({ length: 7 }, (_, i) => addDaysStr(weekStart, i));
     const allSlots = await prisma.scheduleSlot.findMany({
       where: { childId, date: { in: dates }, kind: "lesson" },
       include: {
