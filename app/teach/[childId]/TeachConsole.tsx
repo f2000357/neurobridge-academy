@@ -653,8 +653,8 @@ export default function TeachConsole({
         </div>
       )}
 
-      {/* The child's note history, from every specialist */}
-      <h2 style={{ marginTop: 30 }}>Notes so far</h2>
+      {/* Their own notes only — see the query in page.tsx. */}
+      <h2 style={{ marginTop: 30 }}>Notes you&apos;ve written</h2>
       {notes.length === 0 ? (
         <p className="muted">Nothing written yet.</p>
       ) : (

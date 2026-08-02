@@ -13,10 +13,15 @@ export const dynamic = "force-dynamic";
 
 // A visiting specialist's view of one learner: the child's WHOLE DAY, so the
 // therapist has real context — what maths they did, when they had a break, how
-// the day ran around their own session — plus the notes the child's specialists
-// have written. We deliberately do NOT scope them to "their" blocks: a therapist
-// seeing the whole picture is more useful than a tidy boundary, and it means two
-// providers covering different parts of the day need no scheduling setup at all.
+// the day ran around their own session — plus THEIR OWN notes and no one
+// else's.
+//
+// The day and the notes are deliberately different. Seeing the shape of the day
+// makes a therapist better at their session; reading the parent's write-ups and
+// the OT's observations does not, and is more of a child's record than a piano
+// teacher needs to hold. The guide sees everything, because for them the whole
+// record IS the job.
+//
 // Still withheld: documents, evaluations, points.
 
 export default async function TeachChild({ params }: { params: Promise<{ childId: string }> }) {
@@ -71,8 +76,18 @@ export default async function TeachChild({ params }: { params: Promise<{ childId
     orderBy: [{ date: "desc" }, { startMin: "asc" }],
   });
 
+  // A visiting specialist reads their OWN notes, and nobody else's.
+  //
+  // This used to load every note on the child, so a piano teacher opened the
+  // console and read the parent's write-ups and the OT's observations. The
+  // schema said that was intended — "visible to … the child's other
+  // specialists" — but it is more of the record than the piano teacher needs to
+  // teach piano, and it is not theirs to read.
+  //
+  // The guide still sees everything: the whole record is the point on that
+  // side. This is only the visiting-teacher view.
   const notes = await prisma.teacherNote.findMany({
-    where: { childId },
+    where: { childId, teacherId: teacher.id },
     include: {
       ...withAuthor,
       media: { select: { id: true, kind: true, caption: true, filename: true } },

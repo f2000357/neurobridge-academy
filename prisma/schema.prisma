@@ -673,9 +673,10 @@ model TeacherAssignment {
   @@unique([teacherId, childId])
 }
 
-// What the specialist writes after a session. Never shown to the learner;
-// visible to the guide, the center, NeuroBridge admin, and the child's other
-// specialists. Feeds the progress report.
+// What the specialist writes after a session. Never shown to the learner.
+// Visible to the guide, the center and NeuroBridge admin — and to its OWN
+// author, but NOT to the child's other specialists: a piano teacher has no
+// business reading the OT's observations. Feeds the progress report.
 model TeacherNote {
   id            String             @id @default(cuid())
   childId       String
