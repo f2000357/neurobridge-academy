@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { addDaysStr, fmtMin, hhmmToMin, minToHhmm, weekdayShort } from "@/lib/time";
 import { subjectKey, subjectLabel } from "@/lib/subjects";
 import { activityLabel, optionsForKind } from "@/lib/activities";
@@ -84,6 +85,7 @@ export default function WeekGrid({
   plans?: Plan[];
   specialistList?: Specialist[];
 }) {
+  const router = useRouter();
   const [childId, setChildId] = useState(initialChildId);
   const [monday, setMonday] = useState(initialMonday);
   const [slots, setSlots] = useState<Slot[]>(initialSlots);
@@ -226,6 +228,8 @@ export default function WeekGrid({
     });
     setBusy(false);
     void refetch(childId, weekDates);
+    // See the note in ScheduleEditor: the router cache outlives the delete.
+    router.refresh();
   }
 
   function onColClick(date: string, e: React.MouseEvent) {

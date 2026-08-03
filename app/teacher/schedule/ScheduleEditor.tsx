@@ -171,6 +171,10 @@ export default function ScheduleEditor({
     });
     setBusy(false);
     await refresh(childId, date);
+    // Next keeps a client-side copy of the page it last rendered. Without this
+    // the guide could delete a block, walk to the child page and back, and the
+    // cached payload would seed the editor with the block still in it.
+    router.refresh();
   }
 
   async function addBlock(payload: {
