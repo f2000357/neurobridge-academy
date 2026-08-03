@@ -48,13 +48,9 @@ export default async function ReviewDayPage({
       }))
     )
     .sort((a, b) => a.at - b.at)
-    .map((m) => ({
-      id: m.id,
-      kind: m.kind,
-      caption: m.caption,
-      who: m.who,
-      when: new Date(m.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-    }));
+    // The raw timestamp, formatted in the browser — see LocalTime. Doing it
+    // here formatted it in the server's timezone, which is UTC on Vercel.
+    .map((m) => ({ id: m.id, kind: m.kind, caption: m.caption, who: m.who, at: m.at }));
 
   const handle = child.username ?? child.id;
   const go = (d: string) => `/teacher/day?childId=${child.id}&date=${d}`;
@@ -96,6 +92,7 @@ export default async function ReviewDayPage({
         childFirstName={child.name.split(" ")[0]}
         storyHref={`/student/${handle}/story/${date}`}
         date={date}
+        isToday={date === todayStr()}
         moments={moments}
       />
 

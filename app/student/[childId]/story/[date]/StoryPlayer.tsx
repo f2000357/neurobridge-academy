@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LocalTime from "@/app/components/LocalTime";
 
 // The whole day, in order, on one page you scroll.
 //
@@ -20,9 +21,6 @@ export type Moment = {
   who: string;
   where: string;
 };
-
-const clock = (ms: number) =>
-  new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 export default function StoryPlayer({
   childFirstName,
@@ -90,7 +88,7 @@ export default function StoryPlayer({
                   {m.caption || "Here's a moment from your day."}
                 </p>
                 <p className="muted" style={{ marginTop: 0, fontSize: "0.85rem" }}>
-                  {clock(m.at)}
+                  <LocalTime at={m.at} />
                   {m.where ? ` · ${m.where}` : ""}
                   {m.who ? ` · with ${m.who}` : ""}
                 </p>
