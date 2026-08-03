@@ -1,14 +1,46 @@
 // Slots store times as minutes-from-midnight on a local date string ("2026-07-21").
 
-export function todayStr(d = new Date()): string {
+// The family's timezone — the one the whole app means by "today".
+//
+// This used to be whatever the machine ran in. On Vercel that is UTC, so from
+// 8pm in New Jersey the server already believed it was tomorrow: a lesson done
+// in the evening counted as past, a moment kept at bedtime was filed on the
+// wrong day, and the week's Monday could roll a day early. The clock a family
+// lives by is not a deployment detail, so it is named here rather than left to
+// the host. Override with APP_TZ if a family is elsewhere.
+export const APP_TZ = process.env.APP_TZ || process.env.NEXT_PUBLIC_APP_TZ || "America/New_York";
+
+// "YYYY-MM-DD" from a Date's OWN fields. Date maths (addDaysStr, mondayOfStr)
+// builds local-midnight Dates and needs them read back unchanged — running
+// those through a timezone would shift them a day.
+function isoOf(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
-export function nowMin(d = new Date()): number {
-  return d.getHours() * 60 + d.getMinutes();
+// en-CA formats as YYYY-MM-DD, which is exactly the shape slots are keyed by.
+const isoInZone = new Intl.DateTimeFormat("en-CA", { timeZone: APP_TZ });
+const hmInZone = new Intl.DateTimeFormat("en-GB", {
+  timeZone: APP_TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** Today where the family is. Passing a Date reads that Date's own fields. */
+export function todayStr(d?: Date): string {
+  return d ? isoOf(d) : isoInZone.format(new Date());
+}
+
+/** Minutes since midnight where the family is. */
+export function nowMin(d?: Date): number {
+  if (d) return d.getHours() * 60 + d.getMinutes();
+  const parts = hmInZone.formatToParts(new Date());
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return h * 60 + m;
 }
 
 // Plain "YYYY-MM-DD" date math, parsed as local dates (no timezone drift).
@@ -20,7 +52,7 @@ function parseLocal(dateStr: string): Date {
 export function addDaysStr(dateStr: string, n: number): string {
   const d = parseLocal(dateStr);
   d.setDate(d.getDate() + n);
-  return todayStr(d);
+  return isoOf(d);
 }
 
 // Monday of the week containing dateStr (weeks start Monday).
