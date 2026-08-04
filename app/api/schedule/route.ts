@@ -5,6 +5,7 @@ import { guardOperate, currentOperator } from "@/lib/authz";
 import { rosterChildIds } from "@/lib/access";
 import { addDaysStr } from "@/lib/time";
 import { buildDayTemplate, normalizeStart } from "@/lib/dayTemplate";
+import { placeMondayTest } from "@/lib/testing";
 
 // Teacher scheduling: place plans (and breaks/flexible/1:1) onto a child's day.
 
@@ -406,6 +407,13 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, results });
+  }
+
+  // Carry a missed Friday check-in into this Monday — because the guide said so.
+  if (op === "placeMondayTest") {
+    const { childId } = body as { childId: string };
+    await placeMondayTest(childId);
+    return NextResponse.json({ ok: true });
   }
 
   if (op === "remove") {

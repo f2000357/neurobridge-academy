@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { todayStr, planningHorizonEnd, weekdayShort, fmtMin } from "@/lib/time";
 import { getCurrentUser } from "@/lib/auth";
 import { rosterChildren } from "@/lib/access";
+import { mondayTestFallbackDue } from "@/lib/testing";
 import TodayCalendar from "./TodayCalendar";
 import ApprovalRow, { type ApprovalItem } from "./ApprovalRow";
 import ValidationList from "./ValidationList";
+import MondayTestPrompt from "./MondayTestPrompt";
 import LogExtra from "./LogExtra";
 import PlanBanner from "./PlanBanner";
 
@@ -56,6 +58,14 @@ export default async function TeacherDashboard() {
       orderBy: { createdAt: "asc" },
     }),
   ]);
+  // A missed Friday check-in is now OFFERED here rather than written into the
+  // child's Monday by the child's own page — see lib/testing.ts.
+  const dueMondayTest = (
+    await Promise.all(
+      kids.map(async (c) => ((await mondayTestFallbackDue(c.id)) ? { id: c.id, name: c.name } : null))
+    )
+  ).filter(Boolean) as { id: string; name: string }[];
+
   const checkItems = pendingChecks.map((c) => ({
     id: c.id,
     childId: c.childId,
@@ -127,6 +137,10 @@ export default async function TeacherDashboard() {
             </Link>
           </div>
         </div>
+
+        {dueMondayTest.map((c) => (
+          <MondayTestPrompt key={c.id} childId={c.id} childName={c.name.split(" ")[0]} />
+        ))}
 
         <section style={{ marginTop: 24 }}>
           <h2 style={{ margin: "0 0 12px" }}>

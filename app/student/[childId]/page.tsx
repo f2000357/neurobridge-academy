@@ -2,7 +2,6 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { todayStr } from "@/lib/time";
-import { ensureMondayTestFallback } from "@/lib/testing";
 import { subjectIcon, subjectKey, subjectLabel } from "@/lib/subjects";
 import { activityLabel } from "@/lib/activities";
 import KidLock from "./KidLock";
@@ -42,9 +41,6 @@ export default async function StudentToday({
   if (!authed) {
     return <CodeGate childId={childId} childName={child.name} />;
   }
-
-  // Carry a missed Friday check-in into Monday morning, if needed.
-  await ensureMondayTestFallback(childId);
 
   // If the guide marked them absent today, it's a rest day.
   const absentToday = await prisma.absence.findUnique({
