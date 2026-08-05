@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import { fmtMin, nowMin } from "@/lib/time";
 import TimeLeft, { type TimerSlot } from "./TimeLeft";
 
-// The child's day, driven by a live clock.
+// The child's day, driven by a live clock — which SHOWS where he is, and no
+// longer decides what he may do.
+//
+// Start used to appear on one block only: the one the clock was inside. So a
+// child opening his day at 6pm found nothing startable at all and a banner
+// congratulating him for a day he had not done; one opening before the first
+// block could not get ahead; and yesterday's unfinished work was simply not on
+// the page. A timetable is a plan for the day, not a lock on it.
 //
 // This used to be rendered once on the server, which meant "Now" stayed on the
 // finished block until someone reloaded the page — a child looking at their own
@@ -57,12 +64,12 @@ export default function DayStrip({
     lastIdx.current = nowIdx;
   }, [nowIdx, now, router]);
 
-  const timerSlots: TimerSlot[] = slots.map((s, i) => ({
+  const timerSlots: TimerSlot[] = slots.map((s) => ({
     id: s.id,
     startMin: s.startMin,
     endMin: s.endMin,
     label: s.main,
-    done: s.closed || (nowIdx === -1 ? s.endMin <= effectiveNow : i < nowIdx),
+    done: s.closed,
   }));
 
   return (
@@ -73,16 +80,19 @@ export default function DayStrip({
         {slots.map((slot, i) => {
           // Before the clock arrives, nothing is highlighted — better a plain
           // list for one frame than the wrong block marked "Now".
-          const isDone =
-            now == null
-              ? slot.closed
-              : slot.closed || (nowIdx === -1 ? slot.endMin <= effectiveNow : i < nowIdx);
+          // Finished means finished. Time passing is not doing the work — the
+          // old rule greyed out a whole morning nobody had touched.
+          const isDone = slot.closed;
+          // Its hour has been and gone, and it is still not done.
+          const isMissed = now != null && !slot.closed && slot.endMin <= effectiveNow;
           const isNow = now != null && i === nowIdx;
           const isNext = now != null && i === nowIdx + 1 && nowIdx !== -1;
           return (
             <div
               key={slot.id}
               className={`slot ${isDone ? "done" : ""} ${isNow ? "now" : ""} ${
+                isMissed ? "missed" : ""
+              } ${
                 slot.kind === "lesson" ? `subj-${slot.subj ?? "other"}` : `k-${slot.kind}`
               }`}
             >
@@ -95,17 +105,19 @@ export default function DayStrip({
               </span>
               {isNow && <span className="badge now">Now</span>}
               {isNext && <span className="badge next">Next</span>}
-              {isNow && slot.kind === "lesson" && slot.ready !== false && (
-                <Link href={`/student/${linkHandle}/session/${slot.id}`} className="btn">
-                  Start
+              {/* Startable whenever he opens it: early, late, or right on time.
+                  The badges above still say where the day is up to. */}
+              {!isDone && slot.kind === "lesson" && slot.ready !== false && (
+                <Link href={`/student/${linkHandle}/session/${slot.id}`} className={`btn ${isNow ? "" : "quiet"}`}>
+                  {isNow ? "Start" : isMissed ? "Do it now" : "Start early"}
                 </Link>
               )}
-              {isNow && slot.kind === "lesson" && slot.ready === false && (
+              {!isDone && slot.kind === "lesson" && slot.ready === false && (
                 <span className="badge next">Getting ready</span>
               )}
-              {isNow && slot.kind === "testing" && (
-                <Link href={`/student/${linkHandle}/test/${slot.id}`} className="btn">
-                  Start
+              {!isDone && slot.kind === "testing" && (
+                <Link href={`/student/${linkHandle}/test/${slot.id}`} className={`btn ${isNow ? "" : "quiet"}`}>
+                  {isNow ? "Start" : "Do it now"}
                 </Link>
               )}
               {isDone && slot.kind === "lesson" && slot.closed && (
@@ -118,7 +130,10 @@ export default function DayStrip({
         })}
       </div>
 
-      {now != null && nowIdx === -1 && slots.length > 0 && (
+      {/* Only when it is actually true. This used to fire the moment the last
+          block's hour passed, congratulating a child on a day he had not
+          started — and leaving him nothing to press. */}
+      {now != null && slots.length > 0 && slots.every((s) => s.closed || s.kind !== "lesson") && (
         <div className="card" style={{ marginTop: 24, background: "var(--warm-soft)", border: "none" }}>
           <strong>All done for today!</strong>{" "}
           <span className="muted">You worked through your whole list. 🎉</span>

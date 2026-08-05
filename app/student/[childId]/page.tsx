@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { todayStr } from "@/lib/time";
+import { todayStr, addDaysStr, weekdayShort } from "@/lib/time";
 import { subjectIcon, subjectKey, subjectLabel } from "@/lib/subjects";
 import { activityLabel } from "@/lib/activities";
 import KidLock from "./KidLock";
@@ -80,6 +80,25 @@ export default async function StudentToday({
     orderBy: { startMin: "asc" },
   });
 
+  // Work from earlier days he never started.
+  //
+  // The day page only ever showed today, so a lesson missed on Monday was
+  // invisible on Tuesday — the planner carries it forward in the WEEK, but the
+  // child had no way to pick it up. A week back is the right window: older than
+  // that and the plan has moved on anyway.
+  const unfinished = await prisma.scheduleSlot.findMany({
+    where: {
+      childId,
+      kind: "lesson",
+      lessonPlanId: { not: null },
+      date: { gte: addDaysStr(todayStr(), -7), lt: todayStr() },
+      sessions: { none: { state: "closed" } },
+    },
+    include: { lessonPlan: { select: { title: true, subject: true } } },
+    orderBy: [{ date: "asc" }, { startMin: "asc" }],
+    take: 5,
+  });
+
   const homeworkDue = await prisma.homework.count({ where: { childId, status: "assigned" } });
   // Days with photos or clips to look back on — most recent first.
   const storyDays = await prisma.teacherNote.findMany({
@@ -156,6 +175,30 @@ export default async function StudentToday({
             ? "Nothing on your list today. Enjoy the quiet!"
             : "Here is your day. One thing at a time."}
         </p>
+
+        {unfinished.length > 0 && (
+          <div className="card" style={{ marginTop: 16 }}>
+            <p style={{ margin: "0 0 2px", fontWeight: 600 }}>
+              Still to finish{unfinished.length > 1 ? ` (${unfinished.length})` : ""}
+            </p>
+            <p className="muted" style={{ margin: "0 0 10px", fontSize: "0.9rem" }}>
+              From earlier this week. You can do any of these now.
+            </p>
+            <div className="stack" style={{ gap: 8 }}>
+              {unfinished.map((u) => (
+                <div key={u.id} className="row" style={{ gap: 10, alignItems: "center" }}>
+                  <span className="muted" style={{ minWidth: 74, fontSize: "0.85rem" }}>
+                    {weekdayShort(u.date)}
+                  </span>
+                  <span style={{ flex: 1 }}>{u.lessonPlan?.title ?? "A lesson"}</span>
+                  <Link href={`/student/${linkHandle}/session/${u.id}`} className="btn quiet">
+                    Do it now
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <DayStrip slots={daySlots} linkHandle={linkHandle} />
 

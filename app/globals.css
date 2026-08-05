@@ -3889,3 +3889,10 @@ textarea.field {
 }
 .console-nav + .console-nav { margin-top: 2px; }
 .console-nav:first-child .console-navhead { margin-top: 4px; }
+
+/* A block whose hour has passed and which is still not done. Not greyed out
+   like a finished one — it is still work, and still startable. */
+.slot.missed .time {
+  color: var(--warm);
+  font-weight: 600;
+}
